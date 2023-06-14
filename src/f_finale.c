@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2022 by Sonic Team Junior.
+// Copyright (C) 1999-2023 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -337,7 +337,7 @@ static tic_t introscenetime[NUMINTROSCENES] =
 };
 
 // custom intros
-void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean resetplayer);
+void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean resetplayer, boolean FLS);
 
 void F_StartIntro(void)
 {
@@ -349,7 +349,7 @@ void F_StartIntro(void)
 		if (!cutscenes[introtoplay - 1])
 			D_StartTitle();
 		else
-			F_StartCustomCutscene(introtoplay - 1, false, false);
+			F_StartCustomCutscene(introtoplay - 1, false, false, false);
 		return;
 	}
 
@@ -1138,7 +1138,7 @@ static const char *credits[] = {
 	"Dave \"DemonTomatoDave\" Bulmer",
 	"Paul \"Boinciel\" Clempson",
 	"\"Cyan Helkaraxe\"",
-	"Shane \"CobaltBW\" Ellis",
+	"Claire \"clairebun\" Ellis",
 	"James \"SeventhSentinel\" Hall",
 	"Kepa \"Nev3r\" Iceta",
 	"Iestyn \"Monster Iestyn\" Jealous",
@@ -1257,7 +1257,7 @@ void F_StartCredits(void)
 
 	if (creditscutscene)
 	{
-		F_StartCustomCutscene(creditscutscene - 1, false, false);
+		F_StartCustomCutscene(creditscutscene - 1, false, false, false);
 		return;
 	}
 
@@ -2503,6 +2503,8 @@ void F_StartTitleScreen(void)
 	{
 		titlemapinaction = TITLEMAP_OFF;
 		gamemap = 1; // g_game.c
+		if (!mapheaderinfo[gamemap-1])
+			P_AllocMapHeader(gamemap-1);
 		CON_ClearHUD();
 	}
 
@@ -3857,7 +3859,7 @@ static INT32 scenenum, cutnum;
 static INT32 picxpos, picypos, picnum, pictime, picmode, numpics, pictoloop;
 static INT32 textxpos, textypos;
 static boolean cutsceneover = false;
-static boolean runningprecutscene = false, precutresetplayer = false;
+static boolean runningprecutscene = false, precutresetplayer = false, precutFLS = false;
 
 static void F_AdvanceToNextScene(void)
 {
@@ -3926,7 +3928,7 @@ void F_EndCutScene(void)
 	if (runningprecutscene)
 	{
 		if (server)
-			D_MapChange(gamemap, gametype, ultimatemode, precutresetplayer, 0, true, false);
+			D_MapChange(gamemap, gametype, ultimatemode, precutresetplayer, 0, true, precutFLS);
 	}
 	else
 	{
@@ -3941,7 +3943,7 @@ void F_EndCutScene(void)
 	}
 }
 
-void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean resetplayer)
+void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean resetplayer, boolean FLS)
 {
 	if (!cutscenes[cutscenenum])
 		return;
@@ -3960,6 +3962,7 @@ void F_StartCustomCutscene(INT32 cutscenenum, boolean precutscene, boolean reset
 	cutsceneover = false;
 	runningprecutscene = precutscene;
 	precutresetplayer = resetplayer;
+	precutFLS = FLS;
 
 	scenenum = picnum = 0;
 	cutnum = cutscenenum;
