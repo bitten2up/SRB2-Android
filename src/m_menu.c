@@ -3517,7 +3517,7 @@ boolean M_Responder(event_t *ev)
 				 || (currentMenu->menuitems[itemOn].status & IT_TYPE)==IT_SUBMENU)
                  && (currentMenu->menuitems[itemOn].status & IT_CALLTYPE))
 				{
-#ifndef DEVELOP
+#ifdef DEVELOP
 					if (((currentMenu->menuitems[itemOn].status & IT_CALLTYPE) & IT_CALL_NOTMODIFIED) && modifiedgame && !savemoddata)
 					{
 						S_StartSound(NULL, sfx_skid);
@@ -8705,7 +8705,7 @@ static void M_DrawLoad(void)
 	if (modifiedgame && !savemoddata)
 	{
 		V_DrawCenteredThinString(BASEVIDWIDTH/2, 184, 0, "\x85WARNING: \x80The game is modified.");
-		V_DrawCenteredThinString(BASEVIDWIDTH/2, 192, 0, "Progress will not be saved.");
+		V_DrawCenteredThinString(BASEVIDWIDTH/2, 192, 0, "Progress will not be saved. On saveslots below 4");
 	}
 }
 
@@ -9014,7 +9014,7 @@ static void M_HandleLoadSave(INT32 choice)
 				S_StartSound(NULL, sfx_skid);
 				M_StartMessage("Are you sure you want to play\n\x85ultimate mode\x80? It isn't remotely fair,\nand you don't even get an emblem for it.\n\n(Press 'Y' to confirm)\n",M_SaveGameUltimateResponse,MM_YESNO);
 			}
-			else if (saveSlotSelected != NOSAVESLOT && saveSlotSelected >= 10 && savegameinfo[saveSlotSelected-1].lives == -42 && !(!modifiedgame || savemoddata))
+			else if (saveSlotSelected != NOSAVESLOT && saveSlotSelected <= 4 && savegameinfo[saveSlotSelected-1].lives == -42 && !(!modifiedgame || savemoddata))
 			{
 				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
