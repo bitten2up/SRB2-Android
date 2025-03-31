@@ -140,32 +140,32 @@ static void CL_DrawConnectionStatus(void)
 				{
 					fileneeded_t *file = &fileneeded[filedownload.current];
 
-					cltext = M_GetText("Downloading game state...");
+					cltext = M_GetText("Downwoading game state...");
 
 					DrawFileProgress(file, BASEVIDHEIGHT-16);
 				}
 				else
-					cltext = M_GetText("Waiting to download game state...");
+					cltext = M_GetText("Waiting to downwoad game state...");
 				break;
 			case CL_ASKFULLFILELIST:
 			case CL_CHECKFILES:
-				cltext = M_GetText("Checking server addon list...");
+				cltext = M_GetText("Checking sewvew addon wist...");
 				break;
 			case CL_CONFIRMCONNECT:
 				cltext = "";
 				break;
 			case CL_LOADFILES:
-				cltext = M_GetText("Loading server addons...");
+				cltext = M_GetText("Woading sewvew addons...");
 				break;
 			case CL_ASKJOIN:
 			case CL_WAITJOINRESPONSE:
 				if (serverisfull)
-					cltext = M_GetText("Server full, waiting for a slot...");
+					cltext = M_GetText("Sewvew fuww, waiting fow a swot...");
 				else
-					cltext = M_GetText("Requesting to join...");
+					cltext = M_GetText("*blushes* Wequesting to join...");
 				break;
 			default:
-				cltext = M_GetText("Connecting to server...");
+				cltext = M_GetText("Connyecting to s-sewvew...");
 				break;
 		}
 		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP, cltext);
@@ -177,7 +177,7 @@ static void CL_DrawConnectionStatus(void)
 			INT32 totalfileslength;
 			INT32 loadcompletednum = 0;
 
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_YELLOWMAP, "Press ESC to abort");
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_YELLOWMAP, "Pwess ESC to abowt");
 
 			// ima just count files here
 			if (fileneeded)
@@ -188,13 +188,13 @@ static void CL_DrawConnectionStatus(void)
 			}
 
 			// Loading progress
-			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP, "Loading server addons...");
+			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP, "W-Woading s-sewvew addons...");
 			totalfileslength = (INT32)((loadcompletednum/(double)(fileneedednum)) * 256);
 			M_DrawTextBox(BASEVIDWIDTH/2-128-8, BASEVIDHEIGHT-16-8, 32, 1);
 			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-16, 256, 8, 111);
 			V_DrawFill(BASEVIDWIDTH/2-128, BASEVIDHEIGHT-16, totalfileslength, 8, 96);
 			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16, V_20TRANS|V_MONOSPACE,
-				va(" %2u/%2u files",loadcompletednum,fileneedednum));
+				va(" %2u/%2u fiwes",loadcompletednum,fileneedednum));
 		}
 		else if (filedownload.current != -1)
 		{
@@ -235,10 +235,10 @@ static void CL_DrawConnectionStatus(void)
 			// (also it doesn't really fit on a typical SRB2 screen)
 #if 0
 			const char *download_str = cl_mode == CL_DOWNLOADHTTPFILES
-				? M_GetText("HTTP downloading \"%s\"")
-				: M_GetText("Downloading \"%s\"");
+				? M_GetText(" H-HTTP downwoading OwO\"%s\"")
+				: M_GetText("D-downwoading \"%s\"");
 #else
-			const char *download_str = M_GetText("Downloading \"%s\"");
+			const char *download_str = M_GetText("Downwoading \"%s\"");
 #endif
 
 			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_ALLOWLOWERCASE|V_YELLOWMAP,
@@ -262,12 +262,12 @@ static void CL_DrawConnectionStatus(void)
 				}
 
 				V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_ALLOWLOWERCASE|V_YELLOWMAP,
-					va(M_GetText("from %s"), tempname));
+					va(M_GetText("fwom %s"), tempname));
 			}
 			else
 			{
 				V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-16, V_ALLOWLOWERCASE|V_YELLOWMAP,
-					M_GetText("from the server"));
+					M_GetText("fwom t-the sewvew"));
 			}
 
 			DrawFileProgress(file, BASEVIDHEIGHT-16);
@@ -279,7 +279,7 @@ static void CL_DrawConnectionStatus(void)
 
 			DrawConnectionStatusBox(abortstring);
 			V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT-16-24, V_YELLOWMAP,
-				M_GetText("Waiting to download files..."));
+				M_GetText("Waiting to downwoad fiwes... OwO"));
 		}
 	}
 #ifdef TOUCHINPUTS
@@ -305,7 +305,7 @@ boolean CL_SendJoin(void)
 	UINT8 localplayers = 1;
 	char const *player2name;
 	if (netgame)
-		CONS_Printf(M_GetText("Sending join request...\n"));
+		CONS_Printf(M_GetText("S-Sending join wequest...\n"));
 	netbuffer->packettype = PT_CLIENTJOIN;
 
 	netbuffer->u.clientcfg.modversion = MODVERSION;
@@ -623,9 +623,9 @@ static void BeginDownload(boolean direct)
 
 			// why was this its own cl_mode_t?
 			M_StartMessage(M_GetText(
-				"The direct downloader encountered an error.\n"
-				"See the logfile for more info.\n\n"
-				"Press ESC\n"
+				"*giggles* The d-diwect downwoadew encountewed an ewwow.\n"
+				"See the wogfiwe fow m-mowe info. OwO\n\n"
+				"Pwess ESC\n"
 			), NULL, MM_NOTHING);
 		}
 	}
@@ -692,18 +692,18 @@ static void ShowDownloadConsentMessage(void)
 
 	if (serverisfull)
 		M_StartMessage(va(M_GetText(
-			"This server is full!\n"
-			"Download of %s of additional\ncontent is required to join.\n"
+ 			"*blushes* This sewvew is f-fuww!\n"
+			"Downwoad of %s of additionyaw\ncontent is wequiwed to join. OwO\n"
 			"\n"
-			"You may download server addons,\nand wait for a slot.\n"
+			"You may downwoad sewvew a-addons,\nyand wait fow a s-swot.\n"
 			"\n"
-			"Press ENTER to continue\nor ESC to cancel.\n"
+			"Pwess ENTER to continue\nor ESC to cancel.\n"
 		), downloadsize), M_ConfirmConnect, MM_EVENTHANDLER);
 	else
 		M_StartMessage(va(M_GetText(
-			"Download of %s of additional\ncontent is required to join.\n"
+			"Downwoad of %s of a-additionyaw\ncontent is wequiwed to join.\n"
 			"\n"
-			"Press ENTER to continue\nor ESC to cancel.\n"
+			"Pwess ENTER to continue\now ESC to cancel.\n"
 		), downloadsize), M_ConfirmConnect, MM_EVENTHANDLER);
 
 	cl_mode = CL_CONFIRMCONNECT;
@@ -715,13 +715,13 @@ static const char *GetDirectDownloadFailReason(UINT8 dlstatus)
 	switch (dlstatus)
 	{
 		case DLSTATUS_TOOLARGE:
-			return M_GetText("Some addons are larger than the server is willing to send.");
+			return M_GetText("Some a-addons awe wawgew t-than the sewvew is wiwwing to s-send.");
 		case DLSTATUS_WONTSEND:
-			return M_GetText("The server is not allowing download requests.");
+			return M_GetText("The sewvew is nyot awwowing downwoad wequests.");
 		case DLSTATUS_NODOWNLOAD:
-			return M_GetText("All addons downloadable, but you have chosen to disable addon downloading.");
+			return M_GetText("Aww addons downwoadabwe, b-b-but you have chosen to disabwe addon downwoading.");
 		case DLSTATUS_FOLDER:
-			return M_GetText("One or more addons were added as a folder, which the server cannot send.");
+			return M_GetText("Onye ow mowe addons wewe added as a fowdew, which the sewvew cannyot send.");
 	}
 
 	return "Unknown reason";
@@ -730,7 +730,7 @@ static const char *GetDirectDownloadFailReason(UINT8 dlstatus)
 static void HandleDirectDownloadFail(UINT8 dlstatus)
 {
 	// not downloadable, put reason in console
-	CONS_Alert(CONS_NOTICE, M_GetText("You need additional addons to connect to this server:\n"));
+	CONS_Alert(CONS_NOTICE, M_GetText("You nyeed additionyaw addons to c-connyect t-to this sewvew:\n"));
 
 	for (UINT8 i = 0; i < fileneedednum; i++)
 	{
@@ -775,10 +775,10 @@ static boolean CL_FinishedFileList(void)
 	{
 		AbortConnection();
 		M_StartMessage(M_GetText(
-			"You have too many WAD files loaded\n"
-			"to add ones the server is using.\n"
-			"Please restart SRB2 before connecting.\n\n"
-			"Press ESC\n"
+			"You have too m-m-many WAD f-fiwes woaded\n"
+			"to add onyes the sewvew is using OwO.\n"
+			"Pwease westawt SWB2 befowe connyecting.\n\n"
+			"Pwess ESC\n"
 		), NULL, MM_NOTHING);
 		return false;
 	}
@@ -786,14 +786,14 @@ static boolean CL_FinishedFileList(void)
 	{
 		AbortConnection();
 		M_StartMessage(M_GetText(
-			"You have the wrong addons loaded.\n"
+			"You have the wwong addons woaded.\n"
 			"\n"
-			"To play on this server, restart\n"
-			"the game and don't load any addons.\n"
-			"SRB2 will automatically add\n"
-			"everything you need when you join.\n"
+			"To pway on this sewvew, westawt\n"
+			"the game and don't w-woad any addons.\n"
+			"SWB2 w-wiww automaticawwy wutomaticawwy add\n"
+			"evewything y-you nyeed when y-you join.\n"
 			"\n"
-			"Press ESC\n"
+			"Pwess ESC\n"
 		), NULL, MM_NOTHING);
 		return false;
 	}
@@ -802,11 +802,11 @@ static boolean CL_FinishedFileList(void)
 		if (serverisfull)
 		{
 			M_StartMessage(M_GetText(
-				"This server is full!\n"
+				"This sewvew is f-fuww!\n"
 				"\n"
-				"You may load server addons (if any), and wait for a slot.\n"
+				"You may woad sewvew addons (if any), and wait fow a swot.\n"
 				"\n"
-				"Press ENTER to continue\nor ESC to cancel.\n\n"
+				"Pwess ENTEW to c-continyue\nyow ESC to c-c-c-cancew.\n\n"
 			), M_ConfirmConnect, MM_EVENTHANDLER);
 			cl_mode = CL_CONFIRMCONNECT;
 			curfadevalue = 0;
@@ -825,13 +825,13 @@ static boolean CL_FinishedFileList(void)
 			HandleDirectDownloadFail(status);
 			AbortConnection();
 			M_StartMessage(M_GetText(
-				"An error occurred when trying to\n"
-				"download missing addons.\n"
-				"(This is almost always a problem\n"
-				"with the server, not your game.)\n"
+				"An ewwow occuwwed when twying to\n"
+				"downwoad missing addons.\n"
+				"(This i-is awmost awways a pwobwem\n"
+				"w-with the sewvew, n-nyot youw game.)\n"
 				"\n"
-				"See the console or log file\n"
-				"for additional details.\n"
+				"OwO S-S-See the consowe ow wog fiwe\n"
+				"fow a-additionyaw detaiws.\n"
 				"\n"
 				"Press ESC\n"
 			), NULL, MM_NOTHING);
@@ -892,23 +892,23 @@ static const char * InvalidServerReason (serverinfo_pak *info)
 	{
 		case REFUSE_BANNED:
 			return
-				"You have been banned\n"
+				"You have been bannyed\n"
 				"from the server.\n" EOT;
 		case REFUSE_JOINS_DISABLED:
 			return
-				"The server is not accepting\n"
+				"The sewvew is nyot accepting\n"
 				"joins for the moment.\n" EOT;
 		case REFUSE_SLOTS_FULL:
 			return va(
-					"Maximum players reached: %d\n" EOT,
+					"Maximum pwayews weached: %d\n" EOT,
 					info->maxplayer - D_NumBots());
 		default:
 			if (info->refusereason)
 			{
 				return
-					"You can't join.\n"
-					"I don't know why,\n"
-					"but you can't join.\n" EOT;
+					"You c-can't join.\n"
+					"Watashi don't knyow why,\n"
+					"byut you can't join.\n" EOT;
 			}
 	}
 
@@ -1408,7 +1408,7 @@ void PT_ServerRefuse(SINT8 node)
 			return;
 		}
 
-		M_StartMessage(va(M_GetText("Server refuses connection\n\nReason:\n%s"),
+		M_StartMessage(va(M_GetText("Sewvew wefuses connyection\n\nWeason:\n%s"),
 			reason), NULL, MM_NOTHING);
 
 		AbortConnection();

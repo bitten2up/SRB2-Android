@@ -722,15 +722,15 @@ CV_PossibleValue_t gametype_cons_t[NUMGAMETYPES+1];
 consvar_t cv_newgametype = CVAR_INIT ("newgametype", "Co-op", CV_HIDEN|CV_CALL, gametype_cons_t, Newgametype_OnChange);
 
 static CV_PossibleValue_t serversort_cons_t[] = {
-	{0,"Ping"},
-	{1,"Modified State"},
-	{2,"Most Players"},
-	{3,"Least Players"},
-	{4,"Max Player Slots"},
-	{5,"Gametype"},
+	{0,"P-Ping"},
+	{1,"M-Modified S-State"},
+	{2,"M-Most P-P-Pwayews"},
+	{3,"W-Weast Pwayews OwO"},
+	{4,"Max Pwayew Swots"},
+	{5,"G-Gametype"},
 	{0,NULL}
 };
-consvar_t cv_serversort = CVAR_INIT ("serversort", "Ping", CV_HIDEN | CV_CALL, serversort_cons_t, M_SortServerList);
+consvar_t cv_serversort = CVAR_INIT ("serversort", "P-Ping", CV_HIDEN | CV_CALL, serversort_cons_t, M_SortServerList);
 
 // first time memory
 consvar_t cv_tutorialprompt = CVAR_INIT ("tutorialprompt", "On", CV_SAVE, CV_OnOff, NULL);
@@ -788,12 +788,12 @@ consvar_t cv_dummyloadless = CVAR_INIT ("dummyloadless", "In-game", CV_HIDEN, lo
 
 static menuitem_t MainMenu[] =
 {
-	{IT_STRING|IT_CALL,    NULL, "1  Player",   M_SinglePlayerMenu,      76},
-	{IT_STRING|IT_SUBMENU, NULL, "Multiplayer", &MP_MainDef,             84},
-	{IT_STRING|IT_CALL,    NULL, "Extras",      M_SecretsMenu,           92},
-	{IT_STRING|IT_CALL,    NULL, "Addons",      M_Addons,               100},
-	{IT_STRING|IT_CALL,    NULL, "Options",     M_Options,              108},
-	{IT_STRING|IT_CALL,    NULL, "Quit  Game",  M_QuitSRB2,             116},
+	{IT_STRING|IT_CALL,    NULL, "1 P-P-Pwayew",M_SinglePlayerMenu,      76},
+	{IT_STRING|IT_SUBMENU, NULL, "M-Muwtiwayew",&MP_MainDef,             84},
+	{IT_STRING|IT_CALL,    NULL, "E-Extwas",    M_SecretsMenu,           92},
+	{IT_CALL   |IT_STRING, NULL, "A-Addons",    M_Addons,               100},
+	{IT_STRING|IT_CALL,    NULL, "O-O-Options", M_Options,              108},
+	{IT_STRING|IT_CALL,    NULL, "*sob* Quit G-G-G-Game",  M_QuitSRB2,  116},
 };
 
 typedef enum
@@ -816,11 +816,11 @@ static menuitem_t MISC_AddonsMenu[] =
 // ---------------------------------
 static menuitem_t MAPauseMenu[] =
 {
-	{IT_CALL | IT_STRING,    NULL, "Emblem Hints...",      M_EmblemHints,         32},
+	{IT_CALL | IT_STRING,    NULL, "Embwem H-Hints... OwO",      M_EmblemHints,         32},
 
-	{IT_CALL | IT_STRING,    NULL, "Continue",             M_SelectableClearMenus,48},
-	{IT_CALL | IT_STRING,    NULL, "Retry",                M_ModeAttackRetry,     56},
-	{IT_CALL | IT_STRING,    NULL, "Abort",                M_ModeAttackEndGame,   64},
+	{IT_CALL | IT_STRING,    NULL, "Continyue",             M_SelectableClearMenus,48},
+	{IT_CALL | IT_STRING,    NULL, "W-Wetwy",                M_ModeAttackRetry,     56},
+	{IT_CALL | IT_STRING,    NULL, "A-A-Abowt",                M_ModeAttackEndGame,   64},
 };
 
 typedef enum
@@ -836,25 +836,25 @@ typedef enum
 // ---------------------
 static menuitem_t MPauseMenu[] =
 {
-	{IT_STRING | IT_CALL,    NULL, "Add-ons...",                M_Addons,               8},
-	{IT_STRING | IT_SUBMENU, NULL, "Scramble Teams...",         &MISC_ScrambleTeamDef, 16},
-	{IT_STRING | IT_CALL,    NULL, "Emblem Hints...",           M_EmblemHints,         24},
-	{IT_STRING | IT_CALL,    NULL, "Switch Gametype/Level...",  M_MapChange,           32},
+	{IT_STRING | IT_CALL,    NULL, "A-Add-ons...",                M_Addons,               8},
+	{IT_STRING | IT_SUBMENU, NULL, "S-Scwambwe Teams...",         &MISC_ScrambleTeamDef, 16},
+	{IT_STRING | IT_CALL,    NULL, "E-Embwem H-H-Hints...",           M_EmblemHints,         24},
+	{IT_STRING | IT_CALL,    NULL, "S-Switch G-Gametype/Wevew...",  M_MapChange,           32},
 
-	{IT_STRING | IT_CALL,    NULL, "Continue",                  M_SelectableClearMenus,48},
+	{IT_STRING | IT_CALL,    NULL, "Continyue",                  M_SelectableClearMenus,48},
 
-	{IT_STRING | IT_CALL,    NULL, "Player 1 Setup",            M_SetupMultiPlayer,    56}, // splitscreen
-	{IT_STRING | IT_CALL,    NULL, "Player 2 Setup",            M_SetupMultiPlayer2,   64},
+	{IT_STRING | IT_CALL,    NULL, "P-P-Pwayew 1 Setup",            M_SetupMultiPlayer,    56}, // splitscreen
+	{IT_STRING | IT_CALL,    NULL, "P-Pwayew 2 S-Setup",            M_SetupMultiPlayer2,   64},
 
-	{IT_STRING | IT_CALL,    NULL, "Spectate",                  M_ConfirmSpectate,     56}, // alone
-	{IT_STRING | IT_CALL,    NULL, "Enter Game",                M_ConfirmEnterGame,    56},
-	{IT_STRING | IT_SUBMENU, NULL, "Switch Team...",            &MISC_ChangeTeamDef,   56},
-	{IT_STRING | IT_CALL,    NULL, "Player Setup",              M_SetupMultiPlayer,    64},
+	{IT_STRING | IT_CALL,    NULL, "S-S-Spectate",                  M_ConfirmSpectate,     56}, // alone
+	{IT_STRING | IT_CALL,    NULL, "E-Entew Game",                M_ConfirmEnterGame,    56},
+	{IT_STRING | IT_SUBMENU, NULL, "S-S-Switch Team...",            &MISC_ChangeTeamDef,   56},
+	{IT_STRING | IT_CALL,    NULL, "P-Pwayew Setup",              M_SetupMultiPlayer,    64},
 
-	{IT_STRING | IT_CALL,    NULL, "Options",                   M_Options,             72},
+	{IT_STRING | IT_CALL,    NULL, "O-Options",                   M_Options,             72},
 
-	{IT_STRING | IT_CALL,    NULL, "Return to Title",           M_EndGame,             88},
-	{IT_STRING | IT_CALL,    NULL, "Quit Game",                 M_QuitSRB2,            96},
+	{IT_STRING | IT_CALL,    NULL, "Wetuwn to T-Titwe",           M_EndGame,             88},
+	{IT_STRING | IT_CALL,    NULL, "Q-Q-Quit G-G-Game??",                 M_QuitSRB2,            96},
 };
 
 typedef enum
@@ -883,16 +883,16 @@ typedef enum
 static menuitem_t SPauseMenu[] =
 {
 	// Pandora's Box will be shifted up if both options are available
-	{IT_CALL | IT_STRING,    NULL, "Pandora's Box...",     M_PandorasBox,         16},
-	{IT_CALL | IT_STRING,    NULL, "Emblem Hints...",      M_EmblemHints,         24},
-	{IT_CALL | IT_STRING,    NULL, "Level Select...",      M_PauseLevelSelect,    32},
+	{IT_CALL | IT_STRING,    NULL, "Pandowa's Box...",     M_PandorasBox,         16},
+	{IT_CALL | IT_STRING,    NULL, "Embwem H-Hints...",      M_EmblemHints,         24},
+	{IT_CALL | IT_STRING,    NULL, "hehe Wevew Sewect...",      M_PauseLevelSelect,    32},
 
-	{IT_CALL | IT_STRING,    NULL, "Continue",             M_SelectableClearMenus,48},
-	{IT_CALL | IT_STRING,    NULL, "Retry",                M_Retry,               56},
-	{IT_CALL | IT_STRING,    NULL, "Options",              M_Options,             64},
+	{IT_CALL | IT_STRING,    NULL, "Continyue",             M_SelectableClearMenus,48},
+	{IT_CALL | IT_STRING,    NULL, "Wetwy",                M_Retry,               56},
+	{IT_CALL | IT_STRING,    NULL, "O-Options",              M_Options,             64},
 
-	{IT_CALL | IT_STRING,    NULL, "Return to Title",      M_EndGame,             80},
-	{IT_CALL | IT_STRING,    NULL, "Quit Game",            M_QuitSRB2,            88},
+	{IT_CALL | IT_STRING,    NULL, "Wetuwn to Titwe",      M_EndGame,             80},
+	{IT_CALL | IT_STRING,    NULL, "Q-Quit G-Game??",            M_QuitSRB2,            88},
 };
 
 typedef enum
@@ -915,26 +915,26 @@ typedef enum
 // Prefix: MISC_
 static menuitem_t MISC_ScrambleTeamMenu[] =
 {
-	{IT_STRING|IT_CVAR,      NULL, "Scramble Method", &cv_dummyscramble,     30},
-	{IT_WHITESTRING|IT_CALL, NULL, "Confirm",         M_ConfirmTeamScramble, 90},
+	{IT_STRING|IT_CVAR,      NULL, "Scwambwe M-Method", &cv_dummyscramble,     30},
+	{IT_WHITESTRING|IT_CALL, NULL, "Confiwm",         M_ConfirmTeamScramble, 90},
 };
 
 static menuitem_t MISC_ChangeTeamMenu[] =
 {
-	{IT_STRING|IT_CVAR,              NULL, "Select Team",             &cv_dummyteam,    30},
-	{IT_WHITESTRING|IT_CALL,         NULL, "Confirm",           M_ConfirmTeamChange,    90},
+	{IT_STRING|IT_CVAR,              NULL, "Sewect T-Team",             &cv_dummyteam,    30},
+	{IT_WHITESTRING|IT_CALL,         NULL, "Confiwm",           M_ConfirmTeamChange,    90},
 };
 
 gtdesc_t gametypedesc[NUMGAMETYPES] =
 {
-	{{ 54,  54}, "Play through the single-player campaign with your friends, teaming up to beat Dr Eggman's nefarious challenges!"},
-	{{103, 103}, "Speed your way through the main acts, competing in several different categories to see who's the best."},
-	{{190, 190}, "There's not much to it - zoom through the level faster than everyone else."},
-	{{ 66,  66}, "Sling rings at your foes in a free-for-all battle. Use the special weapon rings to your advantage!"},
-	{{153,  37}, "Sling rings at your foes in a color-coded battle. Use the special weapon rings to your advantage!"},
-	{{123, 123}, "Whoever's IT has to hunt down everyone else. If you get caught, you have to turn on your former friends!"},
-	{{150, 150}, "Try and find a good hiding place in these maps - we dare you."},
-	{{ 37, 153}, "Steal the flag from the enemy's base and bring it back to your own, but watch out - they could just as easily steal yours!"},
+	{{ 54,  54}, "Pway thwough the singwe-pwayew campaign w-with youw fwends, teaming up to beat Dw Eggman's nyefawious chawwenges!"},
+	{{103, 103}, "Speed youw way thwough the main acts, competing in sevewaw diffewent kittehegowies to see who's the best."},
+	{{190, 190}, "hehe Thewe's nyot m-much to it - zoom thwough the wevew f-fastew t-than evewyonye ewse."},
+	{{ 66,  66}, "Swing wings at youw foes in a fwee-fow-aww battwe. Use the speciaw weapon wings to youw advantage!"},
+	{{153,  37}, "Swing wings at youw foes in a cowow-coded b-battwe. Use the speciaw weapon wings to youw advantage!"},
+	{{123, 123}, "Whoevew's IT has to hunt down evewyonye ewse. If you get caught, you have t-to tuwn on youw f-fowmew fwends!"},
+	{{150, 150}, "Twy and find a good hiding pwace in these maps - we dawe you."},
+	{{ 37, 153}, "Steaw t-the fwag fwom the e-enyemy wyemy's base and bwing it back to youw own, but watch out - they couwd just as easiwy wasiwy steaw youws!"},
 };
 
 static menuitem_t MISC_ChangeLevelMenu[] =
@@ -959,26 +959,26 @@ static menuitem_t MISC_HelpMenu[] =
 // Pause Menu Pandora's Box Options
 static menuitem_t SR_PandorasBox[] =
 {
-	{IT_STRING | IT_CALL, NULL, "Mid-game add-ons...", M_Addons,             0},
+	{IT_STRING | IT_CALL, NULL, "Mid-game a-add-ons...", M_Addons,             0},
 
 	{IT_STRING | IT_CVAR, NULL, "Rings",               &cv_dummyrings,      20},
 	{IT_STRING | IT_CVAR, NULL, "Lives",               &cv_dummylives,      30},
-	{IT_STRING | IT_CVAR, NULL, "Continues",           &cv_dummycontinues,  40},
+	{IT_STRING | IT_CVAR, NULL, "Continyues",           &cv_dummycontinues,  40},
 
-	{IT_STRING | IT_CVAR, NULL, "Gravity",             &cv_gravity,         60},
-	{IT_STRING | IT_CVAR, NULL, "Throw Rings",         &cv_ringslinger,     70},
+	{IT_STRING | IT_CVAR, NULL, "Gwavity Wavity",             &cv_gravity,         60},
+	{IT_STRING | IT_CVAR, NULL, "Thwow Wings",         &cv_ringslinger,     70},
 
-	{IT_STRING | IT_CALL, NULL, "Enable Super form",   M_AllowSuper,        90},
-	{IT_STRING | IT_CALL, NULL, "Get All Emeralds",    M_GetAllEmeralds,   100},
-	{IT_STRING | IT_CALL, NULL, "Destroy All Robots",  M_DestroyRobots,    110},
+	{IT_STRING | IT_CALL, NULL, "Enyabwe Supew fowm",   M_AllowSuper,        90},
+	{IT_STRING | IT_CALL, NULL, "Get Aww Emewawds",    M_GetAllEmeralds,   100},
+	{IT_STRING | IT_CALL, NULL, "Destwoy Westwoy Aww Wobots ",  M_DestroyRobots,    110},
 
-	{IT_STRING | IT_CALL, NULL, "Ultimate Cheat",      M_UltimateCheat,    130},
+	{IT_STRING | IT_CALL, NULL, "Uwtimate Cheat",      M_UltimateCheat,    130},
 };
 
 // Sky Room Custom Unlocks
 static menuitem_t SR_MainMenu[MAXUNLOCKABLES+1] =
 {
-	{IT_STRING|IT_SUBMENU,NULL, "Extras Checklist", &SR_UnlockChecklistDef, 0},
+	{IT_STRING|IT_SUBMENU,NULL, "Extwas Checkwist", &SR_UnlockChecklistDef, 0},
 	// The remaining (MAXUNLOCKABLES) items are now initialized in M_SecretsMenu
 };
 
@@ -1000,7 +1000,7 @@ static menuitem_t SR_SoundTestMenu[] =
 static menuitem_t SR_EmblemHintMenu[] =
 {
 	{IT_STRING | IT_ARROWS,  NULL, "Page",    M_HandleEmblemHints, 10},
-	{IT_STRING|IT_CVAR,      NULL, "Emblem Radar", &cv_itemfinder, 20},
+	{IT_STRING|IT_CVAR,      NULL, "hehe Embwem Wadaw", &cv_itemfinder, 20},
 	{IT_WHITESTRING|IT_CALL, NULL, "Back",         M_GoBack,       30}
 };
 
@@ -1013,11 +1013,11 @@ static menuitem_t SR_EmblemHintMenu[] =
 static menuitem_t SP_MainMenu[] =
 {
 	// Note: If changing the positions here, also change them in M_SinglePlayerMenu()
-	{IT_CALL | IT_STRING,	NULL, "Start Game",    M_LoadGame,                 76},
-	{IT_SECRET,				NULL, "Record Attack", M_TimeAttack,               84},
-	{IT_SECRET,				NULL, "NiGHTS Mode",   M_NightsAttack,             92},
-	{IT_SECRET,				NULL, "Marathon Run",  M_Marathon,                100},
-	{IT_CALL | IT_STRING,	NULL, "Tutorial",      M_StartTutorial,           108},
+	{IT_CALL | IT_STRING,	NULL, "Stawt Game ",    M_LoadGame,                 76},
+	{IT_SECRET,				NULL, "Wecowd Attack", M_TimeAttack,               84},
+	{IT_SECRET,				NULL, "NyiGHTS Mode",   M_NightsAttack,             92},
+	{IT_SECRET,				NULL, "Mawathon Wun",  M_Marathon,                100},
+	{IT_CALL | IT_STRING,	NULL, "Tutowiaw",      M_StartTutorial,           108},
 	{IT_CALL | IT_STRING,	NULL, "Statistics",    M_Statistics,              116}
 };
 
@@ -1052,13 +1052,13 @@ static menuitem_t SP_TimeAttackLevelSelectMenu[] =
 // Single Player Time Attack
 static menuitem_t SP_TimeAttackMenu[] =
 {
-	{IT_STRING|IT_KEYHANDLER,  NULL, "Level Select...", M_HandleTimeAttackLevelSelect,   62},
-	{IT_STRING|IT_CVAR,        NULL, "Character",       &cv_chooseskin,             72},
+	{IT_STRING|IT_KEYHANDLER,  NULL, "Wevew Sewect...", M_HandleTimeAttackLevelSelect,   62},
+	{IT_STRING|IT_CVAR,        NULL, "Chawactew",       &cv_chooseskin,             72},
 
 	{IT_DISABLED,              NULL, "Guest Option...", &SP_GuestReplayDef, 100},
-	{IT_DISABLED,              NULL, "Replay...",       &SP_ReplayDef,      110},
+	{IT_DISABLED,              NULL, "Wepway ...",       &SP_ReplayDef,      110},
 	{IT_DISABLED,              NULL, "Ghosts...",       &SP_GhostDef,       120},
-	{IT_WHITESTRING|IT_CALL|IT_CALL_NOTMODIFIED,   NULL, "Start",         M_ChooseTimeAttack,   130},
+	{IT_WHITESTRING|IT_CALL|IT_CALL_NOTMODIFIED,   NULL, "Stawt",         M_ChooseTimeAttack,   130},
 };
 
 enum
@@ -1074,35 +1074,35 @@ enum
 
 static menuitem_t SP_ReplayMenu[] =
 {
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Best Score", M_ReplayTimeAttack, 0},
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Best Time",  M_ReplayTimeAttack, 8},
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Best Rings", M_ReplayTimeAttack,16},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Best Scowe", M_ReplayTimeAttack, 0},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Best Time",  M_ReplayTimeAttack, 8},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Best Wings", M_ReplayTimeAttack,16},
 
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Last",       M_ReplayTimeAttack,29},
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Guest",      M_ReplayTimeAttack,37},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Wast",       M_ReplayTimeAttack,29},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Gwest",      M_ReplayTimeAttack,37},
 
 	{IT_WHITESTRING|IT_SUBMENU, NULL, "Back",           &SP_TimeAttackDef, 50}
 };
 
 static menuitem_t SP_NightsReplayMenu[] =
 {
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Best Score", M_ReplayTimeAttack, 8},
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Best Time",  M_ReplayTimeAttack,16},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Best Scowe", M_ReplayTimeAttack, 8},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Best Time",  M_ReplayTimeAttack,16},
 
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Last",       M_ReplayTimeAttack,29},
-	{IT_WHITESTRING|IT_CALL, NULL, "Replay Guest",      M_ReplayTimeAttack,37},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Wast",       M_ReplayTimeAttack,29},
+	{IT_WHITESTRING|IT_CALL, NULL, "Wepway Gwest",      M_ReplayTimeAttack,37},
 
 	{IT_WHITESTRING|IT_SUBMENU, NULL, "Back",           &SP_NightsAttackDef, 50}
 };
 
 static menuitem_t SP_GuestReplayMenu[] =
 {
-	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Score as Guest", M_SetGuestReplay, 0},
-	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Time as Guest",  M_SetGuestReplay, 8},
-	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Rings as Guest", M_SetGuestReplay,16},
-	{IT_WHITESTRING|IT_CALL, NULL, "Save Last as Guest",       M_SetGuestReplay,24},
+	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Scowe as Gwest", M_SetGuestReplay, 0},
+	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Time as Gwest",  M_SetGuestReplay, 8},
+	{IT_WHITESTRING|IT_CALL, NULL, "Save Best Wings as Gwest", M_SetGuestReplay,16},
+	{IT_WHITESTRING|IT_CALL, NULL, "Save Wast as Gwest",       M_SetGuestReplay,24},
 
-	{IT_WHITESTRING|IT_CALL, NULL, "Delete Guest Replay",      M_SetGuestReplay,37},
+	{IT_WHITESTRING|IT_CALL, NULL, "Dewete Guest Wepway",      M_SetGuestReplay,37},
 
 	{IT_WHITESTRING|IT_SUBMENU, NULL, "Back",                &SP_TimeAttackDef, 50}
 };
@@ -1211,33 +1211,33 @@ static menuitem_t SP_PlayerMenu[] =
 // Separated splitscreen and normal servers.
 static menuitem_t MP_SplitServerMenu[] =
 {
-	{IT_STRING|IT_CALL,              NULL, "Select Gametype/Level...", M_MapChange,         100},
-	{IT_STRING|IT_CALL,              NULL, "More Options...",          M_ServerOptions,     130},
-	{IT_WHITESTRING|IT_CALL,         NULL, "Start",                    M_StartServer,       140},
+	{IT_STRING|IT_CALL,              NULL, "Sewect Gametype/Wevew...", M_MapChange,         100},
+	{IT_STRING|IT_CALL,              NULL, "hehe Mowe Options...",     M_ServerOptions,     130},
+	{IT_WHITESTRING|IT_CALL,         NULL, "Swawt",                    M_StartServer,       140},
 };
 
 static menuitem_t MP_MainMenu[] =
 {
 	{IT_HEADER, NULL, "Join a game", NULL, 0},
-	{IT_STRING|IT_CALL,       NULL, "Server browser...",     M_ConnectMenuModChecks,          12},
-	{IT_STRING|IT_KEYHANDLER, NULL, "Specify server address:", M_HandleConnectIP,    22},
+	{IT_STRING|IT_CALL,       NULL, "Sewvew bwowsew...",     M_ConnectMenuModChecks,          12},
+	{IT_STRING|IT_KEYHANDLER, NULL, "Specify Wecify sewvew addwess:", M_HandleConnectIP,    22},
 	{IT_HEADER, NULL, "Host a game", NULL, 54},
-	{IT_STRING|IT_CALL,       NULL, "Internet/LAN...",       M_StartServerMenu,      66},
-	{IT_STRING|IT_CALL,       NULL, "Splitscreen...",        M_StartSplitServerMenu, 76},
-	{IT_HEADER, NULL, "Player setup", NULL, 94},
-	{IT_STRING|IT_CALL,       NULL, "Player 1...",           M_SetupMultiPlayer,    106},
-	{IT_STRING|IT_CALL,       NULL, "Player 2... ",          M_SetupMultiPlayer2,   116},
+	{IT_STRING|IT_CALL,       NULL, "Intewnyet/WAN...",       M_StartServerMenu,      66},
+	{IT_STRING|IT_CALL,       NULL, "Spwitscween...",        M_StartSplitServerMenu, 76},
+	{IT_HEADER, NULL, "hehe Pwayew setup", NULL, 94},
+	{IT_STRING|IT_CALL,       NULL, "Pwayew 1 ...",           M_SetupMultiPlayer,    106},
+	{IT_STRING|IT_CALL,       NULL, "Pwayew 2... ",          M_SetupMultiPlayer2,   116},
 };
 
 static menuitem_t MP_ServerMenu[] =
 {
 	{IT_STRING|IT_CALL,              NULL, "Room...",                  M_RoomMenu,          10},
-	{IT_STRING|IT_CVAR|IT_CV_STRING, NULL, "Server Name",              &cv_servername,      20},
-	{IT_STRING|IT_CVAR,              NULL, "Max Players",              &cv_maxplayers,      46},
-	{IT_STRING|IT_CVAR,              NULL, "Allow Add-on Downloading", &cv_downloading,     56},
-	{IT_STRING|IT_CALL,              NULL, "Select Gametype/Level...", M_MapChange,        100},
-	{IT_STRING|IT_CALL,              NULL, "More Options...",          M_ServerOptions,    130},
-	{IT_WHITESTRING|IT_CALL,         NULL, "Start",                    M_StartServer,      140},
+	{IT_STRING|IT_CVAR|IT_CV_STRING, NULL, "Sewvew Nyame",              &cv_servername,      20},
+	{IT_STRING|IT_CVAR,              NULL, "Max Pwayews",              &cv_maxplayers,      46},
+	{IT_STRING|IT_CVAR,              NULL, "Awwow Add-on Downwoading ", &cv_downloading,     56},
+	{IT_STRING|IT_CALL,              NULL, "Sewect Gametype/Wevew...", M_MapChange,        100},
+	{IT_STRING|IT_CALL,              NULL, "Mowe Options...",          M_ServerOptions,    130},
+	{IT_WHITESTRING|IT_CALL,         NULL, "Swawt",                    M_StartServer,      140},
 };
 
 enum
@@ -1316,21 +1316,21 @@ static menuitem_t MP_PlayerSetupMenu[] =
 // Prefix: OP_
 static menuitem_t OP_MainMenu[] =
 {
-	{IT_SUBMENU | IT_STRING, NULL, "Player 1 Controls...", &OP_P1ControlsDef,   10},
-	{IT_SUBMENU | IT_STRING, NULL, "Player 2 Controls...", &OP_P2ControlsDef,   20},
-	{IT_CVAR    | IT_STRING, NULL, "Controls per key",     &cv_controlperkey,   30},
+	{IT_SUBMENU | IT_STRING, NULL, "Pwayew 1 Contwows...", &OP_P1ControlsDef,   10},
+	{IT_SUBMENU | IT_STRING, NULL, "Pwayew 2 Contwows...", &OP_P2ControlsDef,   20},
+	{IT_CVAR    | IT_STRING, NULL, "Contwows pew key",     &cv_controlperkey,   30},
 
 	{IT_CALL    | IT_STRING, NULL, "Video Options...",     M_VideoOptions,      50},
 	{IT_SUBMENU | IT_STRING, NULL, "Sound Options...",     &OP_SoundOptionsDef, 60},
 
-	{IT_CALL    | IT_STRING, NULL, "Server Options...",    M_ServerOptions,     80},
+	{IT_CALL    | IT_STRING, NULL, "hehe Sewvew Options...",    M_ServerOptions,     80},
 
 	{IT_SUBMENU | IT_STRING, NULL, "Data Options...",      &OP_DataOptionsDef, 100},
 };
 
 static menuitem_t OP_P1ControlsMenu[] =
 {
-	{IT_CALL    | IT_STRING, NULL, "Control Configuration...", M_Setup1PControlsMenu, 10},
+	{IT_CALL    | IT_STRING, NULL, "Contwow Configuwation...", M_Setup1PControlsMenu,   10},
 	{IT_SUBMENU | IT_STRING, NULL, "Mouse Options...", &OP_MouseOptionsDef, 20},
 	{IT_SUBMENU | IT_STRING, NULL, "Gamepad Options...", &OP_Joystick1Def, 30},
 #ifdef TOUCHINPUTS
@@ -1339,10 +1339,10 @@ static menuitem_t OP_P1ControlsMenu[] =
 	{IT_GRAYEDOUT,           NULL, "Touch Screen Options...",    NULL,                40},
 #endif
 
-	{IT_SUBMENU | IT_STRING, NULL, "Camera Options...", &OP_CameraOptionsDef, 60},
+	{IT_SUBMENU | IT_STRING, NULL, "Camewa Options...", &OP_CameraOptionsDef,	50},
 
-	{IT_STRING  | IT_CVAR,   NULL, "Automatic braking", &cv_autobrake, 80},
-	{IT_CALL    | IT_STRING, NULL, "Play Style...", M_Setup1PPlaystyleMenu, 90},
+	{IT_STRING  | IT_CVAR, NULL, "Automatic bwaking", &cv_autobrake,  70},
+	{IT_CALL    | IT_STRING, NULL, "Pway Stywe...", M_Setup1PPlaystyleMenu, 80},
 
 	// Accelerometer settings
 #ifdef ACCELEROMETER
@@ -1355,14 +1355,14 @@ static menuitem_t OP_P1ControlsMenu[] =
 
 static menuitem_t OP_P2ControlsMenu[] =
 {
-	{IT_CALL    | IT_STRING, NULL, "Control Configuration...", M_Setup2PControlsMenu, 10},
+	{IT_CALL    | IT_STRING, NULL, "Second Contwow Configuwation...", M_Setup2PControlsMenu,   10},
 	{IT_SUBMENU | IT_STRING, NULL, "Second Mouse Options...", &OP_Mouse2OptionsDef, 20},
 	{IT_SUBMENU | IT_STRING, NULL, "Second Gamepad Options...", &OP_Joystick2Def , 30},
 
-	{IT_SUBMENU | IT_STRING, NULL, "Camera Options...", &OP_Camera2OptionsDef, 50},
+	{IT_SUBMENU | IT_STRING, NULL, "Camewa Options...", &OP_Camera2OptionsDef,	50},
 
-	{IT_STRING  | IT_CVAR, NULL,   "Automatic braking", &cv_autobrake2, 70},
-	{IT_CALL    | IT_STRING, NULL, "Play Style...", M_Setup2PPlaystyleMenu, 80},
+	{IT_STRING  | IT_CVAR, NULL, "Automatic bwaking", &cv_autobrake2,  70},
+	{IT_CALL    | IT_STRING, NULL, "Pway Stywe...", M_Setup2PPlaystyleMenu, 80},
 };
 
 static menuitem_t OP_ChangeControlsMenu[] =
@@ -11358,7 +11358,6 @@ static void M_StartTutorial(INT32 choice)
 	CV_StealthSet(&cv_skin, DEFAULTSKIN); // tutorial accounts for sonic only
 	G_DeferedInitNew(false, G_BuildMapName(tutorialmap), 0, false, false);
 }
-
 // ==============
 // LOAD GAME MENU
 // ==============
@@ -12156,13 +12155,13 @@ static void M_HandleLoadSave(INT32 choice)
 			{
 				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
-				M_StartMessage("Are you sure you want to play\n\x85ultimate mode\x80? It isn't remotely fair,\nand you don't even get an emblem for it.\n\n(Press 'Y' to confirm)\n",M_SaveGameUltimateResponse,MM_YESNO);
+				M_StartMessage("Awe you suwe you want t-to pway\n\x85uwtimate mode\x80? I-It isn't wemotewy faiw,\nyand you don't even get an embwem fow it.\n\n(Pwess 'Y' to confiwm)\n",M_SaveGameUltimateResponse,MM_YESNO);
 			}
-			else if (saveSlotSelected != NOSAVESLOT && savegameinfo[saveSlotSelected-1].lives == -42 && usedCheats)
+			else if (saveSlotSelected != NOSAVESLOT)
 			{
 				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
-				M_StartMessage(M_GetText("This cannot be done in a cheated game.\n\n(Press a key)\n"), NULL, MM_NOTHING);
+				M_StartMessage(M_GetText("T-T-This cannyot b-b-be donye in this game.\n\n(Pwess a key) OwO\n"), NULL, MM_NOTHING);
 			}
 			else if (saveSlotSelected == NOSAVESLOT || savegameinfo[saveSlotSelected-1].lives != -666) // don't allow loading of "bad saves"
 			{
@@ -14884,14 +14883,14 @@ static void M_DrawRoomMenu(void)
 	// use generic drawer for cursor, items and title
 	M_DrawGenericMenu();
 
-	V_DrawString(currentMenu->x - 16, currentMenu->y, V_YELLOWMAP, M_GetText("Select a room"));
+	V_DrawString(currentMenu->x - 16, currentMenu->y, V_YELLOWMAP, M_GetText("Sewect a woom OwO"));
 
 	if (m_waiting_mode == M_NOT_WAITING)
 	{
 		M_DrawTextBox(144, 24, 20, 20);
 
 		if (itemOn == 0)
-			rmotd = M_GetText("Don't connect to the Master Server.");
+			rmotd = M_GetText("Don't connyect to the Mastew Sewvew.");
 		else
 			rmotd = room_list[itemOn-1].motd;
 
@@ -14904,11 +14903,11 @@ static void M_DrawRoomMenu(void)
 		// Display a little "please wait" message.
 		M_DrawTextBox(52, BASEVIDHEIGHT/2-10, 25, 3);
 		if (m_waiting_mode == M_WAITING_VERSION)
-			waiting_message = "Checking for updates...";
+			waiting_message = "Checking fow u-u-updates...";
 		else
-			waiting_message = "Fetching room info...";
+			waiting_message = "F-Fetching woom info...";
 		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, waiting_message);
-		V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Please wait.");
+		V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Pwease wait.");
 	}
 }
 
@@ -14927,7 +14926,7 @@ static void M_DrawConnectMenu(void)
 	// Room name
 	if (cv_masterserver_room_id.value < 0)
 		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ConnectMenu[mp_connect_room].alphaKey,
-		                         V_YELLOWMAP, (itemOn == mp_connect_room) ? "<Select to change>" : "<Unlisted Mode>");
+		                         V_YELLOWMAP, (itemOn == mp_connect_room) ? "<Sewect to change>" : "<Unwisted Mode>");
 	else
 		V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ConnectMenu[mp_connect_room].alphaKey,
 		                         V_YELLOWMAP, room_list[menuRoomIndex].name);
@@ -14940,7 +14939,7 @@ static void M_DrawConnectMenu(void)
 	V_DrawFill(1, currentMenu->y+40, 318, 1, 0);
 
 	if (serverlistcount <= 0)
-		V_DrawString(currentMenu->x,currentMenu->y+SERVERHEADERHEIGHT, 0, "No servers found");
+		V_DrawString(currentMenu->x,currentMenu->y+SERVERHEADERHEIGHT, 0, "Nyo sewvews f-found");
 	else
 	for (i = 0; i < min(serverlistcount - serverlistpage * SERVERS_PER_PAGE, SERVERS_PER_PAGE); i++)
 	{
@@ -14954,7 +14953,7 @@ static void M_DrawConnectMenu(void)
 		if (serverlist[slindex].info.modifiedgame)
 			V_DrawSmallString(currentMenu->x+202, S_LINEY(i)+8, globalflags, "\x85" "Mod");
 		if (serverlist[slindex].info.cheatsenabled)
-			V_DrawSmallString(currentMenu->x+222, S_LINEY(i)+8, globalflags, "\x83" "Cheats");
+			V_DrawSmallString(currentMenu->x+222, S_LINEY(i)+8, globalflags, "\x83" "C-Cheatah");
 		if (Net_IsNodeIPv6(serverlist[slindex].node))
 			V_DrawSmallString(currentMenu->x+252, S_LINEY(i)+8, globalflags, "\x84" "IPv6");
 
@@ -15009,8 +15008,8 @@ static void M_DrawConnectMenu(void)
 	{
 		// Display a little "please wait" message.
 		M_DrawTextBox(52, BASEVIDHEIGHT/2-10, 25, 3);
-		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Searching for servers...");
-		V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Please wait.");
+		V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Seawching fow sewvews...");
+		V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Pwease wait.");
 	}
 }
 
@@ -15202,7 +15201,7 @@ Check_new_version_thread (int *id)
 			if (m_waiting_mode)
 			{
 				m_waiting_mode = M_NOT_WAITING;
-				MP_RoomMenu[0].text = "<Offline Mode>";
+				MP_RoomMenu[0].text = "<Offwinye Mode>";
 			}
 		}
 		I_unlock_mutex(m_menu_mutex);
@@ -15248,7 +15247,7 @@ static void M_ConnectMenuModChecks(INT32 choice)
 
 	if (modifiedgame)
 	{
-		M_StartMessage(va(M_GetText("You have add-ons loaded.\nYou won't be able to join netgames!\n\nTo play online, restart the game\nand don't load any addons.\nSRB2 will automatically add\neverything you need when you join.\n\n%s"), M_GetUserActionString(PRESS_A_KEY_MESSAGE)),M_ConnectMenu,MM_EVENTHANDLER);
+		M_StartMessage(va(M_GetText("You have add-ons w-woaded.\nYou won't be abwe to join nyetgames!\n\nTo pway onwinye, w-westawt the game\nyand d-don't woad any addons.\nSWB2 wiww automaticawwy wutomaticawwy add\nyevewything y-you nyeed when y-you join.\n\n(Pwess a key)\n\n%s"), M_GetUserActionString(PRESS_A_KEY_MESSAGE)),M_ConnectMenu,MM_EVENTHANDLER);
 #ifdef TOUCHINPUTS
 		M_TSNav_HideAll();
 #endif
@@ -15271,8 +15270,8 @@ static void M_RoomMenu(INT32 choice)
 
 	// Display a little "please wait" message.
 	M_DrawTextBox(52, BASEVIDHEIGHT/2-10, 25, 3);
-	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Fetching room info...");
-	V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "Please wait.");
+	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Fetching woom info...");
+	V_DrawCenteredString(BASEVIDWIDTH/2, (BASEVIDHEIGHT/2)+12, 0, "P-Pwease wait.");
 	I_OsPolling();
 	I_FinishUpdate(); // page flip or blit buffer
 
@@ -15401,10 +15400,10 @@ static void M_DrawServerMenu(void)
 	// Room name
 	if (currentMenu == &MP_ServerDef)
 	{
-		M_DrawLevelPlatterHeader(currentMenu->y - lsheadingheight/2, "Server settings", true, false);
+		M_DrawLevelPlatterHeader(currentMenu->y - lsheadingheight/2, "Sewvew settings OwO", true, false);
 		if (cv_masterserver_room_id.value < 0)
 			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ServerMenu[mp_server_room].alphaKey,
-			                         V_YELLOWMAP, (itemOn == mp_server_room) ? "<Select to change>" : "<Unlisted Mode>");
+			                         V_YELLOWMAP, (itemOn == mp_server_room) ? "<Sewect to change>" : "<Unwisted Mode>");
 		else
 			V_DrawRightAlignedString(BASEVIDWIDTH - currentMenu->x, currentMenu->y + MP_ServerMenu[mp_server_room].alphaKey,
 			                         V_YELLOWMAP, room_list[menuRoomIndex].name);
@@ -15445,7 +15444,7 @@ static void M_MapChange(INT32 choice)
 
 	if (!M_PrepareLevelPlatter(cv_newgametype.value, (currentMenu == &MPauseDef)))
 	{
-		M_StartMessage(M_GetText("No selectable levels found.\n"),NULL,MM_NOTHING);
+		M_StartMessage(M_GetText("*giggles* Nyo sewectabwe wevews found OwO.\n"),NULL,MM_NOTHING);
 		return;
 	}
 
@@ -15587,13 +15586,13 @@ static void M_DrawMPMainMenu(void)
 	M_DrawGenericMenu();
 
 	V_DrawRightAlignedString(BASEVIDWIDTH-x, y+66,
-		((itemOn == 4) ? V_YELLOWMAP : 0), va("(2-%d players)", MAXPLAYERS));
+		((itemOn == 4) ? V_YELLOWMAP : 0), va("(2-%d pwayews)", MAXPLAYERS));
 
 	V_DrawRightAlignedString(BASEVIDWIDTH-x, y+76,
-		((itemOn == 5) ? V_YELLOWMAP : 0), "(2 players)");
+		((itemOn == 5) ? V_YELLOWMAP : 0), "(2 pwayews)");
 
 	V_DrawRightAlignedString(BASEVIDWIDTH-x, y+116,
-		((itemOn == 8) ? V_YELLOWMAP : 0), "(splitscreen)");
+		((itemOn == 8) ? V_YELLOWMAP : 0), "(spwitscween)");
 
 	M_DrawConnectIP();
 }
@@ -15612,7 +15611,7 @@ static void M_ConnectIP(INT32 choice)
 
 	if (*setupm_ip == 0)
 	{
-		M_StartMessage("You must specify an IP address.\n", NULL, MM_NOTHING);
+		M_StartMessage("You must specify wecify an I-I-IP addwess.\n", NULL, MM_NOTHING);
 		return;
 	}
 
@@ -15622,7 +15621,7 @@ static void M_ConnectIP(INT32 choice)
 
 	// A little "please wait" message.
 	M_DrawTextBox(56, BASEVIDHEIGHT/2-12, 24, 2);
-	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Connecting to server...");
+	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Connyecting to sewvew... OwO");
 	I_OsPolling();
 	I_FinishUpdate(); // page flip or blit buffer
 }
@@ -16406,7 +16405,7 @@ colordraw:
 			? 0
 			: V_TRANSLUCENT)
 		| ((itemOn == 3) ? V_YELLOWMAP : 0),
-		"Save as default");
+		"Save a-as defauwt");
 	if (itemOn == 3)
 		cursory = y;
 

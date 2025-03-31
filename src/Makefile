@@ -220,7 +220,13 @@ dbg:=$(bin)/$(DBGNAME)
 build_done==== Build is done, look for \
            $(<F) at $(abspath $(<D)) ===
 
-all : $(exe)
+ifdef APPIMAGE
+appimage:=$(exe).AppImage
+else
+appimage:=
+endif
+
+all : $(exe) $(appimage)
 	$(call Echo,$(build_done))
 
 ifndef VALGRIND
@@ -328,9 +334,21 @@ $(dbg).txt : $(dbg)
 	$(.)$(OBJDUMP) $(OBJDUMP_OPTS) $< > $@
 	$(.)$(GZIP) $(GZIP_OPTS) $@
 
+ifdef APPIMAGE
+$(appimage) : $(exe)
+	$(call Echo,Building AppImage...)
+ifdef APPIMAGE_NOASSETS
+	$(.)../AppImage_build.sh -q --small $(bin) $(EXENAME).AppImage .. appimagetool
+else
+	$(.)../AppImage_build.sh -q $(bin) $(EXENAME).AppImage .. appimagetool
+endif
+	$(call Echo,AppImage build complete!)
+endif
+
 # '::' means run unconditionally
 # this really updates comptime.h
 comptime.c ::
+
 ifdef WINDOWSHELL
 	-$(.)..\comptime.bat .
 else
