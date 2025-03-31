@@ -12161,7 +12161,7 @@ static void M_HandleLoadSave(INT32 choice)
 			{
 				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
-				M_StartMessage(M_GetText("T-T-This cannyot b-b-be donye in this game.\n\n(Pwess a key) OwO\n"), NULL, MM_NOTHING);
+				M_StartMessage(M_GetText("T-T-This cannyot b-b-be donye on andwoid.\n\n(Pwess a key) OwO\n"), NULL, MM_NOTHING);
 			}
 			else if (saveSlotSelected == NOSAVESLOT || savegameinfo[saveSlotSelected-1].lives != -666) // don't allow loading of "bad saves"
 			{
