@@ -69,6 +69,9 @@ typedef enum
 	EXT_PK3,
 	EXT_SOC,
 	EXT_LUA,
+#ifdef HWRENDER
+    EXT_MZIP,
+#endif
 	NUM_EXT,
 	NUM_EXT_TABLE = NUM_EXT-EXT_START,
 	EXT_LOADED = 0x80
