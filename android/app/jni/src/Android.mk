@@ -47,8 +47,7 @@ LOCAL_SRC_FILES += $(call List,$(LOCAL_PATH)/$(SRC_SDL)/Sourcefile)
 ifeq ($(findstring -DHWRENDER, $(LOCAL_CFLAGS)), -DHWRENDER)
 	ifeq ($(findstring -DHAVE_GLES2, $(LOCAL_CFLAGS)), -DHAVE_GLES2)
 		LOCAL_SRC_FILES += $(SRC_HWR)/r_gles/r_gles2.c $(SRC_SDL)/ogl_es_sdl.c
-	endif
-	ifeq ($(findstring -DHAVE_GLES, $(LOCAL_CFLAGS)), -DHAVE_GLES)
+	else ifeq ($(findstring -DHAVE_GLES, $(LOCAL_CFLAGS)), -DHAVE_GLES)
 		LOCAL_SRC_FILES += $(SRC_HWR)/r_gles/r_gles1.c $(SRC_SDL)/ogl_es_sdl.c
 	endif
 	ifneq ($(findstring -DHAVE_GLES2, $(LOCAL_CFLAGS)), -DHAVE_GLES2)
