@@ -101,9 +101,12 @@
 #endif
 #include "apk_main.h"
 
-#ifdef LOGMESSAGES
-FILE *logstream = NULL;
-char logfilename[1024];
+#if defined(__ANDROID__)
+	// STAR NOTE: i wanna delete this from here eventually
+	#ifdef LOGMESSAGES
+		FILE *logstream = NULL;
+		char logfilename[1024];
+	#endif
 #endif
 
 // Version numbers for netplay :upside_down_face:

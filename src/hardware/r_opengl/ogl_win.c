@@ -58,6 +58,7 @@ PFNglGetString pglGetString;
 
 #define MAX_VIDEO_MODES   32
 static  vmode_t     video_modes[MAX_VIDEO_MODES];
+INT32     oglflags = 0;
 
 // **************************************************************************
 //                                                                  FUNCTIONS
@@ -161,7 +162,6 @@ boolean GLBackend_Init(void)
 	pwglDeleteContext = GLBackend_GetFunction("wglDeleteContext");
 	pwglMakeCurrent = GLBackend_GetFunction("wglMakeCurrent");
 #endif
-
 	return GLBackend_LoadFunctions();
 }
 
@@ -342,18 +342,26 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 	GL_DBG_Printf("Version    : %s\n", pglGetString(GL_VERSION));
 	GL_DBG_Printf("Extensions : %s\n", gl_extensions);
 
+	// BP: disable advenced feature that don't work on somes hardware
+	// Hurdler: Now works on G400 with bios 1.6 and certified drivers 6.04
+	if (strstr(renderer, "810"))   oglflags |= GLF_NOZBUFREAD;
+	GL_DBG_Printf("oglflags   : 0x%X\n", oglflags);
+
 #ifdef USE_WGL_SWAP
-	if (GL_ExtensionAvailable("WGL_EXT_swap_control",gl_extensions))
+	if (GLExtension_Available("WGL_EXT_swap_control"))
 		wglSwapIntervalEXT = GLBackend_GetFunction("wglSwapIntervalEXT");
 	else
 		wglSwapIntervalEXT = NULL;
 #endif
 
-	if (GL_ExtensionAvailable("GL_EXT_texture_filter_anisotropic",gl_extensions))
+	if (GLExtension_Available("GL_EXT_texture_filter_anisotropic"))
 		pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
 	else
 		maximumAnisotropy = 0;
 
+#if 0
+	SetupGLFunc13();
+#endif
 	GLBackend_LoadExtraFunctions();
 
 	screen_depth = (GLbyte)(lvid->bpp*8);

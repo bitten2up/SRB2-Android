@@ -197,6 +197,8 @@ void Shader_LoadFunctions(void)
 int Shader_AttribLoc(int loc)
 {
 	gl_shader_t *shader = gl_shaderstate.current;
+	if (shader == NULL)
+		shader = &gl_fallback_shader;
 	int pos, attrib;
 
 	glattribute_t LOC_TO_ATTRIB[glattribute_max] =
@@ -272,6 +274,26 @@ boolean Shader_DisableVertexAttribArray(int attrib)
 	return false;
 }
 #endif
+
+boolean Shader_Init() {
+#ifdef GL_SHADERS
+	if (!pglUseProgram)
+		return false;
+
+	gl_fallback_shader.vertex = Z_StrDup(GLSL_FALLBACK_VERTEX_SHADER);
+	gl_fallback_shader.fragment = Z_StrDup(GLSL_FALLBACK_FRAGMENT_SHADER);
+
+	if (!Shader_CompileProgram(&gl_fallback_shader, -1))
+	{
+		GL_MSG_Error("Failed to compile the fallback shader program!\n");
+		return false;
+	}
+
+	return true;
+#else
+	return false;
+#endif
+}
 
 //
 // Custom shader loading
@@ -361,20 +383,20 @@ void Shader_Set(int type)
 void Shader_UnSet(void)
 {
 #ifdef HAVE_GLES2
-#if 1
+#if 0
 	Shader_Set(SHADER_NONE); // star note: normal
 #else
 	Shader_Set(SHADER_ALPHA_TEST); // bitten temp
 #endif
 	Shader_SetUniforms(NULL, NULL, NULL, NULL);
 #else
-	gl_shaderstate.current = NULL;
+	gl_shaderstate.current =  NULL;
 	gl_shaderstate.type = 0;
 	gl_shaderstate.program = 0;
 
 	if (GLExtension_shaders)
 		pglUseProgram(0);
-	gl_shadersenabled = false;
+	gl_shadersenabled = true;
 #endif
 }
 

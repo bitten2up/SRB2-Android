@@ -24,7 +24,7 @@ opts+=-DDIRECTFULLSCREEN -DHAVE_SDL
 #endif #ifdef CYGWIN32
 
 ifndef NOHW
-sources+=sdl/ogl_sdl.c
+sources+=sdl/ogl_es_sdl.c
 endif
 
 ifdef NOMIXER

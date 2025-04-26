@@ -1003,7 +1003,6 @@ static void signal_handler_child(INT32 num)
 #ifdef UNIXBACKTRACE
 	write_backtrace(num);
 #endif
-
 	signal(num, SIG_DFL);               //default signal action
 	raise(num);
 }

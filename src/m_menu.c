@@ -8675,6 +8675,7 @@ static void M_LoadAddonsPatches(void)
 	addonsp[EXT_PK3] = W_CachePatchName("M_FPK3", PU_PATCH);
 	addonsp[EXT_SOC] = W_CachePatchName("M_FSOC", PU_PATCH);
 	addonsp[EXT_LUA] = W_CachePatchName("M_FLUA", PU_PATCH);
+    addonsp[EXT_MZIP] = W_CachePatchName("M_FMZIP", PU_PATCH);
 	addonsp[NUM_EXT] = W_CachePatchName("M_FUNKN", PU_PATCH);
 	addonsp[NUM_EXT+1] = W_CachePatchName("M_FSEL", PU_PATCH);
 	addonsp[NUM_EXT+2] = W_CachePatchName("M_FLOAD", PU_PATCH);
@@ -9295,6 +9296,11 @@ static void M_HandleAddons(INT32 choice)
 						case EXT_CFG:
 							M_AddonExec(KEY_ENTER);
 							break;
+#ifdef HWRENDER
+                        case EXT_MZIP:
+                            COM_BufAddText(va("modelpack \"%s%s\"", menupath, dirmenu[dir_on[menudepthleft]]+DIR_STRING));
+                            break;
+#endif
 						case EXT_LUA:
 						case EXT_SOC:
 						case EXT_WAD:

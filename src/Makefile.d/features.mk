@@ -14,8 +14,9 @@ opts+=-DPARANOIA -DRANGECHECK
 endif
 
 ifndef NOHW
-opts+=-DHWRENDER
+opts+=-DHWRENDER -DHAVE_GLES -DHAVE_GLES2
 sources+=$(call List,hardware/Sourcefile)
+sources+=hardware/r_gles/r_gles2.c
 endif
 
 ifndef NOMD5

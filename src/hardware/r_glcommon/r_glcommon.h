@@ -400,6 +400,9 @@ extern PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
 //                                                                  FUNCTIONS
 // ==========================================================================
 
+boolean SetupGLfunc(void);
+void SetupGLFunc4(void);
+
 #ifdef HAVE_GL_FRAMEBUFFER
 void GLFramebuffer_Generate(void);
 void GLFramebuffer_Delete(void);
@@ -461,7 +464,7 @@ void GLBackend_SetBlend(FBITFIELD PolyFlags);
 void GLBackend_SetModelView(INT32 w, INT32 h);
 void GLBackend_SetStates(void);
 void GLBackend_SetNoTexture(void);
-void GLBackend_SetClamp(GLenum pname);
+void GLBackend_SetClamp2D(GLenum pname);
 
 void    GLExtension_Init(void);
 boolean GLExtension_Available(const char *extension);
@@ -583,9 +586,20 @@ struct LTListItem
 };
 typedef struct LTListItem LTListItem;
 
+// gl flags
+typedef enum
+{
+	GLF_NOZBUFREAD = 0x01,
+	GLF_NOTEXENV   = 0x02,
+} oglflags_t;
+
 // ==========================================================================
 //                                                                    GLOBALS
 // ==========================================================================
+
+/**	\brief OpenGL flags for video driver
+*/
+extern INT32 oglflags;
 
 extern const GLubyte *gl_version;
 extern const GLubyte *gl_renderer;
@@ -603,6 +617,7 @@ extern GLint  screen_width;
 extern GLint  screen_height;
 extern GLbyte screen_depth;
 extern GLint  maximumAnisotropy;
+extern boolean supportMipMap;
 
 extern GLboolean MipmapEnabled;
 extern GLboolean MipmapSupported;

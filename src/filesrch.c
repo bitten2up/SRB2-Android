@@ -914,7 +914,11 @@ char exttable[NUM_EXT_TABLE][7] = { // maximum extension length (currently 4) pl
 #ifdef USE_KART
 	"\6.kart",
 #endif
-	"\5.pk3", "\5.soc", "\5.lua"}; // addfile
+	"\5.pk3", "\5.soc", "\5.lua", // addfile
+#ifdef HWRENDER
+    "\6.mzip" // modelpacks
+#endif
+    };
 
 static char (*filenamebuf)[MAX_WADPATH];
 

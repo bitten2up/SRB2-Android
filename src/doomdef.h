@@ -19,6 +19,11 @@
 #undef NEWSIGNALHANDLER
 #endif
 
+#if 0
+// STAR NOTE: testing //
+#define NEWSIGNALHANDLER
+#endif
+
 // Sound system select
 // This should actually be in the makefile,
 // but I can't stand that gibberish. D:

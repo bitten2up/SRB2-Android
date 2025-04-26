@@ -379,33 +379,38 @@
 //
 
 #define GLSL_FALLBACK_VERTEX_SHADER \
-    "attribute vec4 a_position;\n" \
-    "attribute vec4 a_color;\n" \
-    "attribute vec2 a_texCoord;\n" \
-    "uniform mat4 u_projView;\n" \
-    "varying vec4 v_color;\n" \
-    "varying vec2 v_texCoord;\n" \
-    "void main()\n" \
-    "{\n" \
-        "gl_Position = u_projView * a_position;\n" \
-        "v_color = a_color;\n" \
-        "v_texCoord = a_texCoord;\n" \
-    "}\n"
+	"attribute vec3 a_position;\n" \
+	"attribute vec2 a_texcoord;\n" \
+	"attribute vec3 a_normal;\n" \
+	"attribute vec4 a_colors;\n" \
+	"varying vec2 v_texcoord;\n" \
+	"varying vec3 v_normal;\n" \
+	"varying vec4 v_colors;\n" \
+	"uniform mat4 u_model;\n" \
+	"uniform mat4 u_view;\n" \
+	"uniform mat4 u_projection;\n" \
+	"void main()\n" \
+	"{\n" \
+		"gl_Position = u_projection * u_view * u_model * vec4(a_position, 1.0);\n" \
+		"v_texcoord = vec2(a_texcoord.x, a_texcoord.y);\n" \
+		"v_normal = a_normal;\n" \
+		"v_colors = a_colors;\n" \
+	"}\0"
 
 //
 // Generic fragment shader
 //
 
 #define GLSL_FALLBACK_FRAGMENT_SHADER \
-    "precision mediump float;\n" \
-    "uniform sampler2D u_texture;\n" \
-    "uniform vec4 u_polyColor;\n" \
-    "varying vec4 v_color;\n" \
-    "varying vec2 v_texCoord;\n" \
-    "void main()\n" \
-    "{\n" \
-        "gl_FragColor = texture2D(u_texture, v_texCoord) * u_polyColor * v_color;\n" \
-    "}\n"
+	"precision mediump float;\n" \
+	"varying vec2 v_texcoord;\n" \
+	"varying vec3 v_normal;\n" \
+	"varying vec4 v_colors;\n" \
+	"uniform sampler2D t_texsampler;\n" \
+	"uniform vec4 poly_color;\n" \
+	"void main(void) {\n" \
+		"gl_FragColor = texture2D(t_texsampler, v_texcoord) * poly_color;\n" \
+	"}\0"
 
 //
 // Software fragment shader

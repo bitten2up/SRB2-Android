@@ -545,7 +545,7 @@ void GLBackend_SetBlend(FBITFIELD PolyFlags)
 		if (Xor & PF_RemoveYWrap)
 		{
 			if (PolyFlags & PF_RemoveYWrap)
-				GLBackend_SetClamp(GL_TEXTURE_WRAP_T);
+				GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 		}
 
 		if (Xor & PF_ForceWrapX)
@@ -686,11 +686,12 @@ boolean GLBackend_InitContext(void)
 	{
 		gl_version = pglGetString(GL_VERSION);
 		gl_renderer = pglGetString(GL_RENDERER);
+		gl_extensions = pglGetString(GL_EXTENSIONS);
 
-		GL_DBG_Printf("OpenGL version: %s\n", gl_version);
+		GL_DBG_Printf("OpenGL Version: %s\n", gl_version);
 		GL_DBG_Printf("GPU: %s\n", gl_renderer);
+		GL_DBG_Printf("Extensions: %s\n", gl_extensions);
 
-#if !defined(__ANDROID__)
 		if (strcmp((const char*)gl_renderer, "GDI Generic") == 0 &&
 			strcmp((const char*)gl_version, "1.1.0") == 0)
 		{
@@ -704,7 +705,6 @@ boolean GLBackend_InitContext(void)
 					"- GPU vendor has dropped OpenGL support on your GPU and OS. (Old GPU?)\n"
 					"- GPU drivers are missing or broken. You may need to update your drivers.");
 		}
-#endif
 
 		version_checked = true;
 	}
@@ -1412,9 +1412,6 @@ void GLExtension_Init(void)
 	GLExtension_fragment_program = true;
 #endif
 
-#if 0
-	GLBackend_useprogram = GLBackend_GetFunction("glUseProgram");
-#endif
 
 	while (ExtensionList[i].name)
 	{

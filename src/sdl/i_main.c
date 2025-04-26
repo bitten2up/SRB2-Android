@@ -30,8 +30,9 @@
 
 #if defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)
 #include <errno.h>
-#include <time.h>
 #endif
+
+#include "time.h" // For log timestamps
 
 #ifdef HAVE_SDL
 
@@ -50,6 +51,11 @@
 extern int SDL_main(int argc, char *argv[]);
 #endif
 
+#ifdef LOGMESSAGES
+FILE *logstream = NULL;
+char logfilename[1024];
+#endif
+
 #ifndef DOXYGEN
 #ifndef O_TEXT
 #define O_TEXT 0
@@ -64,7 +70,6 @@ extern int SDL_main(int argc, char *argv[]);
 #include "../win32/win_dbg.h"
 typedef BOOL (WINAPI *p_IsDebuggerPresent)(VOID);
 #endif
-
 
 #ifdef LOGMESSAGES
 static void InitLogging(void)

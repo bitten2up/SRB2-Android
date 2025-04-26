@@ -48,10 +48,6 @@ GLint   textureformatGL = 0;
 GLint maximumAnisotropy = 0;
 static GLboolean MipMap = GL_FALSE;
 
-const GLubyte *gl_version = NULL;
-const GLubyte *gl_renderer = NULL;
-const GLubyte *gl_extensions = NULL;
-
 //Hurdler: 04/10/2000: added for the kick ass coronas as Boris wanted;-)
 GLfloat modelMatrix[16];
 GLfloat projMatrix[16];
@@ -362,9 +358,6 @@ static PFNglCopyTexImage2D pglCopyTexImage2D;
 typedef void (APIENTRY * PFNglCopyTexSubImage2D) (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
 static PFNglCopyTexSubImage2D pglCopyTexSubImage2D;
 #endif
-/* GLU functions */
-typedef GLint (APIENTRY * PFNgluBuild2DMipmaps) (GLenum target, GLint internalFormat, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *data);
-static PFNgluBuild2DMipmaps pgluBuild2DMipmaps;
 
 /* 1.2 functions for 3D textures */
 typedef void (APIENTRY * PFNglTexImage3D) (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
@@ -655,6 +648,58 @@ void SetupGLFunc4(void)
 #endif
 }
 
+boolean GLBackend_LoadFunctions(void)
+{
+	GLExtension_shaders = true;
+	GLExtension_multitexture = true;
+	GLExtension_vertex_buffer_object = true;
+	GLExtension_texture_filter_anisotropic = true;
+
+	GLBackend_LoadExtraFunctions();
+
+	GETOPENGLFUNC(ClearDepthf)
+	GETOPENGLFUNC(DepthRangef)
+    GETOPENGLFUNC(TexImage3D)
+
+	Shader_LoadFunctions();
+	Shader_CleanPrograms();
+
+#if 0
+	return Shader_Compile();
+#else
+	return true;
+#endif
+}
+
+boolean GLBackend_LoadExtraFunctions(void)
+{
+#define GETOPENGLFUNC(func, proc) \
+	func = GLBackend_GetFunction(#proc); \
+	if (!func) \
+	{ \
+		GL_MSG_Warning("failed to get OpenGL function: %s", #proc); \
+	} \
+
+#define GETOPENGLFUNCTRY(func, proc) \
+	func = GLBackend_GetFunction(#proc); \
+	if (func!) \
+	{ \
+		GL_DBG_Printf("failed to get OpenGL function %s\n", #func); \
+	} \
+
+	GLExtension_LoadFunctions();
+
+	GETOPENGLFUNC(VertexAttribPointer)
+
+	GETOPENGLFUNCTRY(BlendEquation)
+	GETOPENGLFUNCTRY(GenerateMipmap)
+
+	if (pglGenerateMipmap)
+		MipmapSupported = GL_TRUE;
+
+	return true;
+}
+
 EXPORT boolean HWRAPI(InitShaders) (void)
 {
 #ifdef GL_SHADERS
@@ -675,6 +720,7 @@ EXPORT boolean HWRAPI(InitShaders) (void)
 	return false;
 #endif
 }
+
 EXPORT void HWRAPI(LoadShader) (int slot, char *code, hwdshaderstage_t stage)
 {
 #ifdef GL_SHADERS
@@ -803,7 +849,7 @@ EXPORT void HWRAPI(UnSetShader) (void)
 // -----------------+
 // GLBackend_SetNoTexture     : Disable texture
 // -----------------+
-static void GLBackend_SetNoTexture(void)
+void GLBackend_SetNoTexture(void)
 {
 	// Disable texture.
 	if (tex_downloaded != NOTEXTURE_NUM)
@@ -885,12 +931,12 @@ static void GLProject(GLfloat objX, GLfloat objY, GLfloat objZ,
 	*winZ=in[2];
 }
 
-// -----------------+
-// SetModelView     :
-// -----------------+
+// ---------------------------+
+// GLBackend_SetModelView     :
+// ---------------------------+
 void GLBackend_SetModelView(GLint w, GLint h)
 {
-//	GL_DBG_Printf("SetModelView(): %dx%d\n", (int)w, (int)h);
+//	GL_DBG_Printf("GLBackend_SetModelView(): %dx%d\n", (int)w, (int)h);
 
 	// The screen textures need to be flushed if the width or height change so that they be remade for the correct size
 	if (screen_width != w || screen_height != h)
@@ -1014,74 +1060,11 @@ EXPORT void HWRAPI(DeleteTexture) (GLMipmap_t *pTexInfo)
 
 
 // -----------------+
-// Flush            : flush OpenGL textures
-//                  : Clear list of downloaded mipmaps
-// -----------------+
-void Flush(void)
-{
-	//GL_DBG_Printf ("HWR_Flush()\n");
-
-	while (TexCacheHead)
-	{
-		FTextureInfo *pTexInfo = TexCacheHead;
-		GLMipmap_t *texture = pTexInfo->texture;
-
-		if (pTexInfo->downloaded)
-		{
-			pglDeleteTextures(1, (GLuint *)&pTexInfo->downloaded);
-			pTexInfo->downloaded = 0;
-		}
-
-		if (texture)
-			texture->downloaded = 0;
-
-		TexCacheHead = pTexInfo->next;
-		free(pTexInfo);
-	}
-
-	TexCacheTail = TexCacheHead = NULL; //Hurdler: well, TexCacheHead is already NULL
-	tex_downloaded = 0;
-
-	free(textureBuffer);
-	textureBuffer = NULL;
-	textureBufferSize = 0;
-}
-
-
-// -----------------+
-// isExtAvailable   : Look if an OpenGL extension is available
-// Returns          : true if extension available
-// -----------------+
-INT32 isExtAvailable(const char *extension, const GLubyte *start)
-{
-	GLubyte         *where, *terminator;
-
-	if (!extension || !start) return 0;
-	where = (GLubyte *) strchr(extension, ' ');
-	if (where || *extension == '\0')
-		return 0;
-
-	for (;;)
-	{
-		where = (GLubyte *) strstr((const char *) start, extension);
-		if (!where)
-			break;
-		terminator = where + strlen(extension);
-		if (where == start || *(where - 1) == ' ')
-			if (*terminator == ' ' || *terminator == '\0')
-				return 1;
-		start = terminator;
-	}
-	return 0;
-}
-
-
-// -----------------+
 // Init             : Initialise the OpenGL interface API
 // -----------------+
 EXPORT boolean HWRAPI(Init) (void)
 {
-	return LoadGL();
+	return GLBackend_Init();
 }
 
 
@@ -1091,7 +1074,7 @@ EXPORT boolean HWRAPI(Init) (void)
 EXPORT void HWRAPI(ClearMipMapCache) (void)
 {
 	// GL_DBG_Printf ("HWR_Flush(exe)\n");
-	Flush();
+	GLTexture_Flush();
 }
 
 
@@ -1226,17 +1209,17 @@ EXPORT void HWRAPI(Draw2DLine) (F2DCoord * v1,
 	pglEnable(GL_TEXTURE_2D);
 }
 
-void GLBackend_SetClamp(UINT32 clamp)
-{
-	pglTexParameteri(GL_TEXTURE_2D, pname, GL_CLAMP); // fallback clamp
-	pglTexParameteri(GL_TEXTURE_2D, pname, GL_CLAMP_TO_EDGE);
-}
-
 // -----------------+
 // SetBlend         : Set render mode
 // -----------------+
 // PF_Masked - we could use an ALPHA_TEST of GL_EQUAL, and alpha ref of 0,
 //             is it faster when pixels are discarded ?
+
+void GLBackend_SetClamp2D(UINT32 clamp)
+{
+	pglTexParameteri(GL_TEXTURE_2D, pname, GL_CLAMP); // fallback clamp
+	pglTexParameteri(GL_TEXTURE_2D, pname, GL_CLAMP_TO_EDGE);
+}
 
 static void SetBlendEquation(GLenum mode)
 {
@@ -1354,7 +1337,7 @@ EXPORT void HWRAPI(SetBlend) (FBITFIELD PolyFlags)
 		if (Xor & PF_RemoveYWrap)
 		{
 			if (PolyFlags & PF_RemoveYWrap)
-				GLBackend_SetClamp(GL_TEXTURE_WRAP_T);
+				GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 		}
 
 		if (Xor & PF_ForceWrapX)
@@ -1557,7 +1540,12 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 		//pglTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
 		if (MipMap)
 		{
+#if 0
 			pgluBuild2DMipmaps(GL_TEXTURE_2D, GL_LUMINANCE_ALPHA, w, h, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#else
+			pglTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+			pglTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#endif
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 			if (pTexInfo->flags & TF_TRANSPARENT)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
@@ -1578,7 +1566,12 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 		//pglTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
 		if (MipMap)
 		{
+#if 0
 			pgluBuild2DMipmaps(GL_TEXTURE_2D, GL_ALPHA, w, h, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#else
+			pglTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+			pglTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#endif
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0);
 			if (pTexInfo->flags & TF_TRANSPARENT)
 				pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, 0); // No mippmaps on transparent stuff
@@ -1598,7 +1591,12 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	{
 		if (MipMap)
 		{
+#if 0
 			pgluBuild2DMipmaps(GL_TEXTURE_2D, textureformatGL, w, h, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#else
+			pglTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+			pglTexImage2D(GL_TEXTURE_2D, 0, textureformatGL, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+#endif
 			// Control the mipmap level of detail
 			pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, 0); // the lower the number, the higer the detail
 			if (pTexInfo->flags & TF_TRANSPARENT)
@@ -1618,12 +1616,12 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	if (pTexInfo->flags & TF_WRAPX)
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	else
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_S);
+		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
 
 	if (pTexInfo->flags & TF_WRAPY)
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	else
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_T);
+		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 
 	if (maximumAnisotropy)
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, anisotropic_filter);
@@ -2026,10 +2024,10 @@ EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUI
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	if (PolyFlags & PF_ForceWrapX)
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_S);
+		GLBackend_Clamp2D(GL_TEXTURE_WRAP_S);
 
 	if (PolyFlags & PF_ForceWrapY)
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_T);
+		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 }
 
 EXPORT void HWRAPI(DrawIndexedTriangles) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, UINT32 *IndexArray)
@@ -2181,18 +2179,22 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 					mag_filter = GL_LINEAR;
 					min_filter = GL_NEAREST;
 			}
+#if 0
 			if (!pgluBuild2DMipmaps)
+#else
+			if (!supportMipMap)
+#endif
 			{
 				MipMap = GL_FALSE;
 				min_filter = GL_LINEAR;
 			}
-			Flush(); //??? if we want to change filter mode by texture, remove this
+			GLTexture_Flush(); //??? if we want to change filter mode by texture, remove this
 			break;
 
 		case HWD_SET_TEXTUREANISOTROPICMODE:
 			anisotropic_filter = min(Value,maximumAnisotropy);
 			if (maximumAnisotropy)
-				Flush(); //??? if we want to change filter mode by texture, remove this
+				GLTexture_Flush(); //??? if we want to change filter mode by texture, remove this
 			break;
 
 		case HWD_SET_WIREFRAME:
@@ -2204,6 +2206,8 @@ EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value)
 	}
 }
 
+#if 1
+// STAR NOTE: model packing
 EXPORT void HWRAPI(CreateModelVBOs) (model_t *model)
 {
 	GLModel_GenerateVBOs(model);
@@ -2218,6 +2222,7 @@ EXPORT void HWRAPI(DeleteModelData) (void)
 {
 	GLBackend_DeleteModelData();
 }
+#endif
 
 static float *vertBuffer = NULL;
 static float *normBuffer = NULL;
@@ -2953,7 +2958,8 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 }
 
 // Do screen fades!
-EXPORT void HWRAPI(DoScreenWipe)(int wipeStart, int wipeEnd, FSurfaceInfo *surf, FBITFIELD polyFlags)
+EXPORT void HWRAPI(DoScreenWipe)(int wipeStart, int wipeEnd, FSurfaceInfo *surf,
+		FBITFIELD polyFlags)
 {
 	INT32 texsize = 512;
 	float xfix, yfix;
@@ -3078,8 +3084,8 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 	{
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_S);
-		GLBackend_SetClamp(GL_TEXTURE_WRAP_T);
+		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
+		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 		pglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, texsize, texsize, 0);
 	}
 	else

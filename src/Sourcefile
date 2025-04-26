@@ -80,6 +80,7 @@ v_video.c
 s_sound.c
 sounds.c
 w_wad.c
+w_handle.c
 filesrch.c
 lzf.c
 b_bot.c

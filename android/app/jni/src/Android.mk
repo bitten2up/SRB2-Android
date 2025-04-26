@@ -59,7 +59,7 @@ ifeq ($(findstring -DHWRENDER, $(LOCAL_CFLAGS)), -DHWRENDER)
 endif
 
 LOCAL_SRC_FILES += $(SRC_SDL)/SDL_main/SDL_android_main.c $(SRC_SDL)/mixer_sound.c $(SRC_SDL)/i_threads.c
-LOCAL_SRC_FILES += $(SRC_MAIN)/w_handle.c $(SRC_MAIN)/comptime.c $(SRC_MAIN)/md5.c
+LOCAL_SRC_FILES += $(SRC_MAIN)/comptime.c $(SRC_MAIN)/md5.c
 
 # Libraries
 

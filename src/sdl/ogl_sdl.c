@@ -61,16 +61,10 @@ typedef int (*PFNGLXSWAPINTERVALPROC) (int);
 PFNGLXSWAPINTERVALPROC glXSwapIntervalSGIEXT = NULL;
 #endif
 
-#ifndef STATIC_OPENGL
-PFNglClear pglClear;
-PFNglGetIntegerv pglGetIntegerv;
-PFNglGetString pglGetString;
-#endif
-
 /**	\brief SDL video display surface
 */
-INT32 oglflags = 0;
 void *GLUhandle = NULL;
+INT32 oglflags = 0;
 SDL_GLContext sdlglcontext = 0;
 
 void *GLBackend_GetFunction(const char *proc)
@@ -119,6 +113,10 @@ boolean GLBackend_Init(void)
 	GLULibname = NULL;
 #endif
 
+#if 0
+	SetupGLfunc();
+#endif
+
 	if (M_CheckParm("-GLUlib") && M_IsNextParm())
 		GLULibname = M_GetNextParm();
 
@@ -147,14 +145,12 @@ boolean GLBackend_Init(void)
 
 	\param	w	width
 	\param	h	height
-	\param	isFullscreen	if true, go fullscreen
 
 	\return	if true, changed video mode
 */
 boolean OglSdlSurface(INT32 w, INT32 h)
 {
 	INT32 cbpp = cv_scr_depth.value < 16 ? 16 : cv_scr_depth.value;
-	static boolean first_init = false;
 
 	if (!GLBackend_InitContext())
 		return false;
@@ -162,40 +158,22 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	if (!GLBackend_LoadExtraFunctions())
 		return false;
 
-	oglflags = 0;
+	GLBackend_SetSurface(w, h);
 
-	if (!first_init)
-	{
-		gl_version = pglGetString(GL_VERSION);
-		gl_renderer = pglGetString(GL_RENDERER);
-		gl_extensions = pglGetString(GL_EXTENSIONS);
-
-		GL_DBG_Printf("OpenGL %s\n", gl_version);
-		GL_DBG_Printf("GPU: %s\n", gl_renderer);
-		GL_DBG_Printf("Extensions: %s\n", gl_extensions);
-
-		if (strcmp((const char*)gl_renderer, "GDI Generic") == 0 &&
-			strcmp((const char*)gl_version, "1.1.0") == 0)
-		{
-			// Oh no... Windows gave us the GDI Generic rasterizer, so something is wrong...
-			// The game will crash later on when unsupported OpenGL commands are encountered.
-			// Instead of a nondescript crash, show a more informative error message.
-			// Also set the renderer variable back to software so the next launch won't
-			// repeat this error.
-			CV_StealthSet(&cv_renderer, "Software");
-			I_Error("OpenGL Error: Failed to access the GPU. Possible reasons include:\n"
-					"- GPU vendor has dropped OpenGL support on your GPU and OS. (Old GPU?)\n"
-					"- GPU drivers are missing or broken. You may need to update your drivers.");
-		}
-	}
-	first_init = true;
-
-	if (isExtAvailable("GL_EXT_texture_filter_anisotropic", gl_extensions))
+	if (GLExtension_Available("GL_EXT_texture_filter_anisotropic"))
 		pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
 	else
 		maximumAnisotropy = 1;
 
+	if (sscanf((const char*)gl_version, "%d.%d", &majorGL, &minorGL)
+		&& (!(majorGL == 1 && minorGL <= 3)))
+		supportMipMap = true;
+	else
+		supportMipMap = false;
+
+#if 0
 	SetupGLFunc4();
+#endif
 
 	glanisotropicmode_cons_t[1].value = maximumAnisotropy;
 
@@ -231,31 +209,40 @@ void OglSdlFinishUpdate(boolean waitvbl)
 	SDL_GetWindowSize(window, &sdlw, &sdlh);
 
 #if 0
-#ifdef HAVE_GL_FRAMEBUFFER
-	MakeFinalScreenTexture();
+	HWR_MakeScreenFinalTexture();
+#else
+	HWD.pfnMakeFinalScreenTexture();
+#endif
 
+#ifdef HAVE_GL_FRAMEBUFFER
 	GLFramebuffer_Disable();
 	RenderToFramebuffer = FramebufferEnabled;
+#endif
 
-	DrawFinalScreenTexture(sdlw, sdlh);
+#if 0
+	HWR_DrawScreenFinalTexture(sdlw, sdlh);
+#else
+	HWD.pfnDrawFinalScreenTexture(sdlw, sdlh);
+#endif
 
+#ifdef HAVE_GL_FRAMEBUFFER
 	if (RenderToFramebuffer)
 		GLFramebuffer_Enable();
 #endif
-#else
-	// STAR NOTE: hi opengl sdl rendering system
-	HWR_MakeScreenFinalTexture();
-	HWR_DrawScreenFinalTexture(sdlw, sdlh);
-	SDL_GL_SwapWindow(window);
-#endif
 
-	GClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
+	SDL_GL_SwapWindow(window);
+
+	HWD.pfnGClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
 
 	// Sryder:	We need to draw the final screen texture again into the other buffer in the original position so that
 	//			effects that want to take the old screen can do so after this
+#if 0
 	// Generic2 has the screen image without palette rendering brightness adjustments.
 	// Using that here will prevent brightness adjustments being applied twice.
 	DrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
+#else
+	HWD.pfnDrawFinalScreenTexture(realwidth, realheight);
+#endif
 }
 
 EXPORT void HWRAPI(OglSdlSetPalette) (RGBA_t *palette)
