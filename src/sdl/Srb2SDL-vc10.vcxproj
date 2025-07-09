@@ -320,7 +320,6 @@
     <ClInclude Include="..\hardware\hw_model.h" />
     <ClInclude Include="..\u_list.h" />
     <ClInclude Include="..\hu_stuff.h" />
-    <ClInclude Include="..\hu_font.h" />
     <ClInclude Include="..\info.h" />
     <ClInclude Include="..\i_joy.h" />
     <ClInclude Include="..\i_net.h" />
@@ -442,7 +441,7 @@
     <None Include="SDL_icon.xpm" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\apk_m_textreader.c" />
+    <ClCompile Include="..\android\apk_m_textreader.c" />
     <ClCompile Include="..\am_map.c" />
     <ClCompile Include="..\apng.c" />
     <ClCompile Include="..\blua\lapi.c" />
@@ -504,7 +503,6 @@
     <ClCompile Include="..\r_bbox.c" />
     <ClCompile Include="..\u_list.c" />
     <ClCompile Include="..\hu_stuff.c" />
-    <ClCompile Include="..\hu_font.c" />
     <ClCompile Include="..\info.c" />
     <ClCompile Include="..\i_time.c" />
     <ClCompile Include="..\lua_baselib.c" />

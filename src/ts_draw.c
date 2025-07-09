@@ -12,13 +12,16 @@
 #include "ts_main.h"
 #include "ts_draw.h"
 #include "ts_custom.h"
-#include "apk_main.h"
+
+#include "android/apk_main.h"
+
+#include "xtra/xtv_video.h"
 
 #include "doomstat.h" // paused
 #include "netcode/d_netcmd.h" // cv_playercolor
 #include "f_finale.h" // F_GetPromptHideHud
 #include "g_game.h"
-#include "hu_stuff.h" // HU_FONTSTART
+#include "hu_stuff.h" // fonts
 #include "m_menu.h" // M_IsOnTouchOptions
 #include "m_misc.h" // moviemode
 #include "p_tick.h" // leveltime
@@ -648,7 +651,7 @@ static void DrawNavigationButton(INT32 nav)
 		if (!symb)
 			return;
 
-		font = hu_font.chars[toupper(symb) - HU_FONTSTART];
+		font = hu_font.chars[toupper(symb) - FONTSTART];
 		if (!font)
 			return;
 

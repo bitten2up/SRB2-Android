@@ -423,7 +423,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	if (pTexInfo->format == GL_TEXFMT_P_8 || pTexInfo->format == GL_TEXFMT_AP_88)
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{
@@ -466,7 +466,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	else if (pTexInfo->format == GL_TEXFMT_ALPHA_INTENSITY_88)
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{
@@ -484,7 +484,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	else if (pTexInfo->format == GL_TEXFMT_ALPHA_8) // Used for fade masks
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{

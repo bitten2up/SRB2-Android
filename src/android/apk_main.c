@@ -1,6 +1,9 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2024-2025 by StarManiaKG.
+// Copyright (C) 2020-2022 by Jaime Ita Passos.
+// Copyright (C) 2020-2023 by SRB2 Mobile Project.
+// Copyright (C) 2023-2025 by Bitten2Up.
+// Copyright (C) 2025 by StarManiaKG.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -16,21 +19,22 @@
 #define ZWAD
 #ifdef ZWAD
 #include <errno.h>
-#include "lzf.h"
+#include "../lzf.h"
 #endif
 
 #include "apk_main.h"
-#include "ts_draw.h"
-#include "w_handle.h"
+#include "../ts_draw.h"
+#include "../w_handle.h"
 
-#include "doomstat.h"
-#include "filesrch.h"
-#include "d_main.h"
-#include "g_game.h"
-#include "lua_hook.h"
-#include "m_misc.h"
-#include "r_main.h"
-#include "z_zone.h"
+#include "../doomstat.h"
+#include "../filesrch.h"
+#include "../d_main.h"
+#include "../g_game.h"
+#include "../lua_hook.h"
+#include "../m_misc.h"
+#include "../r_main.h"
+#include "../v_video.h"
+#include "../z_zone.h"
 
 static CV_PossibleValue_t liveshudpos_cons_t[] = {{0, "Bottom left"}, {1, "Top right"}, {2, "Automatic"}, {0, NULL}};
 consvar_t cv_android_liveshudpos = CVAR_INIT ("liveshudpos", "Automatic", CV_SAVE, liveshudpos_cons_t, NULL);
@@ -103,34 +107,27 @@ const char *APK_CV_LongestPossibleValue(consvar_t *var)
 // GAME CODE
 //
 
-static void GetSaveGameName(char *savename, UINT32 slot)
+size_t APK_G_ReadSaveGameSlot(char *savename, UINT8 **savebuffer, UINT32 slot)
 {
-	if (marathonmode)
-		strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
-	else
-		snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
-}
-
-size_t APK_G_ReadSaveGameSlot(char *savename, UINT8 **buffer, UINT32 slot)
-{
+	SINT8 cur_file;
 	size_t length = 0;
 
-	cursavegamename = savegamename[0];
-	curliveeventbackup = liveeventbackup[0];
-
-	GetSaveGameName(savename, slot);
-	length = FIL_ReadFile(savename, buffer);
-
-#ifdef USE_SAVEGAME_PATHS
-	if (!length)
+	for (cur_file = 0; cur_file < APK_MAX_SAVE_PATHS; cur_file++)
 	{
-		cursavegamename = savegamename[1];
-		curliveeventbackup = liveeventbackup[1];
+		cursavegamename = savegamename[cur_file];
+		curliveeventbackup = liveeventbackup[cur_file];
 
-		GetSaveGameName(savename, slot);
-		length = FIL_ReadFile(savename, buffer);
+		if (marathonmode)
+			//strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
+			sprintf(savename, "%s", curliveeventbackup);
+		else
+			//snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
+			sprintf(savename, cursavegamename, slot);
+		length = FIL_ReadFile(savename, savebuffer);
+
+		if (length)
+			break;
 	}
-#endif
 
 	return length;
 }
@@ -222,15 +219,6 @@ boolean APK_G_CanViewpointSwitch(boolean luahook)
 	return (checkdisplayplayer != displayplayer);
 }
 
-void APK_P_MainTicker(boolean run)
-{
-	if (run)
-	{
-		android_data.cam1_toggledelay--;
-		android_data.cam2_toggledelay--;
-	}
-}
-
 // Handles the camera toggle key being pressed.
 boolean APK_G_ToggleChaseCam(UINT8 player, boolean set_chasecam)
 {
@@ -254,8 +242,42 @@ boolean APK_G_ToggleChaseCam(UINT8 player, boolean set_chasecam)
 }
 
 //
+// HEADS UP DISPLAY
+//
+
+void APK_HU_DrawTapAnywhere(tic_t tics, INT32 flags)
+{
+	const char *string;
+	INT32 input = inputmethod;
+	INT32 x, y;
+
+	if (input == INPUTMETHOD_TOUCH)
+		string = M_GetText("Tap anywhere!");
+	else if (input == INPUTMETHOD_TVREMOTE)
+		string = M_GetText("Press Center!");
+	else
+		string = M_GetText("Press any key!");
+
+	if (!(tics/20 & 1))
+	{
+		x = (BASEVIDWIDTH - V_StringWidth(string, flags))>>1;
+		y = BASEVIDHEIGHT - 24;
+		V_DrawString(x, y, V_YELLOWMAP | flags, string);
+	}
+}
+
+//
 // OBJECT CODE
 //
+
+void APK_P_MainTicker(boolean run)
+{
+	if (run)
+	{
+		android_data.cam1_toggledelay--;
+		android_data.cam2_toggledelay--;
+	}
+}
 
 static inline boolean P_MobjDistanceCheck(mobj_t *mobj)
 {
@@ -331,6 +353,23 @@ hudinfo_t *APK_ST_GetLivesHUDInfo(void)
 boolean APK_ST_AltLivesHUDEnabled(void)
 {
 	return (APK_ST_UseAltLivesHUD() && !modeattacking);
+}
+
+void APK_ST_SetInputPosition(INT32 *x, INT32 *y, INT32 *f, hudinfo_t **pos)
+{
+	if (APK_ST_UseAltLivesHUD())
+	{
+		// We can replace our previous HUD location with the inputs!
+		(*pos) = &hudinfo[HUD_LIVES];
+	}
+	else
+	{
+		// Render the inputs above the lives!
+		(*pos) = &hudinfo[HUD_INPUT];
+	}
+	(*x) = (*pos)->x;
+	(*y) = hudinfo[HUD_INPUT].y;
+	(*f) = hudinfo[HUD_INPUT].f;
 }
 
 //

@@ -26,11 +26,6 @@ extern SDL_Window *window;
 extern SDL_bool consolevent;
 extern SDL_bool framebuffer;
 
-#if 1
-// STAR NOTE: for testing
-void Impl_BlitSurfaceRegion(INT32 x, INT32 y, INT32 w, INT32 h);
-#endif
-
 #if defined(__ANDROID__)
 int Android_EventFilter(void *userdata, SDL_Event *event);
 #endif

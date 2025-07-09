@@ -42,6 +42,9 @@
 #include "hardware/hw_main.h"
 #endif
 
+// Android
+#include "android/apk_nativescreenres.h"
+
 // Fineangles in the SCREENWIDTH wide window.
 #define FIELDOFVIEW 2048
 

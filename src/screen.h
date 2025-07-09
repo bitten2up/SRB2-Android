@@ -30,23 +30,15 @@
 #define NUMSCREENS 5
 #endif
 
-#if 0 // bitten keeping just in case
-// Size of statusbar.
-#define ST_HEIGHT 32
-#define ST_WIDTH 320
-#endif
 // used now as a maximum video mode size for extra vesa modes.
 
 // we try to re-allocate a minimum of buffers for stability of the memory,
 // so all the small-enough tables based on screen size, are allocated once
 // and for all at the maximum size.
-
-#define MAXVIDWIDTH 2160 // don't set this too high because actually
+#define MAXVIDWIDTH 1920 // don't set this too high because actually
 #define MAXVIDHEIGHT 1200 // lots of tables are allocated with the MAX size.
-
-// NEVER CHANGE THIS! This is the original resolution of the graphics.
-#define BASEVIDWIDTH 320
-#define BASEVIDHEIGHT 200
+#define BASEVIDWIDTH 320 // NEVER CHANGE THIS! This is the original
+#define BASEVIDHEIGHT 200 // resolution of the graphics.
 
 // global video state
 typedef struct viddef_s
@@ -67,11 +59,7 @@ typedef struct viddef_s
 	INT32/*fixed_t*/ fdup; // same as dup, but exact value when aspect ratio isn't 320/200
 	INT32 bpp; // BYTES per pixel: 1 = 256color
 
-	// Sky scaling
-	struct {
-		INT32 dup;
-		INT32 fdup;
-	} sky;
+	INT32 baseratio; // Used to get the correct value for lighting walls
 
 	// for Win32 version
 	DNWH WndParent; // handle of the application's window
@@ -160,7 +148,6 @@ extern void (*spanfuncs_npo2[SPANDRAWFUNC_MAX])(void);
 extern viddef_t vid;
 extern INT32 setmodeneeded; // mode number to set if needed, or 0
 extern UINT8 setrenderneeded;
-extern UINT8 renderswitcherror;
 
 extern double averageFPS;
 
@@ -172,25 +159,6 @@ extern INT32 scr_bpp;
 
 extern consvar_t cv_scr_width, cv_scr_height, cv_scr_width_w, cv_scr_height_w, cv_scr_depth, cv_fullscreen;
 extern consvar_t cv_renderer;
-
-#ifdef NATIVESCREENRES
-extern consvar_t cv_nativeres;
-extern consvar_t cv_nativeresdiv, cv_nativeresauto;
-extern consvar_t cv_nativeresfov, cv_nativerescompare;
-
-void SCR_CheckNativeMode(void);
-float SCR_GetNativeResDivider(INT32 width, INT32 height);
-
-float SCR_GetMaxNativeResDivider(INT32 nw, INT32 nh);
-void SCR_SetMaxNativeResDivider(float max);
-
-void SCR_ResetNativeResDivider(void);
-
-extern float scr_resdiv;
-#endif
-
-extern consvar_t cv_renderview, cv_renderer;
-extern consvar_t cv_renderhitbox, cv_renderhitboxinterpolation, cv_renderhitboxgldepth;
 // wait for page flipping to end or not
 extern consvar_t cv_vidwait;
 extern consvar_t cv_timescale;
@@ -209,10 +177,9 @@ void SCR_Recalc(void);
 
 // Check parms once at startup
 void SCR_CheckDefaultMode(void);
-// Saves the current resolution in the config
+
+// Set the mode number which is saved in the config
 void SCR_SetDefaultMode(void);
-// Set the mode number based on the resolution saved in the config
-void SCR_SetModeFromConfig(void);
 
 void SCR_CalculateFPS(void);
 

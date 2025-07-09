@@ -2,7 +2,6 @@
 //-----------------------------------------------------------------------------
 //
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1998-2020 by Sonic Team Junior.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,8 +14,8 @@
 // GNU General Public License for more details.
 //
 //-----------------------------------------------------------------------------
-/// \file r_opengl.h
-/// \brief OpenGL API for Sonic Robo Blast 2
+/// \file
+/// \brief OpenGL API for Doom Legacy
 
 #ifndef _R_OPENGL_H_
 #define _R_OPENGL_H_
@@ -50,6 +49,7 @@
 #include "../../doomdef.h"
 #include "../hw_drv.h"
 #include "../../z_zone.h"
+
 #include "../r_glcommon/r_glcommon.h"
 
 // ==========================================================================
@@ -74,8 +74,6 @@
 // ==========================================================================
 //                                                                     PROTOS
 // ==========================================================================
-
-void SetupGLFunc4(void);
 
 #ifdef USE_WGL_SWAP
 typedef BOOL (APIENTRY *PFNWGLEXTSWAPCONTROLPROC) (int);

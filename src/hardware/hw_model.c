@@ -21,7 +21,7 @@
 #include <string.h>
 
 // Android
-#include "../apk_main.h"
+#include "../android/apk_main.h"
 
 #define USE_HWDRV
 #ifdef USE_HWDRV

@@ -45,7 +45,7 @@
 #include "lua_hook.h"
 
 // Android
-#include "apk_main.h" // android_data
+#include "android/apk_main.h" // android_data
 #include "ts_main.h" // touchfingers
 
 // Stage of animation:
@@ -3432,7 +3432,7 @@ void F_TitleScreenDrawer(void)
 			{
 				INT32 time = finalecount - 45;
 				if (time >= 0)
-					HU_DrawTapAnywhere((tic_t)time, 0);
+					APK_HU_DrawTapAnywhere((tic_t)time, 0);
 			}
 #endif
 

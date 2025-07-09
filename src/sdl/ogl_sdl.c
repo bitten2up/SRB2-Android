@@ -151,6 +151,10 @@ boolean GLBackend_Init(void)
 boolean OglSdlSurface(INT32 w, INT32 h)
 {
 	INT32 cbpp = cv_scr_depth.value < 16 ? 16 : cv_scr_depth.value;
+#if 1
+	// STAR NOTE: hi
+	static int majorGL = 0, minorGL = 0;
+#endif
 
 	if (!GLBackend_InitContext())
 		return false;
@@ -167,9 +171,9 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 
 	if (sscanf((const char*)gl_version, "%d.%d", &majorGL, &minorGL)
 		&& (!(majorGL == 1 && minorGL <= 3)))
-		supportMipMap = true;
+		MipmapSupported = true;
 	else
-		supportMipMap = false;
+		MipmapSupported = false;
 
 #if 0
 	SetupGLFunc4();
@@ -207,42 +211,25 @@ void OglSdlFinishUpdate(boolean waitvbl)
 	oldwaitvbl = waitvbl;
 
 	SDL_GetWindowSize(window, &sdlw, &sdlh);
-
-#if 0
 	HWR_MakeScreenFinalTexture();
-#else
-	HWD.pfnMakeFinalScreenTexture();
-#endif
-
 #ifdef HAVE_GL_FRAMEBUFFER
 	GLFramebuffer_Disable();
 	RenderToFramebuffer = FramebufferEnabled;
 #endif
-
-#if 0
 	HWR_DrawScreenFinalTexture(sdlw, sdlh);
-#else
-	HWD.pfnDrawFinalScreenTexture(sdlw, sdlh);
-#endif
-
 #ifdef HAVE_GL_FRAMEBUFFER
 	if (RenderToFramebuffer)
 		GLFramebuffer_Enable();
 #endif
-
 	SDL_GL_SwapWindow(window);
 
-	HWD.pfnGClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
+	GClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
 
 	// Sryder:	We need to draw the final screen texture again into the other buffer in the original position so that
 	//			effects that want to take the old screen can do so after this
-#if 0
 	// Generic2 has the screen image without palette rendering brightness adjustments.
 	// Using that here will prevent brightness adjustments being applied twice.
 	DrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
-#else
-	HWD.pfnDrawFinalScreenTexture(realwidth, realheight);
-#endif
 }
 
 EXPORT void HWRAPI(OglSdlSetPalette) (RGBA_t *palette)

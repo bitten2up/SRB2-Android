@@ -99,15 +99,7 @@
 #include "ts_custom.h"
 #include "ts_draw.h"
 #endif
-#include "apk_main.h"
-
-#if defined(__ANDROID__)
-	// STAR NOTE: i wanna delete this from here eventually
-	#ifdef LOGMESSAGES
-		FILE *logstream = NULL;
-		char logfilename[1024];
-	#endif
-#endif
+#include "android/apk_main.h"
 
 // Version numbers for netplay :upside_down_face:
 int    VERSION;
@@ -364,12 +356,12 @@ static void D_Display(void)
 
 #ifdef HWRENDER
 	// Display the last renderer switching error, if there was any
-	if (renderswitcherror == render_opengl)
+	if (android_data.renderer_switcherror == render_opengl)
 		VID_DisplayGLError();
-#endif
 
 	// Clear the last renderer switching error
-	renderswitcherror = 0;
+	android_data.renderer_switcherror = 0;
+#endif
 
 	// View morph
 	if (rendermode == render_soft && !splitscreen)
@@ -1114,7 +1106,7 @@ void D_StartTitle(void)
 	if (list->files == NULL) \
 	{ \
 		list->files = calloc(2, sizeof(list->files)); \
-		list->hashes = calloc(sizeof(list->hashes), 2); \
+		list->hashes = calloc(2, sizeof(list->hashes)); \
 		list->numfiles = 1; \
 	} \
 	else \
@@ -1526,13 +1518,7 @@ void D_SRB2Main(void)
 
 #ifdef ANDROID_FILE_UNPACK
 	CONS_Printf("W_UnpackMultipleFiles(): Unpacking IWAD and main PWADs.\n");
-
-#ifndef DEVELOP
-	W_UnpackMultipleFiles(&startupwadfiles, true);
-#else
-	W_UnpackMultipleFiles(&startupwadfiles, false);
-#endif
-
+	W_UnpackMultipleFiles(&startupwadfiles);
 	// The main files added at startup are handled by SDL_RWops
 	// and can be loaded from the inside the APK.
 	startuphandletype = FILEHANDLE_SDL;

@@ -16,7 +16,10 @@
 #include "ts_main.h"
 #include "ts_draw.h"
 #include "ts_custom.h"
-#include "apk_main.h" // android_data::prompt_blockcontrols
+
+#include "android/apk_main.h" // android_data::prompt_blockcontrols
+
+#include "xtra/xthu_stuff.h" // extra hud stuff
 
 #include "g_game.h" // players[MAXPLAYERS], promptactive
 
@@ -319,50 +322,73 @@ boolean TS_ButtonIsPlayerControl(INT32 gc)
 
 static void HandleNonPlayerControlButton(INT32 gc)
 {
-	// Handle menu button
-	if (gc == GC_SYSTEMMENU)
+	switch (gc)
 	{
-		M_StartControlPanel();
-		inputmethod = INPUTMETHOD_TOUCH;
-	}
-	// Handle console button
-	else if (gc == GC_CONSOLE)
-		CON_Toggle();
-	// Handle pause button
-	else if (gc == GC_PAUSE && !modeattacking)
-		G_HandlePauseKey(true);
-	// Handle spy mode
-	else if (gc == GC_VIEWPOINTNEXT)
-		G_DoViewpointSwitch(1);
-	else if (gc == GC_VIEWPOINTPREV)
-		G_DoViewpointSwitch(-1);
-	// Handle screenshot
-	else if (gc == GC_SCREENSHOT)
-		M_ScreenShot();
-	// Handle movie mode
-	else if (gc == GC_RECORDGIF)
-		((moviemode) ? M_StopMovie : M_StartMovie)();
-	// Handle chasecam toggle
-	else if (gc == GC_CAMTOGGLE)
-		APK_G_ToggleChaseCam(0, true);
-	// Handle talk buttons
-	else if ((gc == GC_TALKKEY || gc == GC_TEAMKEY) && netgame)
-	{
-		// Raise the screen keyboard if not muted
-		boolean raise = (!CHAT_MUTE);
+		case GC_SYSTEMMENU:
+			// Handle menu button
+			M_StartControlPanel();
+			inputmethod = INPUTMETHOD_TOUCH;
+			break;
+		case GC_CONSOLE:
+			// Handle console button
+			CON_Toggle();
+			break;
+		case GC_PAUSE:
+			// Handle pause button
+			if (!modeattacking)
+				G_HandlePauseKey(true);
+			break;
 
-		// Only raise the screen keyboard in team games
-		// if you're assigned to any team
-		if (raise && (gc == GC_TEAMKEY))
-			raise = (G_GametypeHasTeams() && (players[consoleplayer].ctfteam != 0));
+		// Handle spy mode
+		case GC_VIEWPOINTNEXT:
+			G_DoViewpointSwitch(1);
+			break;
+		case GC_VIEWPOINTPREV:
+			G_DoViewpointSwitch(-1);
+			break;
 
-		// Do it (works with console chat)
-		if (raise)
+		case GC_SCREENSHOT:
+			// Handle screenshot
+			M_ScreenShot();
+			break;
+		case GC_RECORDGIF:
+			// Handle movie mode
+			((moviemode) ? M_StopMovie : M_StartMovie)();
+			break;
+
+		case GC_CAMTOGGLE:
+			// Handle chasecam toggle
+			APK_G_ToggleChaseCam(0, true);
+			break;
+
+		// Handle talk buttons
+		case GC_TALKKEY:
+		case GC_TEAMKEY:
 		{
-			if (!HU_IsChatOpen())
-				HU_OpenChat();
-			else
-				HU_CloseChat();
+			boolean raise;
+
+			if (!netgame)
+			{
+				// Who would we be talking to otherwise?
+				break;
+			}
+
+			// Raise the screen keyboard if not muted
+			raise = (!CHAT_MUTE);
+			if (raise && (gc == GC_TEAMKEY))
+			{
+				// Only raise the screen keyboard in team games if you're assigned to any team
+				raise = (G_GametypeHasTeams() && (players[consoleplayer].ctfteam != 0));
+			}
+
+			// Do it (works with console chat)
+			if (raise)
+			{
+				if (!chat_on)
+					HU_OpenChat((gc == GC_TEAMKEY));
+				else
+					HU_CloseChat(false);
+			}
 		}
 	}
 }

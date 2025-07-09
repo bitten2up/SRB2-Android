@@ -14,11 +14,16 @@
 #include "SDL_main.h"
 #include "SDL_config.h"
 
+#include "time.h" // For log timestamps
+
+#include <jni_android.h>
+
 #include "../sdlmain.h"
 
 #include "../../doomdef.h"
-#include "../../d_main.h"
 #include "../../m_argv.h"
+#include "../../d_main.h"
+#include "../../m_misc.h" /* path shit */
 #include "../../i_system.h"
 
 #ifdef SPLASH_SCREEN
@@ -26,12 +31,19 @@
 #include "../ogl_es_sdl.h"
 #endif
 
-#include <jni_android.h>
+#ifdef HAVE_TTF
+#include "i_ttf.h"
+#endif
 
 #define REQUEST_STORAGE_PERMISSION
 
 #define REQUEST_MESSAGE_TITLE "Permission required"
 #define REQUEST_MESSAGE_TEXT "Sonic Robo Blast 2 needs storage permission.\nYour settings and game progress will not be saved if you decline."
+
+#ifdef LOGMESSAGES
+FILE *logstream = NULL;
+char logfilename[1024];
+#endif
 
 static void PermissionRequestMessage(void)
 {
@@ -71,6 +83,75 @@ static boolean StorageCheckPermission(void)
 	return false;
 }
 
+#ifdef LOGMESSAGES
+static void InitLogging(void)
+{
+	const char *logdir = NULL;
+	time_t my_time;
+	struct tm * timeinfo;
+	const char *format;
+	const char *reldir;
+	int left;
+	boolean fileabs;
+#ifdef LOGSYMLINK
+	const char *link;
+#endif
+
+	logdir = D_Home();
+
+	my_time = time(NULL);
+	timeinfo = localtime(&my_time);
+
+	if (M_CheckParm("-logfile") && M_IsNextParm())
+	{
+		format = M_GetNextParm();
+		fileabs = M_IsPathAbsolute(format);
+	}
+	else
+	{
+		format = "log-%Y-%m-%d_%H-%M-%S.txt";
+		fileabs = false;
+	}
+
+	if (fileabs)
+	{
+		strftime(logfilename, sizeof logfilename, format, timeinfo);
+	}
+	else
+	{
+		if (M_CheckParm("-logdir") && M_IsNextParm())
+			reldir = M_GetNextParm();
+		else
+			reldir = "logs";
+
+		if (M_IsPathAbsolute(reldir))
+		{
+			left = snprintf(logfilename, sizeof logfilename,
+					"%s"PATHSEP, reldir);
+		}
+		else if (logdir)
+		{
+			left = snprintf(logfilename, sizeof logfilename,
+					"%s"PATHSEP "%s"PATHSEP, logdir, reldir);
+		}
+		else
+		{
+			left = snprintf(logfilename, sizeof logfilename,
+					"."PATHSEP"%s"PATHSEP, reldir);
+		}
+
+		strftime(&logfilename[left], sizeof logfilename - left,
+				format, timeinfo);
+	}
+
+	M_MkdirEachUntil(logfilename,
+			M_PathParts(logdir) - 1,
+			M_PathParts(logfilename) - 1, 0755);
+
+	logstream = fopen(va("%s/latest-log.txt", I_SharedStorageLocation()), "wt+");
+}
+#endif
+
 int main(int argc, char* argv[])
 {
 #ifdef LOGMESSAGES
@@ -100,7 +181,7 @@ int main(int argc, char* argv[])
 #ifdef LOGMESSAGES
 	// Start logging...
 	if (logging && I_StoragePermission())
-		I_InitLogging();
+		InitLogging();
 #endif
 
 	CONS_Printf("Sonic Robo Blast 2 for Android\n");

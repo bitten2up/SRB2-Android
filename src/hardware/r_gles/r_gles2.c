@@ -44,9 +44,6 @@ static GLint viewport[4];
 
 //GLuint paletteLookupTex = 0; // 3D texture containing RGB -> palette index lookup table
 
-typedef void (R_GL_APIENTRY * PFNglVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
-static PFNglVertexAttribPointer pglVertexAttribPointer;
-
 static void VertexAttribPointerInternal(int attrib, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer, const char *function, const int line)
 {
 	int loc = Shader_AttribLoc(attrib);
@@ -73,7 +70,7 @@ boolean GLBackend_LoadFunctions(void)
 	Shader_LoadFunctions();
 	Shader_CleanPrograms();
 
-#if 1
+#if 0
 	return Shader_Compile();
 #else
 	return true;
@@ -515,7 +512,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	if (pTexInfo->format == GL_TEXFMT_P_8 || pTexInfo->format == GL_TEXFMT_AP_88)
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{
@@ -558,7 +555,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	else if (pTexInfo->format == GL_TEXFMT_ALPHA_INTENSITY_88)
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{
@@ -576,7 +573,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	else if (pTexInfo->format == GL_TEXFMT_ALPHA_8) // Used for fade masks
 	{
 		GLTexture_AllocBuffer(pTexInfo);
-		ptex = tex = TextureBuffer;
+		ptex = tex = textureBuffer;
 
 		for (j = 0; j < h; j++)
 		{
@@ -621,9 +618,8 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 
 	if (update)
 		pglTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
-    // bitten temp
-	//else
-		//pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
+	else
+		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
 
 	if (MipmapEnabled)
 		pglGenerateMipmap(GL_TEXTURE_2D);
@@ -1599,6 +1595,8 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 {
 	float xfix, yfix;
 	INT32 texsize = 512;
+	extern Uint16 realwidth, realheight;
+	
 
 	const float screenVerts[12] =
 	{
@@ -1629,9 +1627,10 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 	fix[6] = xfix;
 	fix[7] = 0.0f;
 
+	pglViewport(0, 0, realwidth, realheight);
 	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-	pglBindTexture(GL_TEXTURE_2D, screentexture);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 	PreparePolygon(surf, NULL, surf ? polyflags : (PF_NoDepthTest));
 	if (!surf)
 	{
@@ -1647,7 +1646,7 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 #endif
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
-	tex_downloaded = screentexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 // Do screen fades!
@@ -1669,7 +1668,7 @@ EXPORT void HWRAPI(DoTintedWipe) (boolean isfadingin, boolean istowhite)
 EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 {
 	INT32 texsize = 512;
-	boolean firstTime = (screentexture == 0);
+	boolean firstTime = (screenTextures[tex] == 0);
 
 	// look for power of two that is large enough for the screen
 	while (texsize < screen_width || texsize < screen_height)
@@ -1677,8 +1676,8 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 
 	// Create screen texture
 	if (firstTime)
-		pglGenTextures(1, &screentexture);
-	pglBindTexture(GL_TEXTURE_2D, screentexture);
+		pglGenTextures(1, &screenTextures[tex]);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 
 	if (firstTime)
 	{
@@ -1691,7 +1690,7 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 	else
 		pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texsize, texsize);
 
-	tex_downloaded = screentexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
@@ -1754,7 +1753,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
 	clearColour.red = clearColour.green = clearColour.blue = 0;
 	clearColour.alpha = 1;
 	ClearBuffer(true, false, &clearColour);
-	pglBindTexture(GL_TEXTURE_2D, finalScreenTexture);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 
 	Shader_SetUniforms(NULL, &white, NULL, NULL);
 
@@ -1767,29 +1766,17 @@ EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
 #endif
 
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	tex_downloaded = finalScreenTexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 EXPORT void HWRAPI(SetPaletteLookup) (UINT8 *lut)
 {
 	GLenum internalFormat;
-#if 0
-	if (gl_version[0] == '1' || gl_version[0] == '2')
-	{
-		// if the OpenGL version is below 3.0, then the GL_R8 format may not be available.
-		// so use GL_LUMINANCE8 instead to get a single component 8-bit format
-		// (it is possible to have access to shaders even in some OpenGL 1.x systems,
-		// so palette rendering can still possibly be achieved there)
-		internalFormat = GL_LUMINANCE8;
-	}
-	else
-	{
-		internalFormat = GL_R8;
-	}
-#endif
+	internalFormat = GL_LUMINANCE;
 	if (!paletteLookupTex)
 		pglGenTextures(1, &paletteLookupTex);
 	pglActiveTexture(GL_TEXTURE1);
+#if 0 // bitten temp
 	pglBindTexture(GL_TEXTURE_3D, paletteLookupTex);
 	pglTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	pglTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1799,6 +1786,7 @@ EXPORT void HWRAPI(SetPaletteLookup) (UINT8 *lut)
 #else
 		0, 0, GL_UNSIGNED_BYTE, lut);
 #endif
+	#endif
 	pglActiveTexture(GL_TEXTURE0);
 }
 
@@ -1866,7 +1854,7 @@ EXPORT void HWRAPI(ClearLightTables) (void)
 
 EXPORT void HWRAPI(SetScreenPalette) (RGBA_t *palette)
 {
-#if 1
+#if 0
 	(void)palette;
 	return;
 #else

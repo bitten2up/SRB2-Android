@@ -192,7 +192,7 @@ int main(int argc, char **argv)
 
 #ifdef LOGMESSAGES
 	if (!M_CheckParm("-nolog"))
-		I_InitLogging();
+		InitLogging();
 #endif/*LOGMESSAGES*/
 
 	//I_OutputMsg("I_StartupSystem() ...\n");

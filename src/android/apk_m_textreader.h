@@ -10,7 +10,7 @@
 /// \file  apk_m_textreader.h
 /// \brief Text reader
 
-#include "doomtype.h"
+#include "../doomtype.h"
 
 #ifndef __APK_M_TEXTREADER__
 #define __APK_M_TEXTREADER__

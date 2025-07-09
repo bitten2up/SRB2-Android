@@ -57,7 +57,7 @@
 #ifdef TOUCHINPUTS
 #include "ts_draw.h"
 #endif
-#include "apk_main.h"
+#include "android/apk_main.h"
 
 UINT16 objectsdrawn = 0;
 
@@ -835,8 +835,11 @@ static void ST_drawLivesArea(void)
 	boolean notgreyedout = false;
 
 	// Android
-	INT32 x, y, f;
 	hudinfo_t *lives = APK_ST_GetLivesHUDInfo();
+	INT32 x = (lives->x + 58);
+	INT32 y = (lives->y + 8);
+	INT32 f = lives->f;
+	(void)x;
 
 	if (!stplyr->skincolor)
 		return; // Just joined a server, skin isn't loaded yet!
@@ -886,11 +889,6 @@ static void ST_drawLivesArea(void)
 		V_DrawSmallMappedPatch(hudinfo[HUD_LIVES].x, hudinfo[HUD_LIVES].y,
 			hudinfo[HUD_LIVES].f|V_PERPLAYER|V_HUDTRANS, faceprefix[stplyr->skin], colormap);
 	}
-
-	// Set data for the Android HUD
-	x = (lives->x + 58);
-	y = (lives->y + 8);
-	f = lives->f;
 
 	// Metal Sonic recording
 	if (metalrecording)
@@ -1070,23 +1068,12 @@ static void ST_drawInput(void)
 	INT32 col;
 	UINT8 offs;
 
-	// Bitten: android shit, assming it moves the hud based on if you are using touchinputs or not
-	INT32 x, y, f;
-	hudinfo_t *android_pos;
+	INT32 x = hudinfo[HUD_INPUT].x, y = hudinfo[HUD_INPUT].y;
 
-	if (APK_ST_UseAltLivesHUD())
-	{
-		// We can replace our previous HUD location with the inputs!
-		android_pos = &hudinfo[HUD_LIVES];
-	}
-	else
-	{
-		// Render the inputs above the lives!
-		android_pos = &hudinfo[HUD_INPUT];
-	}
-	x = android_pos->x;
-	y = hudinfo[HUD_INPUT].y;
-	f = hudinfo[HUD_INPUT].f;
+	// Bitten: android shit, assming it moves the hud based on if you are using touchinputs or not
+	INT32 f;
+	hudinfo_t *android_pos;
+	APK_ST_SetInputPosition(&x, &y, &f, &android_pos);
 
 	if (hu_showscores)
 		return;

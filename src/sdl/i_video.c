@@ -100,12 +100,13 @@
 #endif
 
 // Android
+#include "../android/apk_main.h"
+#include "../android/apk_nativescreenres.h"
 #ifdef TOUCHINPUTS
 #include "../ts_main.h"
 #include "../ts_draw.h"
 #endif
-#include "../apk_main.h"
-#include "../m_misc.h"
+#include "../m_misc.h" // takescreenshot
 
 #if defined(SPLASH_SCREEN) && defined(HAVE_PNG)
 	#ifndef _LARGEFILE64_SOURCE
@@ -188,6 +189,7 @@ static       SDL_bool    wrapmouseok = SDL_FALSE;
 // STAR NOTE: hi
 static       SDL_bool    renderinit = SDL_FALSE;
 #endif
+static       SDL_bool    exposevideo = SDL_FALSE;
 static       SDL_bool    usesdl2soft = SDL_FALSE;
 static       SDL_bool    borderlesswindow = SDL_FALSE;
 
@@ -198,6 +200,7 @@ static       SDL_bool    appOnBackground = SDL_FALSE;
 Uint16      realwidth = BASEVIDWIDTH;
 Uint16      realheight = BASEVIDHEIGHT;
 
+static SDL_Rect src_rect = { 0, 0, 0, 0 };
 
 // SDL2 vars
 SDL_Window   *window;
@@ -205,7 +208,6 @@ SDL_Renderer *renderer;
 static SDL_Texture  *texture;
 static SDL_bool      havefocus = SDL_TRUE;
 
-// Android
 static SDL_bool video_init = SDL_FALSE;
 
 static SDL_bool Impl_CreateWindow(SDL_bool fullscreen);
@@ -215,7 +217,7 @@ static void Impl_VideoSetupBuffer(void);
 
 static void Impl_SetupSoftwareBuffer(void);
 
-static void Impl_InitOpenGL(void);
+static void Impl_BlitSurfaceRegion(void);
 
 static void Impl_SetWindowIcon(void);
 
@@ -364,9 +366,11 @@ static SDL_bool Impl_RenderContextDestroy(void)
 	if (rendermode == render_opengl)
 	{
 		SDL_GL_MakeCurrent(window, sdlglcontext);
+		OglSdlSurface(realwidth, realheight);
+		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
+		glanisotropicmode_cons_t[1].value = maximumAnisotropy;
 		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
 
-		OglSdlSurface(realwidth, realheight);
 		HWR_Startup();
 
 #if defined(__ANDROID__)
@@ -470,7 +474,8 @@ static SDL_bool SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen, SDL_b
 			// Reposition window only in windowed mode
 			SDL_SetWindowSize(window, width, height);
 
-#if !defined(__ANDROID__)
+			// STAR NOTE: maybe..... just maybe....
+//#if !defined(__ANDROID__)
 			if (reposition)
 			{
 				SDL_SetWindowPosition(window,
@@ -478,9 +483,9 @@ static SDL_bool SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen, SDL_b
 					SDL_WINDOWPOS_CENTERED_DISPLAY(SDL_GetWindowDisplayIndex(window))
 				);
 			}
-#else
-			(void)reposition;
-#endif
+//#else
+//			(void)reposition;
+//#endif
 		}
 	}
 	else
@@ -908,7 +913,7 @@ static void Impl_HandleWindowEvent(SDL_WindowEvent evt)
 				if (cv_nativeresauto.value)
 				{
 					char f[16];
-					snprintf(f, sizeof(f), "%.6f", scr_resdiv);
+					snprintf(f, sizeof(f), "%.6f", android_data.scr_resdiv);
 					CV_StealthSet(&cv_nativeresdiv, f);
 				}
 			}
@@ -1827,14 +1832,29 @@ void I_OsPolling(void)
 //
 void I_UpdateNoBlit(void)
 {
-
+	if (rendermode == render_none)
+		return;
+	if (exposevideo)
+	{
+#ifdef HWRENDER
+		if (rendermode == render_opengl)
+		{
+			OglSdlFinishUpdate(cv_vidwait.value);
+		}
+		else
+#endif
+		if (rendermode == render_soft)
+		{
+			SDL_RenderCopy(renderer, texture, NULL, NULL);
+			SDL_RenderPresent(renderer);
+		}
+	}
+	exposevideo = SDL_FALSE;
 }
 
 //
 // I_FinishUpdate
 //
-static SDL_Rect src_rect = { 0, 0, 0, 0 };
-
 void I_FinishUpdate(void)
 {
 	if (rendermode == render_none)
@@ -1859,6 +1879,7 @@ void I_FinishUpdate(void)
 		SCR_DisplayLocalPing();
 
 #ifdef TOUCHINPUTS
+	// SRB2Android
 	if (touchscreenavailable && cv_showfingers.value && !(takescreenshot && !cv_touchscreenshots.value))
 		TS_DrawFingers();
 #endif
@@ -1868,7 +1889,7 @@ void I_FinishUpdate(void)
 		if (!bufSurface) // Double-check
 			Impl_VideoSetupBuffer();
 
-		Impl_BlitSurfaceRegion(0, 0, 0, 0);
+		Impl_BlitSurfaceRegion();
 
 		SDL_RenderClear(renderer);
 		SDL_RenderCopy(renderer, texture, &src_rect, NULL);
@@ -1888,6 +1909,8 @@ void I_FinishUpdate(void)
 		OglSdlFinishUpdate(cv_vidwait.value);
 	}
 #endif
+
+	exposevideo = SDL_FALSE;
 }
 
 //
@@ -1992,7 +2015,7 @@ void VID_CheckGLLoaded(rendermode_t oldrender)
 #ifdef HWRENDER
 	if (vid.glstate == VID_GL_LIBRARY_ERROR) // Well, it didn't work the first time anyway.
 	{
-		renderswitcherror = render_opengl;
+		android_data.renderer_switcherror = render_opengl;
 		rendermode = oldrender;
 		if (chosenrendermode == render_opengl) // fallback to software
 			rendermode = render_soft;
@@ -2039,18 +2062,20 @@ INT32 VID_CheckRenderer(void)
 				VID_StartupOpenGL();
 			else if (vid.glstate == VID_GL_LIBRARY_ERROR)
 			{
-				renderswitcherror = rendermode;
+				android_data.renderer_switcherror = rendermode;
 				rendererchanged = false;
 			}
 		}
 #endif
 
 #if 1
+#ifdef HWRENDER
 		if (vid.glstate == VID_GL_LIBRARY_LOADED)
 		{
 			// From there, the OpenGL context was already created.
 			contextcreated = true;
 		}
+#endif
 
 		// STAR NOTE: hi
 #if !defined(__ANDROID__)
@@ -2202,8 +2227,8 @@ INT32 VID_SetMode(INT32 modeNum)
 
 		VID_GetNativeResolution(&w, &h);
 
-		vid.width = (INT32)((float)w / scr_resdiv);
-		vid.height = (INT32)((float)h / scr_resdiv);
+		vid.width = (INT32)((float)w / android_data.scr_resdiv);
+		vid.height = (INT32)((float)h / android_data.scr_resdiv);
 
 		if (vid.width > MAXVIDWIDTH)
 			vid.width = MAXVIDWIDTH;
@@ -2231,18 +2256,16 @@ INT32 VID_SetMode(INT32 modeNum)
 	}
 
 	//Impl_SetWindowName("SRB2 "VERSIONSTRING);
-#if 1
 	src_rect.w = vid.width;
 	src_rect.h = vid.height;
 
 	refresh_rate = VID_GetRefreshRate();
-#endif
 
 	VID_CheckRenderer();
 	return SDL_TRUE;
 }
 
-void Impl_BlitSurfaceRegion(INT32 x, INT32 y, INT32 w, INT32 h)
+static void Impl_BlitSurfaceRegion(void)
 {
 	SDL_BlitSurface(bufSurface, &src_rect, vidSurface, &src_rect);
 	// Fury -- there's no way around UpdateTexture, the GL backend uses it anyway
@@ -2648,7 +2671,7 @@ void VID_StartupOpenGL(void)
 	HWD.pfnDeleteModelData  = hwSym("DeleteModelData",NULL);
 #endif
 
-	if (HWD.pfnInit())
+	if (GLBackend_Init())
 		vid.glstate = VID_GL_LIBRARY_LOADED;
 	else
 	{
@@ -2659,7 +2682,7 @@ void VID_StartupOpenGL(void)
 
 		if (setrenderneeded)
 		{
-			renderswitcherror = render_opengl;
+			android_data.renderer_switcherror = render_opengl;
 			setrenderneeded = 0;
 		}
 	}
@@ -2859,6 +2882,7 @@ SDL_bool Impl_LoadSplashScreen(void)
 	// STAR NOTE: hi
 	rendermode = render_none;
 #else
+	// STAR NOTE: this here is unnecessary i believe
 	rendermode = render_soft;
 
 	src_rect.w = vid.width;
@@ -2868,7 +2892,7 @@ SDL_bool Impl_LoadSplashScreen(void)
 #if 0
 	if (SDLSetMode(swidth, sheight, USE_FULLSCREEN, SDL_TRUE) == SDL_FALSE)
 #else
-	// STAR NOTE: hi
+	// STAR NOTE: hi (again!)
 	if (SDLSetMode(vid.width, vid.height, USE_FULLSCREEN, SDL_TRUE) == SDL_FALSE)
 #endif
 		return SDL_FALSE;
@@ -2911,7 +2935,7 @@ void APK_I_ShowSplashScreen(void)
 	do
 #endif
 	{
-		Impl_BlitSurfaceRegion(0, 0, realwidth, realheight);
+		Impl_BlitSurfaceRegion();
 		SDL_RenderClear(renderer);
 		if (texture)
 			SDL_RenderCopy(renderer, texture, NULL, NULL);
@@ -2971,7 +2995,7 @@ void I_ReportProgress(int progress)
 	base.w = realwidth;
 	base.h = realheight;
 
-	Impl_BlitSurfaceRegion(0, 0, realwidth, realheight);
+	Impl_BlitSurfaceRegion();
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 
 	// dim screen

@@ -73,9 +73,10 @@
 #endif
 
 // Android
-#include "../apk_main.h"
-#include "../apk_m_textreader.h"
+#include "../android/apk_main.h"
+#include "../android/apk_m_textreader.h"
 #include "../w_handle.h"
+#define STAR_MODEL_TEST 1
 
 md2_t md2_models[NUMSPRITES];
 md2_t *md2_playermodels = NULL;
@@ -453,7 +454,7 @@ void HWR_InitModels(void)
 	for (s = 0; s < numskins; s++)
 	{
 		md2_playermodels[s].scale = -1.0f;
-		md2_playermodels[i].offset = 0.0f;
+		md2_playermodels[s].offset = 0.0f;
 		md2_playermodels[s].model = NULL;
 		md2_playermodels[s].grpatch = NULL;
 		md2_playermodels[s].notexturefile = false;
@@ -1342,7 +1343,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 	modelspr2frames_t *spr2frames = NULL;
 	FTransform p;
 	FSurfaceInfo Surf;
-	FBITFIELD flags;
 
 	if (!cv_glmodels.value)
 		return false;
@@ -1510,6 +1510,9 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				// note down the max_s and max_t that end up in the VBO
 				md2->model->vbo_max_s = md2->model->max_s;
 				md2->model->vbo_max_t = md2->model->max_t;
+#ifndef STAR_MODEL_TEST
+				HWD.pfnCreateModelVBOs(md2->model);
+#endif
 			}
 			else
 			{
@@ -1518,13 +1521,14 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				return false;
 			}
 		}
+#ifdef STAR_MODEL_TEST
 		if (!md2->model->hasVBOs)
 		{
 			HWD.pfnCreateModelVBOs(md2->model);
 			md2->model->hasVBOs = true;
 		}
+#endif
 
-		//finalscale = md2->scale;
 		//HWD.pfnSetBlend(blend); // This seems to actually break translucency?
 		//Hurdler: arf, I don't like that implementation at all... too much crappy
 
@@ -1749,7 +1753,9 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 		}
 	}
 
+#ifdef STAR_MODEL_TEST
 	HWD.pfnSetShader(SHADER_NONE);
+#endif
 
 	return true;
 }

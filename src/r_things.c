@@ -794,11 +794,10 @@ void R_InitSprites(void)
 	ST_ReloadSkinFaceGraphics();
 
 #ifdef HWRENDER
-	if (rendermode == render_opengl)
 #if 0
+	// STAR NOTE: yeah i had to just... remove it.... right quick :p
+	if (rendermode == render_opengl)
 		HWR_LoadModels();
-#else
-		;
 #endif
 #endif
 }

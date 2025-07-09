@@ -18,6 +18,8 @@
 #include "ts_draw.h"
 #include "ts_custom.h"
 
+#include "android/apk_main.h"
+
 #include "d_event.h"
 #include "g_input.h"
 
@@ -291,8 +293,7 @@ boolean TS_SaveLayouts(void)
 	touchlayout_t *layout = touchlayouts;
 	INT32 i;
 
-	if (!I_StoragePermission())
-		return false;
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
 
 	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, TOUCHLAYOUTSFILE), "w");
 	if (!f)
@@ -547,8 +548,9 @@ boolean TS_LoadSingleLayout(INT32 ilayout)
 	INT32 igc;
 	touchconfig_t *button = NULL;
 
-	if (layout->loaded || !I_StoragePermission())
+	if (layout->loaded)
 		return true;
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
 
 	strcpy(filename, layout->filename);
 	FIL_ForceExtension(filename, ".cfg");
@@ -636,9 +638,8 @@ boolean TS_SaveSingleLayout(INT32 ilayout)
 	strcpy(filename, layout->filename);
 	FIL_ForceExtension(filename, ".cfg");
 
-	if (I_StoragePermission())
-		f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, filename), "w");
-
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
+	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, filename), "w");
 	if (!f)
 	{
 		S_StartSound(NULL, sfx_lose);
@@ -647,6 +648,7 @@ boolean TS_SaveSingleLayout(INT32 ilayout)
 			"\x85""Failed to save layout!\n"
 			"\n\x80%s"),
 			layout->name, M_GetUserActionString(PRESS_A_KEY_MESSAGE)));
+		APK_CHECK_FOR_STORAGE_ACCESS({NULL;})
 		return false;
 	}
 

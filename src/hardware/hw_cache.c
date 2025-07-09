@@ -276,10 +276,6 @@ static void HWR_DrawFlippedColumnInCache(const column_t *patchcol, UINT8 *block,
 					colortemp.s.alpha = alpha;
 					if ((originPatch != NULL) && (originPatch->style != AST_COPY))
 					{
-#if 0
-                        // BITTEN NOTE: bitten temp:
-                        continue;
-#endif
 						RGBA_t rgbatexel;
 						rgbatexel.rgba = *(UINT32 *)dest;
 						colortemp.rgba = ASTBlendTexturePixel(rgbatexel, colortemp, originPatch->style, originPatch->alpha);
@@ -322,13 +318,13 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 
 	palette = HWR_GetTexturePalette();
 
-	ncols = pwidth;
+	ncols = (pwidth * pblockwidth) / pwidth;
 
 	// source advance
 	xfrac = 0;
-	xfracstep = FRACUNIT;
-	yfracstep = FRACUNIT;
-	scale_y   = FRACUNIT;
+	xfracstep = (pwidth        << FRACBITS) / pblockwidth;;
+	yfracstep = (pheight       << FRACBITS) / pblockheight;
+	scale_y   = (pblockheight  << FRACBITS) / pheight;
 
 	bpp = format2bpp(mipmap->format);
 
@@ -336,7 +332,7 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 		I_Error("HWR_DrawPatchInCache: no drawer defined for this bpp (%d)\n",bpp);
 
 	// NOTE: should this actually be pblockwidth*bpp?
-	blockmodulo = pblockwidth*bpp;
+	blockmodulo = blockwidth*bpp;
 
 	// Draw each column to the block cache
 	for (; ncols--; block += bpp, xfrac += xfracstep)
@@ -424,12 +420,7 @@ static void HWR_DrawTexturePatchInCache(GLMipmap_t *mipmap,
 		I_Error("HWR_DrawTexturePatchInCache: no drawer defined for this bpp (%d)\n",bpp);
 
 	// NOTE: should this actually be pblockwidth*bpp?
-#if 0
 	blockmodulo = blockwidth*bpp;
-#else
-	// STAR NOTE: can't test until OpenGL works lol
-	blockmodulo = pblockwidth*bpp;
-#endif
 
 	// Draw each column to the block cache
 	for (block += col*bpp; ncols--; block += bpp, xfrac += xfracstep)
@@ -485,6 +476,8 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex, GLMipmap_t 
 	INT32 i;
 
 	texture = textures[texnum];
+
+	HWR_ResizeBlock(texture->width, texture->height);
 
 	blockwidth = texture->width;
 	blockheight = texture->height;
@@ -547,7 +540,7 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 	if (grMipmap->width == 0)
 	{
 		HWR_ResizeBlock(patch->width, patch->height);
-#if 0
+#if 1
 		grMipmap->width = (UINT16)blockwidth;
 		grMipmap->height = (UINT16)blockheight;
 #else
@@ -829,7 +822,7 @@ GLMapTexture_t *HWR_GetTexture(INT32 tex, boolean chromakeyed)
 		grMipmap = originalMipmap->nextcolormap;
 	}
 
-	if (grMipmap->data == NULL)
+	if (!grMipmap->data)
 		HWR_GenerateTexture(tex, grtex, grMipmap);
 
 	if (!grMipmap->downloaded)

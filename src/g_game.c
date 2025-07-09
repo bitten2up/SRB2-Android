@@ -57,7 +57,7 @@
 #ifdef TOUCHINPUTS
 #include "ts_main.h"
 #endif
-#include "apk_main.h"
+#include "android/apk_main.h"
 
 gameaction_t gameaction;
 gamestate_t gamestate = GS_NULL;
@@ -2070,14 +2070,13 @@ static INT32 camtoggledelay, camtoggledelay2 = 0;
 
 static boolean ViewpointSwitchResponder(event_t *ev)
 {
-	// ViewpointSwitch Lua hook.
-	UINT8 canSwitchView = 0;
-
 	INT32 direction = 0;
+
 	if (ev->key == KEY_F12 || ev->key == gamecontrol[GC_VIEWPOINTNEXT][0] || ev->key == gamecontrol[GC_VIEWPOINTNEXT][1])
 		direction = 1;
 	if (ev->key == gamecontrol[GC_VIEWPOINTPREV][0] || ev->key == gamecontrol[GC_VIEWPOINTPREV][1])
 		direction = -1;
+
 	// This enabled reverse-iterating with shift+F12, sadly I had to
 	// disable this in case your shift key is bound to a control =((
 	//if (shiftdown)
@@ -4505,11 +4504,7 @@ void G_LoadGameData(gamedata_t *data)
 		return;
 	}
 
-	if (!I_StoragePermission())
-	{
-		// Android: we don't have access to the storage, so leave!
-		return;
-	}
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (M_CheckParm("-resetdata"))
 	{
@@ -4729,8 +4724,10 @@ void G_SaveGameData(gamedata_t *data)
 	if (!data)
 		return; // data struct not valid
 
-	if (!data->loaded || !I_StoragePermission())
+	if (!data->loaded)
 		return; // If never loaded (-nodata), don't save
+
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	savebuffer.size = GAMEDATASIZE;
 	savebuffer.buf = (UINT8 *)malloc(savebuffer.size);
@@ -4860,8 +4857,7 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 	// memset savedata to all 0, fixes calling perfectly valid saves corrupt because of bots
 	memset(&savedata, 0, sizeof(savedata));
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 #ifdef SAVEGAME_OTHERVERSIONS
 	//Oh christ.  The force load response needs access to mapoverride too...
@@ -4951,8 +4947,7 @@ void G_SaveGame(UINT32 slot, INT16 mapnum)
 	char savename[256] = "";
 	const char *backup;
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (marathonmode)
 		strcpy(savename, curliveeventbackup);
@@ -5008,8 +5003,7 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 	char savename[255];
 	const char *backup;
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (marathonmode)
 		strcpy(savename, curliveeventbackup);

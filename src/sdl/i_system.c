@@ -2620,104 +2620,6 @@ void I_RemoveExitFunc(void (*func)())
 	}
 }
 
-#ifdef LOGMESSAGES
-void I_InitLogging(void)
-{
-	const char *logdir = NULL;
-	time_t my_time;
-	struct tm * timeinfo;
-	const char *format;
-	const char *reldir;
-	int left;
-	boolean fileabs;
-#ifdef LOGSYMLINK
-	const char *link;
-#endif
-
-	logdir = D_Home();
-
-	my_time = time(NULL);
-	timeinfo = localtime(&my_time);
-
-	if (M_CheckParm("-logfile") && M_IsNextParm())
-	{
-		format = M_GetNextParm();
-		fileabs = M_IsPathAbsolute(format);
-	}
-	else
-	{
-		format = "log-%Y-%m-%d_%H-%M-%S.txt";
-		fileabs = false;
-	}
-
-	if (fileabs)
-	{
-		strftime(logfilename, sizeof logfilename, format, timeinfo);
-	}
-	else
-	{
-		if (M_CheckParm("-logdir") && M_IsNextParm())
-			reldir = M_GetNextParm();
-		else
-			reldir = "logs";
-
-		if (M_IsPathAbsolute(reldir))
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP, reldir);
-		}
-		else
-#if defined(__ANDROID__)
-		if (logdir)
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP "%s"PATHSEP, logdir, reldir);
-		}
-		else
-#elif defined(DEFAULTDIR)
-		if (logdir)
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP DEFAULTDIR PATHSEP"%s"PATHSEP, logdir, reldir);
-		}
-		else
-#endif
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"."PATHSEP"%s"PATHSEP, reldir);
-		}
-
-		strftime(&logfilename[left], sizeof logfilename - left,
-				format, timeinfo);
-	}
-
-	M_MkdirEachUntil(logfilename,
-			M_PathParts(logdir) - 1,
-			M_PathParts(logfilename) - 1, 0755);
-
-#ifdef LOGSYMLINK
-	logstream = fopen(logfilename, "w");
-#ifdef DEFAULTDIR
-	if (logdir)
-		link = va("%s/"DEFAULTDIR"/latest-log.txt", logdir);
-	else
-#endif/*DEFAULTDIR*/
-		link = "latest-log.txt";
-	unlink(link);
-	if (symlink(logfilename, link) == -1)
-	{
-		I_OutputMsg("Error symlinking latest-log.txt: %s\n", strerror(errno));
-	}
-#elif defined(__ANDROID__)
-	logstream = fopen(va("%s/latest-log.txt", I_SharedStorageLocation()), "wt+");
-#else/*LOGSYMLINK*/
-	logstream = fopen("latest-log.txt", "wt+");
-#endif
-}
-#else
-void I_InitLogging(void) {}
-#endif
-
 #ifndef LOGSYMLINK
 static void Shittycopyerror(const char *name)
 {
@@ -3356,32 +3258,27 @@ size_t I_GetFreeMem(size_t *total)
 INT32 I_CheckSystemPermission(const char *permission)
 {
 #if defined(__ANDROID__)
-	if (JNI_CheckPermission(permission))
-		return 1;
+	return (INT32)JNI_CheckPermission(permission);
 #else
 	(void)permission;
-#endif
 	return 0;
+#endif
 }
 
 INT32 I_RequestSystemPermission(const char *permission)
 {
 #if defined(__ANDROID__)
-	if (SDL_AndroidRequestPermission(permission))
-		return 1;
+	return (INT32)SDL_AndroidRequestPermission(permission);
 #else
 	(void)permission;
-#endif
 	return 0;
+#endif
 }
 
 INT32 I_StoragePermission(void)
 {
 #if defined(__ANDROID__)
-	if (JNI_StoragePermissionGranted())
-		return 1;
-	else
-		return 0;
+	return (INT32)JNI_StoragePermissionGranted();
 #else
 	return 1;
 #endif
@@ -3390,10 +3287,7 @@ INT32 I_StoragePermission(void)
 INT32 I_SystemStoragePermission(void)
 {
 #if defined(__ANDROID__)
-	if (JNI_CheckStoragePermission())
-		return 1;
-	else
-		return 0;
+	return (INT32)JNI_CheckStoragePermission();
 #else
 	return 1;
 #endif

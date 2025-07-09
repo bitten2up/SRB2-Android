@@ -2,10 +2,19 @@
 # Makefile for feature flags.
 #
 
+#passthru_opts+=\
+#	NO_IPV6 NOHW NOMD5 NOPOSTPROCESSING\
+#	MOBJCONSISTANCY PACKETDROP ZDEBUG\
+#	NOUPNP NOEXECINFO\
+
+# ANDROID START #
 passthru_opts+=\
-	NO_IPV6 NOHW NOMD5 NOPOSTPROCESSING\
+	NO_IPV6 NOMD5 NOPOSTPROCESSING\
 	MOBJCONSISTANCY PACKETDROP ZDEBUG\
 	NOUPNP NOEXECINFO\
+
+include xtra/Makefile.d/xtra.mk
+# ANDROID DONE #
 
 # build with debugging information
 ifdef DEBUGMODE
@@ -14,9 +23,7 @@ opts+=-DPARANOIA -DRANGECHECK
 endif
 
 ifndef NOHW
-opts+=-DHWRENDER -DHAVE_GLES -DHAVE_GLES2
 sources+=$(call List,hardware/Sourcefile)
-sources+=hardware/r_gles/r_gles2.c
 endif
 
 ifndef NOMD5

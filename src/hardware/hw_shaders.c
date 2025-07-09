@@ -13,12 +13,12 @@
 
 #include "hw_glob.h"
 #include "hw_drv.h"
-#include "hw_shaders.h"
 #ifdef HAVE_GLES2
 	#include "shaders/shaders_gles2.h"
 #else
 	#include "shaders/shaders_gl2.h"
 #endif
+#include "hw_shaders.h"
 #include "../z_zone.h"
 
 // ================
@@ -90,6 +90,9 @@ static struct {
 	{NULL, NULL},
 };
 
+#if 1
+// STAR NOTE: come back here right now stupid
+
 typedef struct
 {
 	int base_shader; // index of base shader_t
@@ -109,6 +112,7 @@ typedef struct
 //static shader_t gl_shaders[NUMSHADERTARGETS*2];
 
 static shadertarget_t gl_shadertargets[NUMSHADERTARGETS];
+#endif
 
 #define WHITESPACE_CHARS " \t"
 
@@ -120,16 +124,12 @@ static shadertarget_t gl_shadertargets[NUMSHADERTARGETS];
 boolean HWR_InitShaders(void)
 {
 	int i;
-    CONS_Printf("hit\n");
 
 	if (!HWD.pfnInitShaders())
 		return false;
-    CONS_Printf("hit 2\n");
 
-    CONS_Printf("\nnumshadertargets - %i\n\n",NUMSHADERTARGETS);
 	for (i = 0; i < NUMSHADERTARGETS; i++)
 	{
-        CONS_Printf("HIT 3: num %i", i);
 		// set up string pointers for base shaders
 		gl_shaders[i].vertex = Z_StrDup(gl_shadersources[i].vertex);
 		gl_shaders[i].fragment = Z_StrDup(gl_shadersources[i].fragment);
@@ -137,11 +137,7 @@ boolean HWR_InitShaders(void)
 		gl_shadertargets[i].base_shader = i;
 		gl_shadertargets[i].custom_shader = -1;
 	}
-    CONS_Printf("\nhit 4: shaders stored\n");
-#if 0
 	HWR_CompileShaders();
-	CONS_Printf("\nhit 5: shaders compiled\n");
-#endif
 
 	return true;
 }
@@ -506,6 +502,7 @@ static const char version_directives[][14] = {
 	"#version 130\n",
 	"#version 120\n",
 	"#version 110\n",
+	"#version 100\n",
 };
 
 static boolean HWR_VersionDirectiveExists(const char* source)

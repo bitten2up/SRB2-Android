@@ -154,17 +154,18 @@ enum
 	SHADER_SPRITE_ALPHA_TEST,
 	SHADER_MODEL_ALPHA_TEST, SHADER_MODEL_LIGHTING_ALPHA_TEST,
 	SHADER_WATER_ALPHA_TEST,
-
 	SHADER_FADEMASK, SHADER_FADEMASK_ADDITIVEANDSUBTRACTIVE,
 #endif
 
 	NUMSHADERTARGETS
 };
-//#define NUMBASESHADERS NUMSHADERTARGETS
 
 // Maximum amount of shader programs
 // Must be at least NUMSHADERTARGETS*2 to fit base and custom shaders for each shader target.
 #define HWR_MAXSHADERS NUMSHADERTARGETS*2
+
+#if 0
+// STAR NOTE: maybe see about getting rid of this?
 
 // Shader sources (vertex and fragment)
 typedef struct
@@ -172,6 +173,7 @@ typedef struct
 	char *vertex;
 	char *fragment;
 } shadersource_t;
+#endif
 
 // Custom shader reference table
 typedef struct
@@ -310,10 +312,13 @@ enum hwdsetspecialstate
 	HWD_SET_SHADERS,
 	HWD_SET_TEXTUREFILTERMODE,
 	HWD_SET_TEXTUREANISOTROPICMODE,
+	HWD_SET_WIREFRAME,
+
+	// SRB2ANDROID
 	HWD_SET_DITHER,
 	HWD_SET_FRAMEBUFFER,
 	HWD_SET_RENDERBUFFER_DEPTH,
-	HWD_SET_WIREFRAME,
+
 	HWD_NUMSTATE
 };
 

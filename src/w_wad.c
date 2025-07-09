@@ -225,7 +225,7 @@ static char **startupunpack;
 static UINT16 numstartupunpack = 0;
 static UINT16 startupfiles = 0;
 
-static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash);
+static boolean W_CheckUnpacking(addfilelist_t *list);
 static void W_UnpackAlert(alerttype_t level, const char *fmt, ...);
 
 #define UnpackError(err) CONS_Alert(CONS_ERROR, err, __FUNCTION__, filename)
@@ -345,9 +345,9 @@ static boolean W_CheckInBaseUnpackList(char *filename)
 	return false;
 }
 
-void W_UnpackMultipleFiles(addfilelist_t *list, boolean checkhash)
+void W_UnpackMultipleFiles(addfilelist_t *list)
 {
-	W_CheckUnpacking(list, checkhash);
+	W_CheckUnpacking(list);
 
 	if (numstartupunpack)
 	{
@@ -477,7 +477,7 @@ boolean W_CanUnpackFile(const char *filename, const char *hash, size_t *filesize
 #endif
 }
 
-static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash)
+static boolean W_CheckUnpacking(addfilelist_t *list)
 {
 	size_t totalsize = 0;
 
@@ -501,8 +501,9 @@ static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash)
 		filenamebuf[MAX_WADPATH - 1] = '\0';
 		nameonly(filenamebuf);
 
-		if (checkhash)
-			hash = list->hashes[fnum];
+#ifndef DEVELOP
+		hash = list->hashes[fnum];
+#endif
 
 		if (!W_CheckInBaseUnpackList(filenamebuf) || !W_CanUnpackFile(list->files[fnum], hash, &size))
 			startupunpack[fnum] = NULL;

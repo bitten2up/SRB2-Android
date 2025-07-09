@@ -60,7 +60,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\apk_m_textreader.c">
+    <ClCompile Include="..\android\apk_m_textreader.c">
       <Filter>Android_APK</Filter>
     </ClCompile>
     <ClInclude Include="..\p5prof.h">
@@ -205,9 +205,6 @@
       <Filter>H_Hud</Filter>
     </ClInclude>
     <ClInclude Include="..\hu_stuff.h">
-      <Filter>H_Hud</Filter>
-    </ClInclude>
-    <ClInclude Include="..\hu_font.h">
       <Filter>H_Hud</Filter>
     </ClInclude>
     <ClInclude Include="..\st_stuff.h">
@@ -716,9 +713,6 @@
       <Filter>H_Hud</Filter>
     </ClCompile>
     <ClCompile Include="..\hu_stuff.c">
-      <Filter>H_Hud</Filter>
-    </ClCompile>
-    <ClCompile Include="..\hu_font.c">
       <Filter>H_Hud</Filter>
     </ClCompile>
     <ClCompile Include="..\st_stuff.c">

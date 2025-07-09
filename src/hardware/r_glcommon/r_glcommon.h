@@ -48,6 +48,16 @@
 #include "SDL.h"
 #endif
 
+#if 0
+	// STAR NOTE: not as simple as the bottom comment because
+	//	APPARENTLY GLclampd chooses to not get defined somehow
+	#ifdef HAVE_SDL
+		#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
+	#endif
+	typedef double GLclampd;
+#endif
+	typedef double GLclampd;
+
 #include "../../doomdata.h"
 #include "../../doomtype.h"
 #include "../../doomdef.h"
@@ -92,8 +102,20 @@ extern FILE *gllogstream;
 #define pglBlendFunc glBlendFunc
 #define pglCullFace glCullFace
 #define pglPolygonOffset glPolygonOffset
+#if 1
+// STAR NOTE: hi
+#define pglScissor glScissor
+#endif
 #define pglEnable glEnable
 #define pglDisable glDisable
+#if 1
+// STAR NOTE: still hi
+#define pglGetFloatv glGetFloatv
+//glGetIntegerv
+//glGetString
+#define pglHint glHint
+#endif
+
 
 /* Depth buffer */
 #define pglDepthMask glDepthMask
@@ -149,10 +171,22 @@ typedef void (R_GL_APIENTRY * PFNglCullFace) (GLenum mode);
 extern PFNglCullFace pglCullFace;
 typedef void (R_GL_APIENTRY * PFNglPolygonOffset) (GLfloat factor, GLfloat units);
 extern PFNglPolygonOffset pglPolygonOffset;
+#if 1
+// STAR NOTE: hi
+typedef void (R_GL_APIENTRY * PFNglScissor) (GLint x, GLint y, GLsizei width, GLsizei height);
+extern PFNglScissor pglScissor;
+#endif
 typedef void (R_GL_APIENTRY * PFNglEnable) (GLenum cap);
 extern PFNglEnable pglEnable;
 typedef void (R_GL_APIENTRY * PFNglDisable) (GLenum cap);
 extern PFNglDisable pglDisable;
+#if 1
+// STAR NOTE: hi
+typedef void (R_GL_APIENTRY * PFNglGetFloatv) (GLenum pname, GLfloat *params);
+extern PFNglGetFloatv pglGetFloatv;
+typedef void (R_GL_APIENTRY * PFNglPolygonMode) (GLenum, GLenum);
+extern PFNglPolygonMode pglPolygonMode;
+#endif
 
 /* Depth buffer */
 typedef void (R_GL_APIENTRY * PFNglDepthFunc) (GLenum func);
@@ -203,7 +237,22 @@ typedef void (R_GL_APIENTRY * PFNglCopyTexSubImage2D) (GLenum target, GLint leve
 extern PFNglCopyTexSubImage2D pglCopyTexSubImage2D;
 typedef void (R_GL_APIENTRY * PFNglTexImage3D) (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 extern PFNglTexImage3D pglTexImage3D;
+
+#if 1
+// STAR NOTE: hi
+/* 1.3 functions for multitexturing */
+typedef void (R_GL_APIENTRY *PFNglMultiTexCoord2f) (GLenum, GLfloat, GLfloat);
+extern PFNglMultiTexCoord2f pglMultiTexCoord2f;
+typedef void (R_GL_APIENTRY *PFNglMultiTexCoord2fv) (GLenum target, const GLfloat *v);
+extern PFNglMultiTexCoord2fv pglMultiTexCoord2fv;
 #endif
+
+#if 1
+/* Vertex Attrib */
+typedef void (R_GL_APIENTRY * PFNglVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+extern PFNglVertexAttribPointer pglVertexAttribPointer;
+#endif
+#endif // STATIC_OPENGL
 
 //
 // Multitexturing
@@ -224,17 +273,21 @@ extern PFNglTexImage3D pglTexImage3D;
 // Mipmapping
 //
 
-#ifdef HAVE_GLES
+// STAR NOTE: testing testing 1234
+
+//#ifdef HAVE_GLES
 /* Texture mapping */
 typedef void (R_GL_APIENTRY * PFNglGenerateMipmap) (GLenum target);
 extern PFNglGenerateMipmap pglGenerateMipmap;
-#endif
+//#endif
 
 //
 // Depth functions
 //
 
-#ifndef HAVE_GLES
+// STAR NOTE: testing testing 1234
+
+//#ifndef HAVE_GLES
 	#ifdef STATIC_OPENGL
 		#define pglClearDepth glClearDepth
 		#define pglDepthFunc glDepthFunc
@@ -244,7 +297,7 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 		typedef void (R_GL_APIENTRY * PFNglDepthRange) (GLclampd near_val, GLclampd far_val);
 		extern PFNglDepthRange pglDepthRange;
 	#endif
-#else
+//#else
 	#ifdef STATIC_OPENGL
 		#define pglClearDepthf glClearDepthf
 		#define pglDepthFuncf glDepthFuncf
@@ -254,7 +307,7 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 		typedef void (R_GL_APIENTRY * PFNglDepthRangef) (GLclampf near_val, GLclampf far_val);
 		extern PFNglDepthRangef pglDepthRangef;
 	#endif
-#endif
+//#endif
 
 //
 // Legacy functions
@@ -287,6 +340,10 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 #define pglLightfv glLightfv
 #define pglLightModelfv glLightModelfv
 #define pglMaterialfv glMaterialfv
+#if 1
+// STAR NOTE: hi
+#define pglMateriali glMateriali
+#endif
 
 /* Texture mapping */
 #define pglTexEnvi glTexEnvi
@@ -333,6 +390,11 @@ typedef void (R_GL_APIENTRY * PFNglLightModelfv) (GLenum pname, GLfloat *params)
 extern PFNglLightModelfv pglLightModelfv;
 typedef void (R_GL_APIENTRY * PFNglMaterialfv) (GLint face, GLenum pname, GLfloat *params);
 extern PFNglMaterialfv pglMaterialfv;
+#if 1
+// STAR NOTE: hi
+typedef void (R_GL_APIENTRY * PFNglMateriali) (GLint face, GLenum pname, GLint param);
+extern PFNglMateriali pglMateriali;
+#endif
 
 /* Texture mapping */
 typedef void (R_GL_APIENTRY * PFNglTexEnvi) (GLenum target, GLenum pname, GLint param);
@@ -400,8 +462,10 @@ extern PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
 //                                                                  FUNCTIONS
 // ==========================================================================
 
+#if 1
 boolean SetupGLfunc(void);
 void SetupGLFunc4(void);
+#endif
 
 #ifdef HAVE_GL_FRAMEBUFFER
 void GLFramebuffer_Generate(void);
@@ -452,6 +516,9 @@ void   *GLBackend_GetFunction(const char *proc);
 	p ## gl ## func = GLBackend_GetFunction("gl" #func); \
 	if (!(p ## gl ## func)) \
 		GL_DBG_Printf("Failed to get OpenGL function %s\n", #func);
+
+// Backwards-compat for regular OpenGL
+#define GetGLFunc(proc) GLBackend_GetFunction(proc)
 
 INT32 GLBackend_GetShaderType(INT32 type);
 INT32 GLBackend_GetAlphaTestShader(INT32 type);
@@ -600,6 +667,7 @@ typedef enum
 /**	\brief OpenGL flags for video driver
 */
 extern INT32 oglflags;
+extern GLint textureformatGL;
 
 extern const GLubyte *gl_version;
 extern const GLubyte *gl_renderer;
@@ -608,16 +676,19 @@ extern const GLubyte *gl_extensions;
 extern GLRGBAFloat white;
 extern GLRGBAFloat black;
 
-extern RGBA_t *TextureBuffer;
+extern RGBA_t *textureBuffer;
+extern size_t textureBufferSize;
 
 extern RGBA_t myPaletteData[];
-extern GLint  textureformatGL;
 
 extern GLint  screen_width;
 extern GLint  screen_height;
 extern GLbyte screen_depth;
 extern GLint  maximumAnisotropy;
+#if 0
+// STAR NOTE: not needed anymore, but eh, you never know
 extern boolean supportMipMap;
+#endif
 
 extern GLboolean MipmapEnabled;
 extern GLboolean MipmapSupported;
@@ -645,7 +716,7 @@ extern GLuint startScreenWipe;
 extern GLuint endScreenWipe;
 extern GLuint finalScreenTexture;
 
-extern RGBA_t screenPalette[]; // the palette for the postprocessing step in palette rendering
+extern RGBA_t screenPalette[256]; // the palette for the postprocessing step in palette rendering
 extern GLuint screenPaletteTex; // 1D texture containing the screen palette
 extern GLuint paletteLookupTex; // 3D texture containing RGB -> palette index lookup table
 

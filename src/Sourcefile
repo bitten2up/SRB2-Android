@@ -10,8 +10,6 @@ f_wipe.c
 g_demo.c
 g_game.c
 g_input.c
-apk_main.c
-apk_m_textreader.c
 ts_main.c
 ts_draw.c
 ts_custom.c
@@ -80,7 +78,6 @@ v_video.c
 s_sound.c
 sounds.c
 w_wad.c
-w_handle.c
 filesrch.c
 lzf.c
 b_bot.c

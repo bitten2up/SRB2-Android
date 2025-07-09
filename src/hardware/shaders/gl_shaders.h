@@ -83,34 +83,49 @@ typedef enum
 #ifdef HAVE_GLES2
 typedef enum
 {
-	glattribute_position,     // LOC_POSITION
-	glattribute_texcoord,     // LOC_TEXCOORD + LOC_TEXCOORD0
-	glattribute_normal,       // LOC_NORMAL
-	glattribute_colors,       // LOC_COLORS
-	glattribute_fadetexcoord, // LOC_TEXCOORD1
+	glesattribute_position,     // LOC_POSITION
+	glesattribute_texcoord,     // LOC_TEXCOORD + LOC_TEXCOORD0
+	glesattribute_normal,       // LOC_NORMAL
+	glesattribute_colors,       // LOC_COLORS
+	glesattribute_fadetexcoord, // LOC_TEXCOORD1
 
-	glattribute_max,
-} glattribute_t;
+	glesattribute_max,
+} glesattribute_t;
 #endif
 
+// STAR NOTE: alright, here's our main point of contention...
 typedef struct gl_shader_s
 {
-	char *vertex;
-	char *fragment;
+	char *vertex; //char *vertex_shader;
+	char *fragment; //char *fragment_shader;
 	GLuint program;
 	GLint uniforms[gluniform_max+1];
 	boolean compiled;
 #ifdef HAVE_GLES2
-	GLint gles_attributes[glattribute_max+1];
+	GLint gles_attributes[glesattribute_max+1];
 	fmatrix4_t gles_projMatrix;
 	fmatrix4_t gles_viewMatrix;
 	fmatrix4_t gles_modelMatrix;
 #endif
 } gl_shader_t;
+#if 0
+// STAR NOTE: for reference
+typedef struct gl_shader_s
+{
+	char *vertex_shader;
+	char *fragment_shader;
+	GLuint program;
+	GLint uniforms[gluniform_max+1];
+} gl_shader_t;
+#endif
 
 extern gl_shader_t gl_shaders[HWR_MAXSHADERS];
+// i fucked up and accidently removed this from gl_shaders.c, fix later though i doubt anyone will fucking care -bitten
 extern gl_shader_t gl_usershaders[HWR_MAXSHADERS];
-extern shadersource_t gl_customshaders[HWR_MAXSHADERS];
+#if 1
+// STAR NOTE: i'm not paid enough to understand this
+extern gl_shader_t gl_fallback_shader;
+#endif
 
 // 09102020
 typedef struct gl_shaderstate_s

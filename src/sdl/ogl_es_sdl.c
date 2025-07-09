@@ -34,10 +34,6 @@
 #include "hwsym_sdl.h"
 #include "../m_argv.h"
 
-//PFNglClear pglClear;
-//PFNglGetIntegerv pglGetIntegerv;
-//PFNglGetString pglGetString;
-
 /**	\brief SDL video display surface
 */
 SDL_GLContext sdlglcontext = 0;
@@ -72,11 +68,6 @@ boolean GLBackend_Init(void)
 boolean OglSdlSurface(INT32 w, INT32 h)
 {
 	GLBackend_SetSurface(w, h);
-
-	glanisotropicmode_cons_t[1].value = maximumAnisotropy;
-	SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
-
-	HWR_Startup();
 
 	return true;
 }
@@ -132,8 +123,8 @@ void OglSdlFinishUpdate(boolean waitvbl)
 
 	// Sryder:	We need to draw the final screen texture again into the other buffer in the original position so that
 	//			effects that want to take the old screen can do so after this
-#if 0
-	DrawFinalScreenTexture(realwidth, realheight);
+#if 1
+	DrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
 #else
 	// STAR NOTE: hi opengles fixes
 	HWR_DrawScreenFinalTexture(realwidth, realheight);

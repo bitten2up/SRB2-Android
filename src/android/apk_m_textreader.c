@@ -13,8 +13,8 @@
 
 #include "apk_m_textreader.h"
 
-#include "doomdef.h"
-#include "z_zone.h"
+#include "../doomdef.h"
+#include "../z_zone.h"
 
 textreader_t *TextReader_New(char *text, size_t size)
 {

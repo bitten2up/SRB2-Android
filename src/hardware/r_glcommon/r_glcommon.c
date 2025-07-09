@@ -35,11 +35,11 @@ const GLubyte *gl_extensions = NULL;
 GLRGBAFloat white = {1.0f, 1.0f, 1.0f, 1.0f};
 GLRGBAFloat black = {0.0f, 0.0f, 0.0f, 1.0f};
 
-RGBA_t *TextureBuffer = NULL;
-static size_t TextureBufferSize = 0;
+RGBA_t *textureBuffer = NULL;
+size_t textureBufferSize = 0;
 
 RGBA_t  myPaletteData[256];
-GLint   screen_width    = 0;
+GLint   screen_width    = 0;               // used by Draw2DLine()
 GLint   screen_height   = 0;
 GLbyte  screen_depth    = 0;
 GLint   textureformatGL = 0;
@@ -159,13 +159,23 @@ boolean GLBackend_useprogram = false;
 //                                                           OPENGL FUNCTIONS
 // ==========================================================================
 
-#ifndef STATIC_OPENGL
-/* Miscellaneous */
 PFNglClear pglClear;
-PFNglGetFloatv pglGetFloatv;
-PFNglPolygonMode pglPolygonMode;
 PFNglGetIntegerv pglGetIntegerv;
 PFNglGetString pglGetString;
+
+#ifndef STATIC_OPENGL
+/* Miscellaneous */
+#if 0
+// STAR NOTE: bro
+PFNglClear pglClear;
+#endif
+PFNglGetFloatv pglGetFloatv;
+PFNglPolygonMode pglPolygonMode;
+#if 0
+// STAR NOTE: bro
+PFNglGetIntegerv pglGetIntegerv;
+PFNglGetString pglGetString;
+#endif
 PFNglGetError pglGetError;
 PFNglClearColor pglClearColor;
 PFNglColorMask pglColorMask;
@@ -173,9 +183,17 @@ PFNglAlphaFunc pglAlphaFunc;
 PFNglBlendFunc pglBlendFunc;
 PFNglCullFace pglCullFace;
 PFNglPolygonOffset pglPolygonOffset;
+#if 1
+// STAR NOTE: hi
+PFNglScissor pglScissor;
+#endif
 PFNglEnable pglEnable;
 PFNglDisable pglDisable;
-
+#if 1
+// STAR NOTE: still hi
+PFNglGetFloatv pglGetFloatv;
+PFNglPolygonMode pglPolygonMode;
+#endif
 /* Depth buffer */
 PFNglDepthFunc pglDepthFunc;
 PFNglDepthMask pglDepthMask;
@@ -207,6 +225,14 @@ PFNglBindTexture pglBindTexture;
 PFNglCopyTexImage2D pglCopyTexImage2D;
 PFNglCopyTexSubImage2D pglCopyTexSubImage2D;
 PFNglTexImage3D pglTexImage3D;
+
+#if 1
+// STAR NOTE: hi
+/* 1.3 functions for multitexturing */
+PFNglMultiTexCoord2f pglMultiTexCoord2f;
+PFNglMultiTexCoord2fv pglMultiTexCoord2fv;
+#endif
+
 #endif
 
 //
@@ -222,21 +248,25 @@ PFNglClientActiveTexture pglClientActiveTexture;
 // Mipmapping
 //
 
-#ifdef HAVE_GLES
+// STAR NOTE: testing testing 1234
+
+//#ifdef HAVE_GLES
 PFNglGenerateMipmap pglGenerateMipmap;
-#endif
+//#endif
 
 //
 // Depth functions
 //
 
-#ifndef HAVE_GLES
-	PFNglClearDepth pglClearDepth;
-	PFNglDepthRange pglDepthRange;
-#else
-	PFNglClearDepthf pglClearDepthf;
-	PFNglDepthRangef pglDepthRangef;
-#endif
+// STAR NOTE: testing testing 1234
+
+//#ifndef HAVE_GLES
+PFNglClearDepth pglClearDepth;
+PFNglDepthRange pglDepthRange;
+//#else
+PFNglClearDepthf pglClearDepthf;
+PFNglDepthRangef pglDepthRangef;
+//#endif
 
 //
 // Legacy functions
@@ -268,6 +298,10 @@ PFNglShadeModel pglShadeModel;
 PFNglLightfv pglLightfv;
 PFNglLightModelfv pglLightModelfv;
 PFNglMaterialfv pglMaterialfv;
+#if 1
+// STAR NOTE: hi
+PFNglMateriali pglMateriali;
+#endif
 
 /* Texture mapping */
 PFNglTexEnvi pglTexEnvi;
@@ -302,6 +336,12 @@ PFNglBindRenderbuffer pglBindRenderbuffer;
 PFNglDeleteRenderbuffers pglDeleteRenderbuffers;
 PFNglRenderbufferStorage pglRenderbufferStorage;
 PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
+#endif
+
+#if 1
+// STAR NOTE: hi
+/* Vertex Attrib */
+PFNglVertexAttribPointer pglVertexAttribPointer;
 #endif
 
 boolean GLBackend_LoadCommonFunctions(void)
@@ -638,6 +678,28 @@ INT32 GLBackend_InvertAlphaTestShader(INT32 type)
 
 	return type;
 }
+
+#if 0
+// STAR NOTE: come back here right now stupid
+
+typedef struct
+{
+	int base_shader; // index of base shader_t
+	int custom_shader; // index of custom shader_t
+} shadertarget_t;
+
+typedef struct
+{
+	char *vertex;
+	char *fragment;
+	boolean compiled;
+} shader_t; // these are in an array and accessed by indices
+
+// the array has NUMSHADERTARGETS entries for base shaders and for custom shaders
+// the array could be expanded in the future to fit "dynamic" custom shaders that
+// aren't fixed to shader targets
+static shader_t gl_shaders[NUMSHADERTARGETS*2];
+#endif
 
 INT32 GLBackend_GetShaderType(INT32 type)
 {
@@ -1003,12 +1065,12 @@ void GLModel_DeleteVBOs(model_t *model)
 void GLTexture_AllocBuffer(GLMipmap_t *pTexInfo)
 {
 	size_t size = pTexInfo->width * pTexInfo->height;
-	if (size > TextureBufferSize)
+	if (size > textureBufferSize)
 	{
-		TextureBuffer = realloc(TextureBuffer, size * sizeof(RGBA_t));
-		if (TextureBuffer == NULL)
+		textureBuffer = realloc(textureBuffer, size * sizeof(RGBA_t));
+		if (textureBuffer == NULL)
 			I_Error("GLTexture_AllocBuffer: out of memory allocating %s bytes", sizeu1(size * sizeof(RGBA_t)));
-		TextureBufferSize = size;
+		textureBufferSize = size;
 	}
 }
 
@@ -1058,9 +1120,9 @@ void GLTexture_Flush(void)
 	TexCacheTail = TexCacheHead = NULL; //Hurdler: well, TexCacheHead is already NULL
 	tex_downloaded = 0;
 
-	free(TextureBuffer);
-	TextureBuffer = NULL;
-	TextureBufferSize = 0;
+	free(textureBuffer);
+	textureBuffer = NULL;
+	textureBufferSize = 0;
 }
 
 
@@ -1068,6 +1130,7 @@ void GLTexture_Flush(void)
 //			a new size
 void GLTexture_FlushScreen(void)
 {
+	// bitten note: star removed some of the fucking code i need here for screenTextures[]... THANKS STAR
 	if (screentexture)
 		pglDeleteTextures(1, &screentexture);
 	if (startScreenWipe)

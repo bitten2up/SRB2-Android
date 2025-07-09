@@ -52,10 +52,6 @@ static void UnSetRes(void);
 PFNWGLEXTSWAPCONTROLPROC wglSwapIntervalEXT = NULL;
 #endif
 
-PFNglClear pglClear;
-PFNglGetIntegerv pglGetIntegerv;
-PFNglGetString pglGetString;
-
 #define MAX_VIDEO_MODES   32
 static  vmode_t     video_modes[MAX_VIDEO_MODES];
 INT32     oglflags = 0;

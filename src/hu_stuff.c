@@ -14,7 +14,6 @@
 #include "doomdef.h"
 #include "byteptr.h"
 #include "hu_stuff.h"
-#include "hu_font.h"
 
 #include "m_menu.h" // gametype_cons_t
 #include "m_cond.h" // emblems
@@ -29,8 +28,6 @@
 
 #include "i_video.h"
 #include "i_system.h"
-
-#include "s_sound.h"
 
 #include "st_stuff.h"
 #include "r_local.h"
@@ -48,12 +45,6 @@
 #include "p_local.h" // camera, camera2
 #include "p_tick.h"
 
-// Android
-#ifdef TOUCHINPUTS
-#include "ts_main.h"
-#endif
-#include "apk_main.h"
-
 #ifdef HWRENDER
 #include "hardware/hw_main.h"
 #endif
@@ -61,6 +52,13 @@
 #include "lua_hud.h"
 #include "lua_hudlib_drawlist.h"
 #include "lua_hook.h"
+
+// SRB2Android
+#ifdef TOUCHINPUTS
+#include "ts_main.h"
+#endif
+#include "android/apk_main.h"
+#include "xtra/xthu_stuff.h"
 
 // coords are scaled
 #define HU_INPUTX 0
@@ -179,6 +177,10 @@ static tic_t cechoduration = 5*TICRATE;
 static INT32 cechoflags = 0;
 
 static huddrawlist_h luahuddrawlist_scores;
+
+// SRB2Android
+static UINT32 chatsnapflags;
+static boolean mobilechat = false;
 
 //======================================================================
 //                          HEADS UP INIT
@@ -344,6 +346,9 @@ static tic_t chat_scrolltime = 0;
 
 static UINT32 chat_maxscroll = 0; // how far can we scroll?
 
+//static chatmsg_t chat_mini[CHAT_BUFSIZE]; // Display the last few messages sent.
+//static chatmsg_t chat_log[CHAT_BUFSIZE]; // Keep every message sent to us in memory so we can scroll n shit, it's cool.
+
 static char chat_log[CHAT_BUFSIZE][255]; // hold the last 48 or so messages in that log.
 static char chat_mini[8][255]; // display up to 8 messages that will fade away / get overwritten
 static tic_t chat_timers[8];
@@ -356,8 +361,9 @@ static INT16 addy = 0; // use this to make the messages scroll smoothly when one
 
 static void HU_removeChatText_Mini(void)
 {
-	for (size_t i = 0; i < chat_nummsg_min-1; i++)
-	{
+	// MPC: Don't create new arrays, just iterate through an existing one
+	size_t i;
+	for(i=0;i<chat_nummsg_min-1;i++) {
 		strcpy(chat_mini[i], chat_mini[i+1]);
 		chat_timers[i] = chat_timers[i+1];
 	}
@@ -365,13 +371,17 @@ static void HU_removeChatText_Mini(void)
 
 	// use addy and make shit slide smoothly af.
 	addy += (vid.width < 640) ? 8 : 6;
+
 }
 
 // same but w the log. TODO: optimize this and maybe merge in a single func? im bad at C.
 static void HU_removeChatText_Log(void)
 {
-	for (size_t i = 0; i < chat_nummsg_log-1; i++)
+	// MPC: Don't create new arrays, just iterate through an existing one
+	size_t i;
+	for(i=0;i<chat_nummsg_log-1;i++) {
 		strcpy(chat_log[i], chat_log[i+1]);
+	}
 	chat_nummsg_log--; // lost 1 msg.
 }
 
@@ -379,8 +389,8 @@ void HU_AddChatText(const char *text, boolean playsound)
 {
 	if (playsound && cv_consolechat.value != 2) // Don't play the sound if we're using hidden chat.
 		S_StartSound(NULL, sfx_radio);
+	// reguardless of our preferences, put all of this in the chat buffer in case we decide to change from oldchat mid-game.
 
-	// regardless of our preferences, put all of this in the chat buffer in case we decide to change from oldchat mid-game.
 	if (chat_nummsg_log >= CHAT_BUFSIZE) // too many messages!
 		HU_removeChatText_Log();
 
@@ -396,7 +406,7 @@ void HU_AddChatText(const char *text, boolean playsound)
 
 	if (OLDCHAT) // if we're using oldchat, print directly in console
 		CONS_Printf("%s\n", text);
-	else // if we aren't, still save the message to log.txt
+	else			// if we aren't, still save the message to log.txt
 		CON_LogMessage(va("%s\n", text));
 }
 
@@ -825,8 +835,7 @@ static void Got_Saycmd(UINT8 **p, INT32 playernum)
 			fmt2 = "%s<%s%s>\x80%s %s%s";
 		}
 
-		// add to chat
-		HU_AddChatText(va(fmt2, prefix, cstart, dispname, cend, textcolor, msg), cv_chatnotifications.value);
+		HU_AddChatText(va(fmt2, prefix, cstart, dispname, cend, textcolor, msg), cv_chatnotifications.value); // add to chat
 
 		if (tempchar)
 			Z_Free(tempchar);
@@ -878,7 +887,7 @@ void HU_Ticker(void)
 #ifdef VIRTUAL_KEYBOARD
 	// Close the chat if the keyboard isn't visible
 	if (chat_on && !I_KeyboardOnScreen())
-		HU_CloseChat();
+		HU_CloseChat(false);
 #endif
 
 	if (chat_on)
@@ -1030,7 +1039,9 @@ void HU_clearChatChars(void)
 	c_input = 0;
 
 	I_UpdateMouseGrab();
+
 #ifdef VIRTUAL_KEYBOARD
+	// Android: typing junk
 	I_CloseScreenKeyboard();
 #endif
 }
@@ -1092,16 +1103,13 @@ boolean HU_Responder(event_t *ev)
 		if ((ev->key == gamecontrol[GC_TALKKEY][0] || ev->key == gamecontrol[GC_TALKKEY][1])
 			&& netgame && !OLD_MUTE) // check for old chat mute, still let the players open the chat incase they want to scroll otherwise.
 		{
-            I_SetTextInputMode(true);
-			HU_OpenChat();
-			teamtalk = false;
+			HU_OpenChat(false);
 			return true;
 		}
 		if ((ev->key == gamecontrol[GC_TEAMKEY][0] || ev->key == gamecontrol[GC_TEAMKEY][1])
 			&& netgame && !OLD_MUTE)
 		{
-            I_SetTextInputMode(true);
-			HU_OpenChat();
+			HU_OpenChat(G_GametypeHasTeams());
 			return true;
 		}
 	}
@@ -1170,18 +1178,15 @@ boolean HU_Responder(event_t *ev)
 			if (!CHAT_MUTE)
 				HU_sendChatMessage();
 
-			I_SetTextInputMode(false);
-			chat_on = false;
-			c_input = 0; // reset input cursor
-			chat_scrollmedown = true; // you hit enter, so you might wanna autoscroll to see what you just sent. :)
+			HU_CloseChat(true);
 		}
-		else if (c == KEY_ESCAPE || c == KEY_REMOTEBACK
+		else if (c == KEY_ESCAPE
+			|| c == KEY_REMOTEBACK
 			|| ((c == gamecontrol[GC_TALKKEY][0] || c == gamecontrol[GC_TALKKEY][1]
 			|| c == gamecontrol[GC_TEAMKEY][0] || c == gamecontrol[GC_TEAMKEY][1])
 			&& c >= KEY_MOUSE1)) // If it's not a keyboard key, then the chat button is used as a toggle.
 		{
-            I_SetTextInputMode(true);
-			HU_CloseChat();
+			HU_CloseChat(false);
 		}
 		else if ((c == KEY_UPARROW || c == KEY_MOUSEWHEELUP) && chat_scroll > 0 && !OLDCHAT) // CHAT SCROLLING YAYS!
 		{
@@ -1213,6 +1218,7 @@ boolean HU_Responder(event_t *ev)
 			&& ((c >= FONTSTART && c <= FONTEND && hu_font.chars[c-FONTSTART])
 			|| c == ' ')) // Allow spaces, of course
 		{
+			// Touch screen input
 			if (CHAT_MUTE || strlen(w_chat) >= HU_MAXMSGLEN)
 				return true;
 
@@ -1247,14 +1253,17 @@ boolean HU_Responder(event_t *ev)
 //                         HEADS UP DRAWING
 //======================================================================
 
-void HU_OpenChat(void)
+void HU_OpenChat(boolean allow_teamtalk)
 {
+	I_SetTextInputMode(true);
+
 	chat_on = true;
 	chat_on_first_event = false;
 	w_chat[0] = 0;
-	teamtalk = G_GametypeHasTeams(); // Don't teamtalk if we don't have teams.
+	teamtalk = allow_teamtalk;
 	chat_scrollmedown = true;
 	typelines = 1;
+
 #ifdef VIRTUAL_KEYBOARD
 	if (!CHAT_MUTE)
 	{
@@ -1264,84 +1273,31 @@ void HU_OpenChat(void)
 #endif
 }
 
-void HU_CloseChat(void)
+void HU_CloseChat(boolean scroll_me_down)
 {
+	I_SetTextInputMode(false);
+
 	chat_on = false;
 	c_input = 0; // reset input cursor
+	if (scroll_me_down)
+	{
+		// you hit enter, so you might wanna autoscroll to see what you just sent. :)
+		chat_scrollmedown = scroll_me_down;
+	}
+
 	I_UpdateMouseGrab();
+
 #ifdef VIRTUAL_KEYBOARD
 	I_CloseScreenKeyboard();
 #endif
 }
 
-boolean HU_IsChatOpen(void)
-{
-	return chat_on;
-}
-
-
-// Precompile a wordwrapped string to any given width.
-// This is a muuuch better method than V_WORDWRAP.
-// again stolen and modified a bit from video.c, don't mind me, will need to rearrange this one day.
-// this one is simplified for the chat drawer.
-static char *CHAT_WordWrap(INT32 x, INT32 w, INT32 option, const char *string)
-{
-	INT32 c;
-	size_t chw, i, lastusablespace = 0;
-	size_t slen;
-	char *newstring = Z_StrDup(string);
-	INT32 spacewidth = (vid.width < 640) ? 8 : 4, charwidth = (vid.width < 640) ? 8 : 4;
-
-	slen = strlen(string);
-	x = 0;
-
-	for (i = 0; i < slen; ++i)
-	{
-		c = newstring[i];
-		if ((UINT8)c >= 0x80 && (UINT8)c <= 0x89) //color parsing! -Inuyasha 2.16.09
-			continue;
-
-		if (c == '\n')
-		{
-			x = 0;
-			lastusablespace = 0;
-			continue;
-		}
-
-		if (!(option & V_ALLOWLOWERCASE))
-			c = toupper(c);
-		c -= FONTSTART;
-
-		if (c < 0 || c >= FONTSIZE || !hu_font.chars[c])
-		{
-			chw = spacewidth;
-			lastusablespace = i;
-		}
-		else
-			chw = charwidth;
-
-		x += chw;
-
-		if (lastusablespace != 0 && x > w)
-		{
-			//CONS_Printf("Wrap at index %d\n", i);
-			newstring[lastusablespace] = '\n';
-			i = lastusablespace+1;
-			lastusablespace = 0;
-			x = 0;
-		}
-	}
-	return newstring;
-}
-
-// let's use this as our coordinates
 // 30/7/18: chaty is now the distance at which the lowest point of the chat will be drawn if that makes any sense.
-INT16 chatx = 13, chaty = 169; // let's use this as our coordinates
-static UINT32 chatsnapflags;
-static boolean mobilechat = false;
 
+INT16 chatx = 13, chaty = 169; // let's use this as our coordinates
 
 // HU_DrawMiniChat
+
 static void HU_drawMiniChat(void)
 {
 	INT32 x = chatx+2, y;
@@ -1392,16 +1348,11 @@ static void HU_drawMiniChat(void)
 	y = chaty - (chatheight + charheight);
 	prev_linereturn = false;
 
-	dx = 0;
-	dy = 0;
-
-	for (int i = 0; i<=(chat_nummsg_min-1); i++) // iterate through our hot messages
+	for (size_t i = 0; i < chat_nummsg_min; i++) // iterate through our hot messages
 	{
-		INT32 clrflag = 0;
 		INT32 timer = ((cv_chattime.value*TICRATE)-chat_timers[i]) - cv_chattime.value*TICRATE+9; // see below...
 		INT32 transflag = (timer >= 0 && timer <= 9) ? (timer*V_10TRANS) : 0; // you can make bad jokes out of this one.
-		size_t j = 0;
-		char *msg = CHAT_WordWrap(x+2, boxw-(charwidth*2), chatsnapflags|V_ALLOWLOWERCASE|V_MONOSPACE, chat_mini[i]); // get the current message, and word wrap it.
+		char *msg = V_ChatWordWrap(0, boxw-charwidth-2, V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE|V_MONOSPACE, chat_mini[i]); // get the current message, and word wrap it.
 		UINT8 *colormap = NULL;
 
 		for(size_t j = 0; msg[j]; j++) // iterate through msg
@@ -1422,10 +1373,9 @@ static void HU_drawMiniChat(void)
 				prev_linereturn = false;
 
 				if (cv_chatbacktint.value) // on request of wolfy
-					V_DrawFillConsoleMap(x + dx + 2, y+dy, charwidth, charheight, 239|chatsnapflags);
+					V_DrawFillConsoleMap(x + dx + 2, y+dy, charwidth, charheight, 239|V_SNAPTOBOTTOM|V_SNAPTOLEFT);
 
-				V_DrawChatCharacter(x + dx + 2, y+dy, msg[j] |chatsnapflags|V_MONOSPACE|transflag, true, colormap);
-			}
+				V_DrawChatCharacter(x + dx + 2, y+dy, msg[j] |V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_MONOSPACE|transflag, true, colormap);
 				dx += charwidth;
 
 				if (dx >= boxw-charwidth-2)
@@ -1434,6 +1384,7 @@ static void HU_drawMiniChat(void)
 					dy += charheight;
 					prev_linereturn = true;
 				}
+			}
 		}
 		dy += charheight;
 		dx = 0;
@@ -1488,13 +1439,11 @@ static void HU_drawChatLog(INT32 offset)
 	chat_topy = y + chat_scroll*charheight;
 	chat_bottomy = chat_topy + boxh*charheight;
 
-	V_DrawFillConsoleMap(chatx, chat_topy, boxw, boxh*charheight +2, 239|chatsnapflags); // log box
+	V_DrawFillConsoleMap(chatx, chat_topy, boxw, boxh*charheight +2, 239|V_SNAPTOBOTTOM|V_SNAPTOLEFT); // log box
 
 	for (i=0; i<chat_nummsg_log; i++) // iterate through our chatlog
 	{
-		INT32 clrflag = 0;
-		INT32 j = 0;
-		char *msg = CHAT_WordWrap(chatx, boxw-(charwidth*2), chatsnapflags|V_ALLOWLOWERCASE|V_MONOSPACE, chat_log[i]); // get the current message, and word wrap it.
+		char *msg = V_ChatWordWrap(0, boxw-charwidth-2, V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE|V_MONOSPACE, chat_log[i]); // get the current message, and word wrap it.
 		UINT8 *colormap = NULL;
 		for(size_t j = 0; msg[j]; j++) // iterate through msg
 		{
@@ -1511,13 +1460,15 @@ static void HU_drawChatLog(INT32 offset)
 				colormap = V_GetStringColormap(((msg[j] & 0x7f) << V_CHARCOLORSHIFT) & V_CHARCOLORMASK);
 			else
 			{
-				if ((y+dy+2 >= chat_topy) && (y+dy < (chat_bottomy)))
-					V_DrawChatCharacter(x + dx + 2, y+dy+2, msg[j] |chatsnapflags|V_MONOSPACE, true, colormap);
-				else
-					j++; // don't forget to increment this or we'll get stuck in the limbo.
-                    dx += charwidth;
-			}
+				prev_linereturn = false;
 
+				if (msg[j] >= FONTSTART)
+				{
+					if ((y+dy+2 >= chat_topy) && (y+dy < (chat_bottomy)))
+						V_DrawChatCharacter(x + dx + 2, y+dy+2, msg[j] |V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_MONOSPACE, true, colormap);
+
+					dx += charwidth;
+				}
 
 				if (dx >= boxw-charwidth-2 && i < chat_nummsg_log) // end of message shouldn't count, nor should invisible characters!!!!
 				{
@@ -1525,6 +1476,7 @@ static void HU_drawChatLog(INT32 offset)
 					dy += charheight;
 					prev_linereturn = true;
 				}
+			}
 		}
 		dy += charheight;
 		dx = 0;
@@ -1547,9 +1499,9 @@ static void HU_drawChatLog(INT32 offset)
 
 	// draw arrows to indicate that we can (or not) scroll, accounting for Y = -1 offset in tinyfont
 	if (chat_scroll > 0)
-		V_DrawThinString(chatx-8, ((justscrolledup) ? (chat_topy-1) : (chat_topy)) - 1, chatsnapflags | V_YELLOWMAP, "\x1A"); // up arrow
+		V_DrawThinString(chatx-8, ((justscrolledup) ? (chat_topy-1) : (chat_topy)) - 1, V_SNAPTOBOTTOM | V_SNAPTOLEFT | V_YELLOWMAP, "\x1A"); // up arrow
 	if (chat_scroll < chat_maxscroll)
-		V_DrawThinString(chatx-8, chat_bottomy-((justscrolleddown) ? 5 : 6) - 1, chatsnapflags | V_YELLOWMAP, "\x1B"); // down arrow
+		V_DrawThinString(chatx-8, chat_bottomy-((justscrolleddown) ? 5 : 6) - 1, V_SNAPTOBOTTOM | V_SNAPTOLEFT | V_YELLOWMAP, "\x1B"); // down arrow
 
 	justscrolleddown = justscrolledup = false;
 }
@@ -1564,12 +1516,13 @@ static void HU_DrawChat(void)
 {
 	INT32 charwidth = 4, charheight = 6;
 	INT32 boxw = cv_chatwidth.value;
-	INT32 t = 0, c = 0, y = chaty;
+	INT32 t = 0, c = 0, y = chaty - (typelines*charheight);
 	UINT32 i = 0, saylen = strlen(w_chat); // You learn new things everyday!
 	INT32 cflag = 0;
 	const char *ntalk = "Say: ", *ttalk = "Team: ";
 	const char *talk = ntalk;
 
+	// SRB2Android
 	if (mobilechat || I_KeyboardOnScreen())
 		y -= charheight;
 	else
@@ -1600,17 +1553,12 @@ static void HU_DrawChat(void)
 		cflag = V_GRAYMAP; // set text in gray if chat is muted.
 	}
 
-	V_DrawFillConsoleMap(chatx, y-1, boxw, (typelines*charheight), 239 | chatsnapflags);
+	V_DrawFillConsoleMap(chatx, y-1, boxw, (typelines*charheight), 239 | V_SNAPTOBOTTOM | V_SNAPTOLEFT);
 
 	for (i = 0; talk[i]; i++)
 	{
-		if (talk[i] < FONTSTART)
-			++i;
-		else
-		{
-			V_DrawChatCharacter(chatx + c + 2, y, talk[i] |chatsnapflags|cflag, true, V_GetStringColormap(talk[i]|cflag));
-		}
-
+		if (talk[i] >= FONTSTART)
+			V_DrawChatCharacter(chatx + c + 2, y, talk[i] |V_SNAPTOBOTTOM|V_SNAPTOLEFT|cflag, true, V_GetStringColormap(talk[i]|cflag));
 		c += charwidth;
 	}
 
@@ -1624,7 +1572,7 @@ static void HU_DrawChat(void)
 	typelines = 1;
 
 	if ((strlen(w_chat) == 0 || c_input == 0) && hu_tick < 4)
-		V_DrawChatCharacter(chatx + 2 + c, y+1, '_' |chatsnapflags|t, true, NULL);
+		V_DrawChatCharacter(chatx + 2 + c, y+1, '_' |V_SNAPTOBOTTOM|V_SNAPTOLEFT|t, true, NULL);
 
 	for (i = 0; w_chat[i]; i++)
 	{
@@ -1634,7 +1582,7 @@ static void HU_DrawChat(void)
 			INT32 cursorx = (c+charwidth < boxw-charwidth) ? (chatx + 2 + c+charwidth) : (chatx+1); // we may have to go down.
 			INT32 cursory = (cursorx != chatx+1) ? (y) : (y+charheight);
 			if (hu_tick < 4)
-				V_DrawChatCharacter(cursorx, cursory+1, '_' |chatsnapflags|t, true, NULL);
+				V_DrawChatCharacter(cursorx, cursory+1, '_' |V_SNAPTOBOTTOM|V_SNAPTOLEFT|t, true, NULL);
 
 			if (cursorx == chatx+1 && saylen == i) // a weirdo hack
 			{
@@ -1643,11 +1591,8 @@ static void HU_DrawChat(void)
 			}
 		}
 
-		//Hurdler: isn't it better like that?
-		if (w_chat[i] < FONTSTART)
-			++i;
-		else
-			V_DrawChatCharacter(chatx + c + 2, y, w_chat[i] | chatsnapflags | t, true, NULL);
+		if (w_chat[i] >= FONTSTART)
+			V_DrawChatCharacter(chatx + c + 2, y, w_chat[i] | V_SNAPTOBOTTOM|V_SNAPTOLEFT | t, true, NULL);
 
 		c += charwidth;
 		if (c > boxw-charwidth && !skippedline)
@@ -1703,15 +1648,15 @@ static void HU_DrawChat(void)
 			{
 				char name[MAXPLAYERNAME+1];
 				strlcpy(name, player_names[i], 7); // shorten name to 7 characters.
-				V_DrawFillConsoleMap(chatx+ boxw + 2, p_dispy- (6*count), 48, 6, 239 | chatsnapflags); // fill it like the chat so the text doesn't become hard to read because of the hud.
-				V_DrawSmallString(chatx+ boxw + 4, p_dispy- (6*count), chatsnapflags|V_ALLOWLOWERCASE, va("\x82%d\x80 - %s", i, name));
+				V_DrawFillConsoleMap(chatx+ boxw + 2, p_dispy- (6*count), 48, 6, 239 | V_SNAPTOBOTTOM | V_SNAPTOLEFT); // fill it like the chat so the text doesn't become hard to read because of the hud.
+				V_DrawSmallString(chatx+ boxw + 4, p_dispy- (6*count), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, va("\x82%d\x80 - %s", i, name));
 				count++;
 			}
 		}
 		if (count == 0) // no results.
 		{
-			V_DrawFillConsoleMap(chatx+boxw+2, p_dispy- (6*count), 48, 6, 239 | chatsnapflags); // fill it like the chat so the text doesn't become hard to read because of the hud.
-			V_DrawSmallString(chatx+boxw+4, p_dispy- (6*count), chatsnapflags|V_ALLOWLOWERCASE, "NO RESULT.");
+			V_DrawFillConsoleMap(chatx+boxw+2, p_dispy- (6*count), 48, 6, 239 | V_SNAPTOBOTTOM | V_SNAPTOLEFT); // fill it like the chat so the text doesn't become hard to read because of the hud.
+			V_DrawSmallString(chatx+boxw+4, p_dispy- (6*count), V_SNAPTOBOTTOM|V_SNAPTOLEFT|V_ALLOWLOWERCASE, "NO RESULT.");
 		}
 	}
 
@@ -1937,7 +1882,7 @@ void HU_Drawer(void)
 		INT32 cardtime = ((INT32)lt_ticker - (lt_endtime - endwait));
 		INT32 tics = (INT32)leveltime - cardtime;
 		if (!G_IsTitleCardAvailable() || tics > 0)
-			HU_DrawTapAnywhere((tic_t)tics-1, V_SNAPTOBOTTOM);
+			APK_HU_DrawTapAnywhere((tic_t)tics-1, V_SNAPTOBOTTOM);
 	}
 #endif
 
@@ -2889,19 +2834,6 @@ static void HU_DrawNetplayCoopOverlay(void)
 	}
 }
 
-
-#ifdef TOUCHINPUTS
-void HU_DrawTapAnywhere(tic_t tics, INT32 flags)
-{
-	if (!(tics/20 & 1))
-	{
-		const char *string = M_GetText("Tap anywhere");
-		INT32 x = (BASEVIDWIDTH - V_StringWidth(string, flags))>>1;
-		INT32 y = BASEVIDHEIGHT - 24;
-		V_DrawString(x, y, V_YELLOWMAP | flags, string);
-	}
-}
-#endif
 
 // Interface to CECHO settings for the outside world, avoiding the
 // expense (and security problems) of going via the console buffer.

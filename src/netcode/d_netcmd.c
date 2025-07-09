@@ -54,7 +54,8 @@
 #include "../u_list.h"
 
 // Android
-#include "../apk_main.h"
+#include "../android/apk_main.h"
+#include "../android/apk_nativescreenres.h"
 
 #ifdef NETGAME_DEVMODE
 #define CV_RESTRICT CV_NETVAR
@@ -943,10 +944,11 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
 	CV_RegisterVar(&cv_scr_height);
+	CV_RegisterVar(&cv_scr_width_w);
+	CV_RegisterVar(&cv_scr_height_w);
 
 #ifdef NATIVESCREENRES
 	SCR_SetMaxNativeResDivider(SCR_GetMaxNativeResDivider(0, 0));
-
 	CV_RegisterVar(&cv_nativeres);
 	CV_RegisterVar(&cv_nativeresdiv);
 	CV_RegisterVar(&cv_nativeresauto);
@@ -970,7 +972,7 @@ void D_RegisterClientCommands(void)
 
 	CV_RegisterVar(&cv_freedemocamera);
 
-	// Android
+	// SRB2Android
 	CV_RegisterVar(&cv_android_liveshudpos);
 	CV_RegisterVar(&cv_android_thinkless);
 
