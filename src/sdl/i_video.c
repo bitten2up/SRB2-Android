@@ -303,7 +303,7 @@ static SDL_bool Impl_RenderContextCreate(void)
 	if (!renderer)
 		renderer = SDL_CreateRenderer(window, -1, flags);
 
-#if 1
+#if 0
 	if (renderer == NULL)
 	{
 		VIDEO_INIT_ERROR("Couldn't create rendering context: %s");
