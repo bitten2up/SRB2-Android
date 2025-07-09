@@ -48,7 +48,7 @@
 #include "SDL.h"
 #endif
 
-#if 0
+#if 1
 	// STAR NOTE: not as simple as the bottom comment because
 	//	APPARENTLY GLclampd chooses to not get defined somehow
 	#ifdef HAVE_SDL
@@ -56,7 +56,6 @@
 	#endif
 	typedef double GLclampd;
 #endif
-	typedef double GLclampd;
 
 #include "../../doomdata.h"
 #include "../../doomtype.h"
