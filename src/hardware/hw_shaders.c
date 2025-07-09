@@ -16,7 +16,6 @@
 #ifdef HAVE_GLES2
 	#include "shaders/shaders_gles2.h"
 #else
-	#error SHOULD BE GLES2
 	#include "shaders/shaders_gl2.h"
 #endif
 #include "hw_shaders.h"

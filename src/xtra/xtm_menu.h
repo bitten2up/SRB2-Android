@@ -22,8 +22,6 @@ void *XTRA_M_CVarSliding(const consvar_t *var);
 INT32 XTRA_M_CVarValue(const consvar_t *var);
 const char *XTRA_M_LongestColorName(void);
 
-char *XTRA_G_GetSaveGameSlot(UINT32 slot);
-size_t XTRA_G_ReadSaveGameInfo(char *savename, UINT8 **savebuffer, UINT32 slot);
 boolean XTRA_M_OpenSaveFileSlot(FILE **handle, char *name, char *savegamepaths, SINT8 slot);
 
 #endif // __XTM_MENU__

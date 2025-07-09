@@ -113,7 +113,7 @@ boolean GLBackend_Init(void)
 	GLULibname = NULL;
 #endif
 
-#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
+#if 0
 	SetupGLfunc();
 #endif
 
@@ -138,14 +138,6 @@ boolean GLBackend_Init(void)
 		CONS_Alert(CONS_ERROR, "If you know what is the GLU library's name, use -GLUlib\n");
 	}
 #endif
-#if 1
-	if (!GLBackend_InitContext())
-		return false;
-#endif
-#if 1
-	if (!GLBackend_LoadExtraFunctions())
-		return false;
-#endif
 	return GLBackend_LoadFunctions();
 }
 
@@ -164,15 +156,13 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	static int majorGL = 0, minorGL = 0;
 #endif
 
-#if 0
 	if (!GLBackend_InitContext())
 		return false;
-#endif
 
-#if 0
 	if (!GLBackend_LoadExtraFunctions())
 		return false;
-#endif
+
+	GLBackend_SetSurface(w, h);
 
 	if (GLExtension_Available("GL_EXT_texture_filter_anisotropic"))
 		pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
@@ -185,14 +175,15 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	else
 		MipmapSupported = false;
 
-#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
+#if 0
 	SetupGLFunc4();
 #endif
 
 	glanisotropicmode_cons_t[1].value = maximumAnisotropy;
+
 	SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
 
-	GLBackend_SetSurface(w, h);
+	GLBackend_SetModelView(w, h);
 	GLBackend_SetStates();
 	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 

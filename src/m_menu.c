@@ -624,7 +624,7 @@ static void M_CustomizeTouchControls(INT32 choice);
 #endif
 
 #ifdef TOUCHINPUTS
-static void M_ResetSaveSelectFX(fixed_t new_scroll, fixed_t new_offset);
+static void M_ResetSaveSelectFX(fixed_t *new_scroll, fixed_t *new_offset);
 #endif
 static void M_GetSaveSelectSlotPosition(INT32 i, INT32 *retx, INT32 *rety);
 static void M_SaveSelectTicker(void);
@@ -11543,10 +11543,6 @@ static void M_LoadSelect(INT32 choice)
 	// M_LoadGameLevelSelect will set it for us.
 	maplistoption = 0;
 
-	// SRB2Android
-	char *savename = XTRA_G_GetSaveGameSlot((UINT32)saveSlotSelected);
-	APK_CHECK_FOR_STORAGE_ACCESS({ M_NewGame(); cursaveslot = 0; return; })
-
 	if (saveSlotSelected == NOSAVESLOT) //last slot is play without saving
 	{
 		M_NewGame();
@@ -11554,9 +11550,10 @@ static void M_LoadSelect(INT32 choice)
 		return;
 	}
 
-	if (!FIL_ReadFileOK(savename))
+	if (!FIL_ReadFileOK(savegamepaths[saveSlotSelected-1]) || !I_StoragePermission())
 	{
 		// This slot is empty, so start a new game here.
+		APK_CHECK_FOR_STORAGE_ACCESS({NULL;})
 		M_NewGame();
 	}
 	else if (savegameinfo[saveSlotSelected-1].gamemap & 8192) // Completed
@@ -11600,7 +11597,7 @@ static void M_ReadSavegameInfo(UINT32 slot)
 	length = FIL_ReadFile(savename, &savebuffer);
 #else
 	// SRB2Android: we handle reading savefiles uniquely!
-	length = XTRA_G_ReadSaveGameInfo(savename, &savebuffer, slot);
+	length = APK_G_ReadSaveGameSlot(savename, &savebuffer, slot);
 	slot--;
 #endif
 
@@ -11753,7 +11750,8 @@ static void M_ReadSaveStrings(void)
 	// SRB2Android: Made some minor modifications to SaveSelectFX and savefile loading.
 
 #ifdef TOUCHINPUTS
-	M_ResetSaveSelectFX(-1, 14*FRACUNIT);
+	fixed_t new_load_scroll = 14*FRACUNIT;
+	M_ResetSaveSelectFX(NULL, &new_load_scroll);
 #endif
 
 	for (i = 1; (i < MAXSAVEGAMES); i++) // slot 0 is no save
@@ -11814,18 +11812,17 @@ static void M_SaveGameDeleteResponse(INT32 ch)
 		return;
 
 	// delete savegame
+#if 1
 #if 0
 	snprintf(name, sizeof name, savegamename, saveSlotSelected);
+#else
+	snprintf(name, sizeof name, "%s", savegamename[saveSlotSelected-1]);
+#endif
+#else
+	strlcpy(name, savegamename[saveSlotSelected-1], sizeof name);
+#endif
 	name[sizeof name - 1] = '\0';
 	remove(name);
-#else
-	// SRB2Android: our edition
-	char *savename = XTRA_G_GetSaveGameSlot((UINT32)saveSlotSelected);
-	(void)name;
-	if (savename == NULL)
-		return;
-	remove(savename);
-#endif
 
 	BwehHehHe();
 	M_ReadSaveStrings(); // reload the menu
@@ -11891,12 +11888,14 @@ static void M_GetSaveSelectSlotPosition(INT32 i, INT32 *retx, INT32 *rety)
 		*rety = y;
 }
 
-static void M_ResetSaveSelectFX(fixed_t new_scroll, fixed_t new_offset)
+#ifdef TOUCHINPUTS
+static void M_ResetSaveSelectFX(fixed_t *new_scroll, fixed_t *new_offset)
 {
 	M_ResetMenuTouchFX(&saveselectfx);
-	loadgamescroll = ((new_scroll != -1) ? new_scroll : loadgamescroll);
-	loadgameoffset = ((new_offset != -1) ? new_offset : loadgameoffset);
+	loadgamescroll = ((new_scroll != NULL) ? (*new_scroll) : 0);
+	loadgameoffset = ((new_offset != NULL) ? (*new_offset) : 0);
 }
+#endif
 
 static void M_SaveSelectTicker(void)
 {
@@ -11932,7 +11931,7 @@ static void M_HandleLoadSave(INT32 choice)
 			++saveSlotSelected;
 			if (saveSlotSelected >= numsaves)
 				saveSlotSelected -= numsaves;
-			M_ResetSaveSelectFX(LOADGAME_SCROLLAMT, -1);
+			loadgamescroll = LOADGAME_SCROLLAMT;
 			break;
 
 		case KEY_LEFTARROW:
@@ -11940,32 +11939,32 @@ static void M_HandleLoadSave(INT32 choice)
 			--saveSlotSelected;
 			if (saveSlotSelected < 0)
 				saveSlotSelected += numsaves;
-			M_ResetSaveSelectFX(-LOADGAME_SCROLLAMT, -1);
+			loadgamescroll = -LOADGAME_SCROLLAMT;
 			break;
 
 		case KEY_ENTER:
 			if (ultimate_selectable && saveSlotSelected == NOSAVESLOT && !savemoddata)
 			{
-				M_ResetSaveSelectFX(0, -1);
+				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
 				M_StartMessage("Are you sure you want to play\n\x85ultimate mode\x80? It isn't remotely fair,\nand you don't even get an emblem for it.\n\n(Press 'Y' to confirm)\n",M_SaveGameUltimateResponse,MM_YESNO);
 			}
 			else if (saveSlotSelected != NOSAVESLOT && savegameinfo[saveSlotSelected-1].lives == -42 && usedCheats)
 			{
-				M_ResetSaveSelectFX(0, -1);
+				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
 				M_StartMessage(M_GetText("This cannot be done in a cheated game.\n\n(Press a key)\n"), NULL, MM_NOTHING);
 			}
 			else if (saveSlotSelected == NOSAVESLOT || savegameinfo[saveSlotSelected-1].lives != -666) // don't allow loading of "bad saves"
 			{
-				M_ResetSaveSelectFX(0, -1);
+				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_menu1);
 				M_LoadSelect(saveSlotSelected);
 			}
 			else if (!loadgameoffset)
 			{
 				S_StartSound(NULL, sfx_lose);
-				M_ResetSaveSelectFX(-1, (14 * FRACUNIT));
+				loadgameoffset = 14 * FRACUNIT;
 			}
 			break;
 
@@ -11978,7 +11977,7 @@ static void M_HandleLoadSave(INT32 choice)
 			// Nor allow people to 'delete' slots with no saves in them.
 			if (saveSlotSelected != NOSAVESLOT && savegameinfo[saveSlotSelected-1].lives != -42)
 			{
-				M_ResetSaveSelectFX(0, -1);
+				loadgamescroll = 0;
 				S_StartSound(NULL, sfx_skid);
 				M_StartYNQuestion(va("Are you sure you want to delete\nsave file %d?", saveSlotSelected), M_SaveGameDeleteResponse);
 			}
@@ -11991,7 +11990,7 @@ static void M_HandleLoadSave(INT32 choice)
 				}
 				else
 					S_StartSound(NULL, sfx_lose);
-				M_ResetSaveSelectFX(-1, (14 * FRACUNIT));
+				loadgameoffset = 14 * FRACUNIT;
 			}
 			break;
 	}
@@ -12013,26 +12012,26 @@ static void M_SaveSelectConfirm(void)
 {
 	if (ultimate_selectable && saveSlotSelected == NOSAVESLOT && !savemoddata && !modifiedgame)
 	{
-		M_ResetSaveSelectFX(0, 0);
+		M_ResetSaveSelectFX(NULL, NULL);
 		S_StartSound(NULL, sfx_skid);
 		M_StartYNQuestion("Are you sure you want to play\n\x85ultimate mode\x80? It isn't remotely fair,\nand you don't even get an emblem for it.",M_SaveGameUltimateResponse);
 	}
 	else if (saveSlotSelected != NOSAVESLOT && savegameinfo[saveSlotSelected-1].lives == -42 && !(!modifiedgame || savemoddata))
 	{
-		M_ResetSaveSelectFX(0, 0);
+		M_ResetSaveSelectFX(NULL, NULL);
 		S_StartSound(NULL, sfx_skid);
 		M_ShowAnyKeyMessage("This cannot be done in a modified game.\n\n");
 	}
 	else if (saveSlotSelected == NOSAVESLOT || savegameinfo[saveSlotSelected-1].lives != -666) // don't allow loading of "bad saves"
 	{
-		M_ResetSaveSelectFX(0, 0);
+		M_ResetSaveSelectFX(NULL, NULL);
 		S_StartSound(NULL, sfx_menu1);
 		M_LoadSelect(saveSlotSelected);
 	}
 	else if (!loadgameoffset)
 	{
 		S_StartSound(NULL, sfx_lose);
-		M_ResetSaveSelectFX(-1, (14 * FRACUNIT));
+		loadgameoffset = 14 * FRACUNIT;
 	}
 }
 
@@ -12085,7 +12084,7 @@ TSNAVHANDLER(SaveSelect)
 				if (finger->selection == slot
 				&& !slfx->finger.sliding && (abs(slfx->slide[1]) < FRACUNIT))
 				{
-					M_ResetSaveSelectFX(0, 0);
+					M_ResetSaveSelectFX(NULL, NULL);
 
 					if (slot == saveSlotSelected)
 					{

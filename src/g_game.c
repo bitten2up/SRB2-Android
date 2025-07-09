@@ -4504,7 +4504,7 @@ void G_LoadGameData(gamedata_t *data)
 		return;
 	}
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (M_CheckParm("-resetdata"))
 	{
@@ -4727,7 +4727,7 @@ void G_SaveGameData(gamedata_t *data)
 	if (!data->loaded)
 		return; // If never loaded (-nodata), don't save
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	savebuffer.size = GAMEDATASIZE;
 	savebuffer.buf = (UINT8 *)malloc(savebuffer.size);
@@ -4857,7 +4857,7 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 	// memset savedata to all 0, fixes calling perfectly valid saves corrupt because of bots
 	memset(&savedata, 0, sizeof(savedata));
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 #ifdef SAVEGAME_OTHERVERSIONS
 	//Oh christ.  The force load response needs access to mapoverride too...
@@ -4947,7 +4947,7 @@ void G_SaveGame(UINT32 slot, INT16 mapnum)
 	char savename[256] = "";
 	const char *backup;
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (marathonmode)
 		strcpy(savename, curliveeventbackup);
@@ -5003,7 +5003,7 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 	char savename[255];
 	const char *backup;
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	if (marathonmode)
 		strcpy(savename, curliveeventbackup);

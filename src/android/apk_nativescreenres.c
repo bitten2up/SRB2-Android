@@ -54,16 +54,6 @@ consvar_t cv_nativerescompare = NATIVERES_CVAR("nativerescompare", "Height", nat
 //                            SCREEN ROUTINES
 // =========================================================================
 
-// Set the mode number based on the resolution saved in the config
-void APK_SCR_SetModeFromConfig(void)
-{
-	if (cv_fullscreen.value)
-		setmodeneeded = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value);
-	else
-		setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value);
-	setmodeneeded++;
-}
-
 void SCR_CheckNativeMode(void)
 {
 	INT32 w, h;
@@ -76,7 +66,7 @@ void SCR_CheckNativeMode(void)
 	if (cv_nativeresauto.value)
 		android_data.scr_resdiv = SCR_GetNativeResDivider(w, h);
 	else
-		android_data.scr_resdiv = FixedToFloat(cv_nativeresdiv.value);
+	android_data.scr_resdiv = FixedToFloat(cv_nativeresdiv.value);
 }
 
 void SCR_ResetNativeResDivider(void)
@@ -92,13 +82,7 @@ void SCR_ResetNativeResDivider(void)
 
 static void SCR_ToggleNativeRes(void)
 {
-	INT32 mode;
-
-	if (cv_fullscreen.value)
-		mode = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value);
-	else
-		mode = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value);
-
+	INT32 mode = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value);
 	if (mode == -1)
 		mode = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT);
 
@@ -134,12 +118,11 @@ static void SCR_NativeResAutoChanged(void)
 	else
 		SCR_ResetNativeResDivider();
 
+#if 0
+	// STAR NOTE: SCR_SetModeFromConfig doesn't exist?
 	if (cv_nativeres.value)
-	{
-		APK_SCR_SetModeFromConfig();
-		if (setmodeneeded <= 0)
-			setmodeneeded = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT) + 1;
-	}
+		SCR_SetModeFromConfig();
+#endif
 }
 
 static INT32 SCR_CalcDup(INT32 width, INT32 height)
@@ -217,25 +200,6 @@ float SCR_GetMaxNativeResDivider(INT32 nw, INT32 nh)
 void SCR_SetMaxNativeResDivider(float max)
 {
 	nativeresdiv_cons_t[1].value = FloatToFixed(max);
-}
-
-void APK_R_GetNativeResFov(fixed_t *fov)
-{
-#if 0
-	if (cv_nativeres.value && cv_nativeresfov.value)
-	{
-		fixed_t resmul = FloatToFixed(((float)vid.width / (float)vid.height));
-		(*fov) = atan(tan(fov*M_PI/360)*(resmul*0.7))*360/M_PI;
-	}
-#else
-	if (cv_nativeres.value && cv_nativeresfov.value)
-	{
-		fixed_t resmul = FixedDiv(vid.width * FRACUNIT, vid.height * FRACUNIT);
-		if (resmul > FRACUNIT)
-			fovtan = FixedMul(fovtan, (7*resmul/10));
-		(*fov) = resmul;
-	}
-#endif
 }
 
 #endif // NATIVESCREENRES

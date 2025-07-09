@@ -473,7 +473,7 @@ void Command_SaveConfig_f(void)
 		return;
 	}
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return;})
 
 	strcpy(tmpstr, COM_Argv(1));
 	FIL_ForceExtension(tmpstr, ".cfg");

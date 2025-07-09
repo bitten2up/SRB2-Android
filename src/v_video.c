@@ -2748,8 +2748,6 @@ void V_Recalc(void)
 		vid.fdup = (vid.height*FRACUNIT) / BASEVIDHEIGHT;
 	}
 
-#if 0
-	// STAR NOTE: very broken, not really willing to fix either
 #ifdef NATIVESCREENRES
 	if (cv_nativeres.value && !cv_nativerescompare.value)
 	{
@@ -2757,7 +2755,6 @@ void V_Recalc(void)
 		vid.dup = max(vid.width, vid.height);
 		vid.fdup = max(vid.width, vid.height);
 	}
-#endif
 #endif
 
 	vid.meddup = (UINT8)(vid.dup >> 1) + 1;

@@ -293,7 +293,7 @@ boolean TS_SaveLayouts(void)
 	touchlayout_t *layout = touchlayouts;
 	INT32 i;
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return false; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
 
 	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, TOUCHLAYOUTSFILE), "w");
 	if (!f)
@@ -550,7 +550,7 @@ boolean TS_LoadSingleLayout(INT32 ilayout)
 
 	if (layout->loaded)
 		return true;
-	APK_CHECK_FOR_STORAGE_ACCESS({ return false; })
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
 
 	strcpy(filename, layout->filename);
 	FIL_ForceExtension(filename, ".cfg");
@@ -638,8 +638,7 @@ boolean TS_SaveSingleLayout(INT32 ilayout)
 	strcpy(filename, layout->filename);
 	FIL_ForceExtension(filename, ".cfg");
 
-	APK_CHECK_FOR_STORAGE_ACCESS({ return false; })
-
+	APK_CHECK_FOR_STORAGE_ACCESS({return false;})
 	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, filename), "w");
 	if (!f)
 	{
@@ -649,7 +648,7 @@ boolean TS_SaveSingleLayout(INT32 ilayout)
 			"\x85""Failed to save layout!\n"
 			"\n\x80%s"),
 			layout->name, M_GetUserActionString(PRESS_A_KEY_MESSAGE)));
-		APK_CHECK_FOR_STORAGE_ACCESS({ NULL; })
+		APK_CHECK_FOR_STORAGE_ACCESS({NULL;})
 		return false;
 	}
 

@@ -22,8 +22,6 @@ extern consvar_t cv_nativeres;
 extern consvar_t cv_nativeresdiv, cv_nativeresauto;
 extern consvar_t cv_nativeresfov, cv_nativerescompare;
 
-void APK_SCR_SetModeFromConfig(void);
-
 void SCR_CheckNativeMode(void);
 float SCR_GetNativeResDivider(INT32 width, INT32 height);
 
@@ -31,8 +29,6 @@ float SCR_GetMaxNativeResDivider(INT32 nw, INT32 nh);
 void SCR_SetMaxNativeResDivider(float max);
 
 void SCR_ResetNativeResDivider(void);
-
-void APK_R_GetNativeResFov(fixed_t *fov);
 
 #endif
 

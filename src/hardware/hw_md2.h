@@ -41,7 +41,7 @@ extern size_t md2_numplayermodels;
 
 void HWR_InitModels(void);
 void HWR_ReadModels(void);
-void HWR_FreeModelData(boolean reload_models);
+void HWR_FreeModelData(void);
 
 boolean HWR_ModelPackExists(const char *filename);
 

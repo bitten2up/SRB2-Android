@@ -478,12 +478,6 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex, GLMipmap_t 
 	texture = textures[texnum];
 
 	HWR_ResizeBlock(texture->width, texture->height);
-#if 0
-	// STAR NOTE: hi again...
-	mipmap->width = (UINT16)blockwidth;
-	mipmap->height = (UINT16)blockheight;
-  	mipmap->format = textureformat;
-#endif
 
 	blockwidth = texture->width;
 	blockheight = texture->height;

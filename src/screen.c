@@ -349,18 +349,11 @@ void SCR_ChangeFullscreen(void)
 		else
 			setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value) + 1;
 
-#ifdef NATIVESCREENRES
-		if (!cv_nativeres.value)
-		{
-#endif
 		if (setmodeneeded <= 0) // hacky safeguard
 		{
 			CONS_Alert(CONS_WARNING, "Invalid resolution given, defaulting to base resolution.\n");
 			setmodeneeded = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT) + 1;
 		}
-#ifdef NATIVESCREENRES
-		}
-#endif
 	}
 	return;
 #endif

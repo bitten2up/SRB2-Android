@@ -133,6 +133,41 @@
 	"final_color.a = texel.a * poly_color.a;\n" \
 	"gl_FragColor = final_color;\n" \
 
+#if 0 // star test
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+	"#ifdef SRB2_PALETTE_RENDERING\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform sampler3D palette_lookup_tex;\n" \
+	"uniform sampler2D lighttable_tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform float lighting;\n" \
+	GLSL_DOOM_COLORMAP \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		GLSL_PALETTE_RENDERING \
+	"}\n" \
+	"#else\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float fade_start;\n" \
+	"uniform float fade_end;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"vec4 base_color = texel * poly_color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"final_color.a = texel.a * poly_color.a;\n" \
+		"gl_FragColor = final_color;\n" \
+	"}\n" \
+	"#endif\0"
+#endif
+
 // hand tuned adjustments for light level calculation
 #define GLSL_FLOOR_FUDGES \
 	"#define STARTMAP_FUDGE 1.06\n" \

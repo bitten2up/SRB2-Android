@@ -23,9 +23,9 @@ opts+=-DDIRECTFULLSCREEN -DHAVE_SDL
 #include sdl/MakeCYG.cfg
 #endif #ifdef CYGWIN32
 
-# STAR NOTE: handled in xtra.mk #
+# STAR NOTE: handled in xtra.mk
 #ifndef NOHW
-#sources+=sdl/ogl_sdl.c
+#sources+=sdl/ogl_es_sdl.c
 #endif
 
 ifdef NOMIXER

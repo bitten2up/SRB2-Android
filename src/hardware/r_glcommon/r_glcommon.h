@@ -48,14 +48,14 @@
 #include "SDL.h"
 #endif
 
-#if 0
+#if 1
 	// STAR NOTE: not as simple as the bottom comment because
 	//	APPARENTLY GLclampd chooses to not get defined somehow
 	#ifdef HAVE_SDL
 		#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
 	#endif
-#endif
 	typedef double GLclampd;
+#endif
 
 #include "../../doomdata.h"
 #include "../../doomtype.h"
@@ -461,7 +461,7 @@ extern PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
 //                                                                  FUNCTIONS
 // ==========================================================================
 
-#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
+#if 1
 boolean SetupGLfunc(void);
 void SetupGLFunc4(void);
 #endif

@@ -5850,7 +5850,8 @@ static void CV_modelpack_OnChange(void)
 	ONLY_IF_GL_LOADED
 	if (!cv_usemodelpack.value || (cv_usemodelpack.value && HWR_ModelPackExists(cv_modelpack.string)))
 	{
-		HWR_FreeModelData(true);
+		HWR_FreeModelData();
+		HWR_InitModels();
 		HWR_ReadModels();
 	}
 }
@@ -5982,19 +5983,14 @@ void HWR_Startup(void)
 #endif
 
 		// STAR NOTE: helps you further test bitten
-#if 1
 		gl_shadersavailable = HWR_InitShaders();
-#else
-		gl_shadersavailable = false;
-#endif
+        //gl_shadersavailable = false;
 		HWR_SetShaderState();
 		HWR_LoadAllCustomShaders();
 		HWR_TogglePaletteRendering();
 	}
 
-#if 1
 	CONS_Printf("OPENGL init-ed!\n");
-#endif
 
 	gl_init = true;
 }
@@ -6033,7 +6029,7 @@ void HWR_Shutdown(void)
 	HWR_FreeExtraSubsectors();
 	HWR_FreePolyPool();
 	HWR_FreeMapTextures();
-	HWR_FreeModelData(false);
+	HWR_FreeModelData();
 	HWD.pfnFlushScreenTextures();
 }
 

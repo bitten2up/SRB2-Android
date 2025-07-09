@@ -254,10 +254,6 @@ static GLRGBAFloat shader_defaultcolor = {1.0f, 1.0f, 1.0f, 1.0f};
 
 #endif	// GL_SHADERS
 
-// STAR NOTE: dsdsd
-#define FUNCTIONS_BROKEN
-//#define I_THINK_THIS_IS_IMPORTANT
-
 void SetupGLFunc4(void)
 {
 	/* 1.2 funcs */
@@ -311,13 +307,9 @@ boolean GLBackend_LoadFunctions(void)
 
 	GLBackend_LoadExtraFunctions();
 
-#ifndef FUNCTIONS_BROKEN
 	GETOPENGLFUNC(ClearDepthf)
 	GETOPENGLFUNC(DepthRangef)
-#endif
-#ifdef I_THINK_THIS_IS_IMPORTANT
-	GETOPENGLFUNC(TexImage3D)
-#endif
+    GETOPENGLFUNC(TexImage3D)
 
 	Shader_LoadFunctions();
 	Shader_CleanPrograms();
@@ -333,9 +325,8 @@ boolean GLBackend_LoadExtraFunctions(void)
 {
 	GLExtension_LoadFunctions();
 
-#if 0
 	GETOPENGLFUNC(VertexAttribPointer)
-#endif
+
 	GETOPENGLFUNCTRY(BlendEquation)
 	GETOPENGLFUNCTRY(GenerateMipmap)
 

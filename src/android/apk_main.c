@@ -107,6 +107,31 @@ const char *APK_CV_LongestPossibleValue(consvar_t *var)
 // GAME CODE
 //
 
+size_t APK_G_ReadSaveGameSlot(char *savename, UINT8 **savebuffer, UINT32 slot)
+{
+	SINT8 cur_file;
+	size_t length = 0;
+
+	for (cur_file = 0; cur_file < APK_MAX_SAVE_PATHS; cur_file++)
+	{
+		cursavegamename = savegamename[cur_file];
+		curliveeventbackup = liveeventbackup[cur_file];
+
+		if (marathonmode)
+			//strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
+			sprintf(savename, "%s", curliveeventbackup);
+		else
+			//snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
+			sprintf(savename, cursavegamename, slot);
+		length = FIL_ReadFile(savename, savebuffer);
+
+		if (length)
+			break;
+	}
+
+	return length;
+}
+
 char *APK_G_LiveEventHasBackup(void)
 {
 	if (FIL_FileExists(liveeventbackup[0]))

@@ -1753,13 +1753,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
 	clearColour.red = clearColour.green = clearColour.blue = 0;
 	clearColour.alpha = 1;
 	ClearBuffer(true, false, &clearColour);
-#if 0
-	SetBlend(PF_NoDepthTest);
-
-	pglBindTexture(GL_TEXTURE_2D, finalScreenTexture);
-#else
 	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
-#endif
 
 	Shader_SetUniforms(NULL, &white, NULL, NULL);
 

@@ -90,6 +90,7 @@ extern joystickvector2_t android_accelmovevector;
 // Returns the longest PossibleValue string for this CVar
 const char *APK_CV_LongestPossibleValue(consvar_t *var);
 
+size_t APK_G_ReadSaveGameSlot(char *savename, UINT8 **buffer, UINT32 slot);
 char *APK_G_LiveEventHasBackup(void);
 
 boolean APK_G_CanViewpointSwitchToPlayer(player_t *player);

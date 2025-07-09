@@ -2,10 +2,19 @@
 # Makefile for feature flags.
 #
 
+#passthru_opts+=\
+#	NO_IPV6 NOHW NOMD5 NOPOSTPROCESSING\
+#	MOBJCONSISTANCY PACKETDROP ZDEBUG\
+#	NOUPNP NOEXECINFO\
+
+# ANDROID START #
 passthru_opts+=\
-	NO_IPV6 NOHW NOMD5 NOPOSTPROCESSING\
+	NO_IPV6 NOMD5 NOPOSTPROCESSING\
 	MOBJCONSISTANCY PACKETDROP ZDEBUG\
 	NOUPNP NOEXECINFO\
+
+include xtra/Makefile.d/xtra.mk
+# ANDROID DONE #
 
 # build with debugging information
 ifdef DEBUGMODE
@@ -14,7 +23,6 @@ opts+=-DPARANOIA -DRANGECHECK
 endif
 
 ifndef NOHW
-opts+=-DHWRENDER
 sources+=$(call List,hardware/Sourcefile)
 endif
 
@@ -64,7 +72,3 @@ default_packages:=\
 
 $(foreach p,$(default_packages),\
 	$(eval $(call Check_pkg_config,$(p))))
-
-# ANDROID START #
-include xtra/Makefile.d/xtra.mk
-# ANDROID DONE #

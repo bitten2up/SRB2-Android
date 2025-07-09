@@ -94,7 +94,6 @@ static float shader_leveltime = 0;
 #ifdef HAVE_GLES2
 #include "shaders_gles2.h"
 #else
-#error SHOULD BE GLES2
 #include "shaders_gl2.h"
 #endif
 
@@ -191,6 +190,7 @@ void Shader_LoadFunctions(void)
 	pglUniform3fv = GLBackend_GetFunction("glUniform3fv");
 	pglUniformMatrix4fv = GLBackend_GetFunction("glUniformMatrix4fv");
 	pglGetUniformLocation = GLBackend_GetFunction("glGetUniformLocation");
+
 #ifdef HAVE_GLES2
 	pglGetAttribLocation = GLBackend_GetFunction("glGetAttribLocation");
 	pglEnableVertexAttribArray = GLBackend_GetFunction("glEnableVertexAttribArray");
@@ -210,17 +210,14 @@ int Shader_AttribLoc(int loc)
 		glesattribute_fadetexcoord, // LOC_TEXCOORD1
 	};
 	gl_shader_t *shader = gl_shaderstate.current;
-	int pos, attrib;
-
-	(void)pos;
-
 	if (shader == NULL)
 	{
-		CONS_Printf("Shader_AttribLoc: current shader invalid, moving to fallback shader\n");
 		shader = &gl_fallback_shader;
-		if (shader == NULL)
-			I_Error("Shader_AttribLoc: shader not set");
 	}
+	int pos, attrib;
+
+	if (shader == NULL)
+		I_Error("Shader_AttribLoc: shader not set");
 
 	attrib = LOC_TO_ATTRIB[loc];
 
@@ -284,8 +281,7 @@ boolean Shader_DisableVertexAttribArray(int attrib)
 }
 #endif
 
-boolean Shader_Init(void)
-{
+boolean Shader_Init() {
 #ifdef GL_SHADERS
 #ifndef HAVE_GLES2
 	if (!pglUseProgram)
@@ -386,7 +382,6 @@ void Shader_Set(int type)
 
 
 #ifdef HAVE_GLES2
-	(void)shader;
 	Shader_SetTransform();
 	gl_shadersenabled = true;
 #else
@@ -467,12 +462,10 @@ boolean Shader_CompileProgram(gl_shader_t *shader, GLint i)
 	const GLchar *vert_shader = gl_shadersources[i].vertex;
 	const GLchar *frag_shader = gl_shadersources[i].fragment;
 
-#if 1
 	// BITTEN DEBUG
 	// DUMBASS IF YOU LEAVE THIS IN THE FINAL BUILD... WHATS WRONG WITH YOU
 	extern customshaderxlat_t shaderxlat[];
 	CONS_Printf("SHADER \"%s\"\n", (i != -1) ? shaderxlat[i].type : "FallbackShader");
-#endif
 
 	if (shader->program)
 		pglDeleteProgram(shader->program);

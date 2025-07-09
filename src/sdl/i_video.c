@@ -303,8 +303,7 @@ static SDL_bool Impl_RenderContextCreate(void)
 	if (!renderer)
 		renderer = SDL_CreateRenderer(window, -1, flags);
 
-#if 0
-	// STAR NOTE: ok
+#if 1
 	if (renderer == NULL)
 	{
 		VIDEO_INIT_ERROR("Couldn't create rendering context: %s");
@@ -366,11 +365,11 @@ static SDL_bool Impl_RenderContextDestroy(void)
 #ifdef HWRENDER
 	if (rendermode == render_opengl)
 	{
-		OglSdlSurface(realwidth, realheight);
 		SDL_GL_MakeCurrent(window, sdlglcontext);
+		OglSdlSurface(realwidth, realheight);
 		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
-
 		glanisotropicmode_cons_t[1].value = maximumAnisotropy;
+		SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
 
 		HWR_Startup();
 
@@ -2304,10 +2303,6 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	Impl_SetColorBufferDepth(8, 8, 8, 8);
 #endif
 
-#ifdef NATIVESCREENRES
-	flags |= SDL_WINDOW_RESIZABLE;
-#endif
-
 	// Create a window
 	window = SDL_CreateWindow("SRB2 "VERSIONSTRING, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			realwidth, realheight, flags);
@@ -2391,9 +2386,7 @@ static void Impl_SetColorBufferDepth(INT32 red, INT32 green, INT32 blue, INT32 a
 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, blue);
 	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, alpha);
 }
-#endif
 
-#ifdef NATIVESCREENRES
 static void Impl_SetNativeResolution(void)
 {
 	VID_GetNativeResolution(&vid.width, &vid.height);
@@ -2558,6 +2551,10 @@ void I_StartupGraphics(void)
 	usesdl2soft = M_CheckParm("-softblit");
 	borderlesswindow = M_CheckParm("-borderless");
 
+#if 1
+	// STAR NOTE: hi, star here! this is needed for the game to run....
+	VID_Command_ModeList_f();
+#endif
 	//SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY>>1,SDL_DEFAULT_REPEAT_INTERVAL<<2);
 	//VID_Command_ModeList_f();
 
@@ -2574,43 +2571,35 @@ void I_StartupGraphics(void)
 	// Fury: we do window initialization after GL setup to allow
 	// SDL_GL_LoadLibrary to work well on Windows
 
-	// Create window
-	//Impl_CreateWindow(USE_FULLSCREEN);
-	//Impl_SetWindowName("SRB2 "VERSIONSTRING);
-
-	vid.width = BASEVIDWIDTH; // Default size for startup
-	vid.height = BASEVIDHEIGHT; // BitsPerPixel is the SDL interface's
 	vid.recalc = true;
 	vid.direct = NULL;
 	vid.bpp = 1;
 	vid.WndParent = NULL;
 
-#ifdef HAVE_TTF
-	I_ShutdownTTF();
-#endif
-
-#ifdef NATIVESCREENRES
+	// Create window
+#if defined(__ANDROID__)
 	Impl_SetNativeResolution();
 	VID_CheckRenderer();
 #else
 	// Default size for startup
+	vid.width = BASEVIDWIDTH;
+	vid.height = BASEVIDHEIGHT;
+
 	VID_SetMode(VID_GetModeForSize(vid.width, vid.height));
+#endif
+
+#ifdef HAVE_TTF
+	I_ShutdownTTF();
 #endif
 
 	if (M_CheckParm("-nomousegrab"))
 		mousegrabok = SDL_FALSE;
-#if 0 // defined (_DEBUG)
-	else
-	{
-		char videodriver[4] = {'S','D','L',0};
-		if (!M_CheckParm("-mousegrab") &&
-		    *strncpy(videodriver, SDL_GetCurrentVideoDriver(), 4) != '\0' &&
-		    strncasecmp("x11",videodriver,4) == 0)
-			mousegrabok = SDL_FALSE; //X11's XGrabPointer not good
-	}
+
+#if 0
+	// STAR NOTE: hi
+	realwidth = vid.width;
+	realheight = vid.height;
 #endif
-	realwidth = (Uint16)vid.width;
-	realheight = (Uint16)vid.height;
 
 	//VID_Command_Info_f();
 	SDLdoUngrabMouse();
@@ -2619,9 +2608,6 @@ void I_StartupGraphics(void)
 
 	if (mousegrabok && !disable_mouse)
 		SDLdoGrabMouse();
-
-	// disable text input right off the bat, since we don't need it at the start.
-	I_SetTextInputMode(false);
 
 	graphics_started = true;
 }
