@@ -51,9 +51,13 @@
 #include "lua_hudlib_drawlist.h"
 #include "lua_hook.h"
 
-INT16 demoinputdrawn = 0;
-
 #include "r_fps.h"
+
+// Android
+#ifdef TOUCHINPUTS
+#include "ts_draw.h"
+#endif
+#include "android/apk_main.h"
 
 UINT16 objectsdrawn = 0;
 
@@ -145,13 +149,8 @@ static patch_t *fireflower;
 
 hudinfo_t hudinfo[NUMHUDITEMS] =
 {
-	{  16, 176, V_SNAPTOLEFT |V_SNAPTOBOTTOM}, // HUD_LIVES
-	{ 250,   4, V_SNAPTORIGHT|V_SNAPTOTOP},    // HUD_LIVESALT
-#if 0
-	// BITTEN CHECK THIS SHIT OUT
 	{  16, 176, V_SNAPTOLEFT|V_SNAPTOBOTTOM}, // HUD_LIVES
 	{  16, 152, V_SNAPTOLEFT|V_SNAPTOBOTTOM}, // HUD_INPUT
-#endif
 
 	{  16,  42, V_SNAPTOLEFT|V_SNAPTOTOP}, // HUD_RINGS
 	{  96,  42, V_SNAPTOLEFT|V_SNAPTOTOP}, // HUD_RINGSNUM
@@ -177,6 +176,9 @@ hudinfo_t hudinfo[NUMHUDITEMS] =
 	{ 152, 168, 0}, // HUD_HUNTPICS
 
 	{ 288, 176, V_SNAPTORIGHT|V_SNAPTOBOTTOM}, // HUD_POWERUPS
+
+	// ANDROID
+	{ 250,   4, V_SNAPTORIGHT|V_SNAPTOTOP},    // ANDROID_HUD_LIVES
 };
 
 static huddrawlist_h luahuddrawlist_game[2];
@@ -194,29 +196,6 @@ skincolornum_t linkColor[3][NUMLINKCOLORS] = {
 //
 // STATUS BAR CODE
 //
-
-static boolean ST_UseAltLivesHUD(void)
-{
-#ifdef TOUCHINPUTS
-	if (cv_liveshudpos.value == 2)
-		return TS_CanDrawButtons();
-#endif
-
-	return cv_liveshudpos.value == 1;
-}
-
-hudinfo_t *ST_GetLivesHUDInfo(void)
-{
-	if (ST_UseAltLivesHUD())
-		return &hudinfo[HUD_LIVESALT];
-	else
-		return &hudinfo[HUD_LIVES];
-}
-
-boolean ST_AltLivesHUDEnabled(void)
-{
-	return ST_UseAltLivesHUD() && !modeattacking;
-}
 
 boolean ST_SameTeam(player_t *a, player_t *b)
 {
@@ -854,17 +833,23 @@ static void ST_drawLivesArea(void)
 {
 	INT32 v_colmap = V_YELLOWMAP, livescount = -1;
 	boolean notgreyedout = false;
-  INT32 x, y, f;
+
+	// Android
+	hudinfo_t *lives = APK_ST_GetLivesHUDInfo();
+	INT32 x = (lives->x + 58);
+	INT32 y = (lives->y + 8);
+	INT32 f = lives->f;
+	(void)x;
 
 	if (!stplyr->skincolor)
 		return; // Just joined a server, skin isn't loaded yet!
 
-	if (F_GetPromptHideHud(ST_GetLivesHUDInfo()->y))
+	if (F_GetPromptHideHud(lives->y))
 		return;
 
 	// face background
-	V_DrawSmallScaledPatch(ST_GetLivesHUDInfo()->x, ST_GetLivesHUDInfo()->y,
-		ST_GetLivesHUDInfo()->f|V_PERPLAYER|V_HUDTRANS, livesback);
+	V_DrawSmallScaledPatch(lives->x, lives->y,
+		lives->f|V_PERPLAYER|V_HUDTRANS, livesback);
 
 	UINT16 facecolor = P_GetPlayerColor(stplyr);
 
@@ -873,8 +858,8 @@ static void ST_drawLivesArea(void)
 	{
 		// spectator face
 		UINT8 *colormap = R_GetTranslationColormap(stplyr->skin, SKINCOLOR_CLOUDY, GTC_CACHE);
-		V_DrawSmallMappedPatch(ST_GetLivesHUDInfo()->x, ST_GetLivesHUDInfo()->y,
-			ST_GetLivesHUDInfo()->f|V_PERPLAYER|V_HUDTRANSHALF, faceprefix[stplyr->skin], colormap);
+		V_DrawSmallMappedPatch(lives->x, lives->y,
+			lives->f|V_PERPLAYER|V_HUDTRANSHALF, faceprefix[stplyr->skin], colormap);
 	}
 	else if (stplyr->mo && stplyr->mo->color)
 	{
@@ -883,8 +868,8 @@ static void ST_drawLivesArea(void)
 		patch_t *face = faceprefix[stplyr->skin];
 		if (stplyr->powers[pw_super] && !(stplyr->charflags & SF_NOSUPERSPRITES))
 			face = superprefix[stplyr->skin];
-		V_DrawSmallMappedPatch(ST_GetLivesHUDInfo()->x, ST_GetLivesHUDInfo()->y,
-			ST_GetLivesHUDInfo()->f|V_PERPLAYER|V_HUDTRANS, face, colormap);
+		V_DrawSmallMappedPatch(lives->x, lives->y,
+			lives->f|V_PERPLAYER|V_HUDTRANS, face, colormap);
 		if (st_translucency == 10 && stplyr->powers[pw_super] == 1 && stplyr->mo->tracer)
 		{
 			INT32 v_supertrans = (stplyr->mo->tracer->frame & FF_TRANSMASK) >> FF_TRANSSHIFT;
@@ -892,25 +877,18 @@ static void ST_drawLivesArea(void)
 			{
 				v_supertrans <<= V_ALPHASHIFT;
 				colormap = R_GetTranslationColormap(stplyr->skin, stplyr->mo->tracer->color, GTC_CACHE);
-				V_DrawSmallMappedPatch(ST_GetLivesHUDInfo()->x, ST_GetLivesHUDInfo()->y,
-					ST_GetLivesHUDInfo()->f|V_PERPLAYER|v_supertrans, face, colormap);
+				V_DrawSmallMappedPatch(lives->x, lives->y,
+					lives->f|V_PERPLAYER|v_supertrans, face, colormap);
 			}
 		}
 	}
 	else if (facecolor)
 	{
 		// skincolor face
-//		UINT8 *colormap = R_GetTranslationColormap(stplyr->skin, stplyr->skincolor, GTC_CACHE);
-//		V_DrawSmallMappedPatch(ST_GetLivesHUDInfo()->x, ST_GetLivesHUDInfo()->y,
-//			ST_GetLivesHUDInfo()->f|V_PERPLAYER|V_HUDTRANS, faceprefix[stplyr->skin], colormap);
 		UINT8 *colormap = R_GetTranslationColormap(stplyr->skin, facecolor, GTC_CACHE);
 		V_DrawSmallMappedPatch(hudinfo[HUD_LIVES].x, hudinfo[HUD_LIVES].y,
 			hudinfo[HUD_LIVES].f|V_PERPLAYER|V_HUDTRANS, faceprefix[stplyr->skin], colormap);
 	}
-
-	x = (ST_GetLivesHUDInfo()->x + 58);
-	y = (ST_GetLivesHUDInfo()->y + 8);
-	f = ST_GetLivesHUDInfo()->f;
 
 	// Metal Sonic recording
 	if (metalrecording)
@@ -1003,7 +981,7 @@ static void ST_drawLivesArea(void)
 		if (candrawlives)
 		{
 			// x
-			V_DrawScaledPatch(ST_GetLivesHUDInfo()->x+22, ST_GetLivesHUDInfo()->y+10, ST_GetLivesHUDInfo()->f|V_PERPLAYER|V_HUDTRANS, stlivex);
+			V_DrawScaledPatch(lives->x+22, lives->y+10, lives->f|V_PERPLAYER|V_HUDTRANS, stlivex);
 			if (livescount == INFLIVES)
 			{
 				V_DrawCharacter(hudinfo[HUD_LIVES].x+50, hudinfo[HUD_LIVES].y+8,
@@ -1015,8 +993,8 @@ static void ST_drawLivesArea(void)
 					livescount++;
 				if (livescount > 99)
 					livescount = 99;
-				V_DrawRightAlignedString(ST_GetLivesHUDInfo()->x+58, ST_GetLivesHUDInfo()->y+8,
-					ST_GetLivesHUDInfo()->f|V_PERPLAYER|(notgreyedout ? V_HUDTRANS : V_HUDTRANSHALF), va("%d",livescount));
+				V_DrawRightAlignedString(lives->x+58, lives->y+8,
+					lives->f|V_PERPLAYER|(notgreyedout ? V_HUDTRANS : V_HUDTRANSHALF), va("%d",livescount));
 			}
 		}
 		else
@@ -1024,17 +1002,17 @@ static void ST_drawLivesArea(void)
 			// Draw team name instead of lives, if possible.
 			if (G_TagGametype() && (stplyr->pflags & PF_TAGIT))
 			{
-				V_DrawRightAlignedString(hudinfo[HUD_LIVES].x+58, hudinfo[HUD_LIVES].y+8, V_HUDTRANS|hudinfo[HUD_LIVES].f|V_PERPLAYER, "IT!");
+				V_DrawRightAlignedString(lives->x+58, lives->y+8, V_HUDTRANS|lives->f|V_PERPLAYER, "IT!");
 			}
 			else if (G_GametypeHasTeams())
 			{
 				if (stplyr->ctfteam == 1)
 				{
-					V_DrawRightAlignedString(hudinfo[HUD_LIVES].x+58, hudinfo[HUD_LIVES].y+8, V_HUDTRANS|hudinfo[HUD_LIVES].f|V_PERPLAYER, "RED");
+					V_DrawRightAlignedString(lives->x+58, lives->y+8, V_HUDTRANS|lives->f|V_PERPLAYER, "RED");
 				}
 				else if (stplyr->ctfteam == 2)
 				{
-					V_DrawRightAlignedString(hudinfo[HUD_LIVES].x+58, hudinfo[HUD_LIVES].y+8, V_HUDTRANS|hudinfo[HUD_LIVES].f|V_PERPLAYER, "BLUE");
+					V_DrawRightAlignedString(lives->x+58, lives->y+8, V_HUDTRANS|lives->f|V_PERPLAYER, "BLUE");
 				}
 			}
 		}
@@ -1042,33 +1020,26 @@ static void ST_drawLivesArea(void)
 	}
 
 	// name
-	v_colmap |= (V_HUDTRANS|ST_GetLivesHUDInfo()->f|V_PERPLAYER);
+	v_colmap |= (V_HUDTRANS|lives->f|V_PERPLAYER);
 	if (strlen(skins[stplyr->skin]->hudname) <= 5)
-		V_DrawRightAlignedString(ST_GetLivesHUDInfo()->x+58, ST_GetLivesHUDInfo()->y, v_colmap, skins[stplyr->skin]->hudname);
+		V_DrawRightAlignedString(lives->x+58, lives->y, v_colmap, skins[stplyr->skin]->hudname);
 	else if (V_StringWidth(skins[stplyr->skin]->hudname, v_colmap) <= 48)
-		V_DrawString(ST_GetLivesHUDInfo()->x+18, ST_GetLivesHUDInfo()->y, v_colmap, skins[stplyr->skin]->hudname);
+		V_DrawString(lives->x+18, lives->y, v_colmap, skins[stplyr->skin]->hudname);
 	else if (V_ThinStringWidth(skins[stplyr->skin]->hudname, v_colmap) <= 40)
-		V_DrawRightAlignedThinString(ST_GetLivesHUDInfo()->x+58, ST_GetLivesHUDInfo()->y, v_colmap, skins[stplyr->skin]->hudname);
+		V_DrawRightAlignedThinString(lives->x+58, lives->y, v_colmap, skins[stplyr->skin]->hudname);
 	else
-		V_DrawThinString(ST_GetLivesHUDInfo()->x+18, ST_GetLivesHUDInfo()->y, v_colmap, skins[stplyr->skin]->hudname);
+		V_DrawThinString(lives->x+18, lives->y, v_colmap, skins[stplyr->skin]->hudname);
 
 	// Power Stones collected
 	if (G_RingSlingerGametype() && LUA_HudEnabled(hud_powerstones))
 	{
-		INT32 workx = hudinfo[HUD_LIVES].x+1, j;
+		INT32 workx = lives->x+1, j;
 
-		if (ST_UseAltLivesHUD())
-		{
-			y = hudinfo[HUD_LIVES].y + 10;
-			f = hudinfo[HUD_LIVES].f;
-		}
+		if (APK_ST_UseAltLivesHUD())
+			y = lives->y + 10;
 		else
-		{
-			y = (ST_GetLivesHUDInfo()->y) - 9;
-			f = ST_GetLivesHUDInfo()->f;
-		}
-
-		f |= (V_HUDTRANS | V_PERPLAYER);
+			y = lives->y - 9;
+		f |= (lives->f | V_HUDTRANS | V_PERPLAYER);
 
 		if ((leveltime & 1) && stplyr->powers[pw_invulnerability] && (stplyr->powers[pw_sneakers] == stplyr->powers[pw_invulnerability])) // hack; extremely unlikely to be activated unintentionally
 		{
@@ -1097,21 +1068,12 @@ static void ST_drawInput(void)
 	INT32 col;
 	UINT8 offs;
 
-	// android shit, assming it moves the hud based on if you are using touchinputs or not
-	INT32 x, y, f;
+	INT32 x = hudinfo[HUD_INPUT].x, y = hudinfo[HUD_INPUT].y;
 
-	if (ST_UseAltLivesHUD())
-	{
-		x = hudinfo[HUD_INPUT].x;
-		y = hudinfo[HUD_INPUT].y;
-		f = hudinfo[HUD_INPUT].f;
-	}
-	else
-	{
-		x = ST_GetLivesHUDInfo()->x;
-		y = ST_GetLivesHUDInfo()->y;
-		f = ST_GetLivesHUDInfo()->f;
-	}
+	// Bitten: android shit, assming it moves the hud based on if you are using touchinputs or not
+	INT32 f;
+	hudinfo_t *android_pos;
+	APK_ST_SetInputPosition(&x, &y, &f, &android_pos);
 
 	if (hu_showscores)
 		return;
@@ -1323,9 +1285,14 @@ static void ST_drawInput(void)
 			break;
 		}
 	}
-
-	if (!demosynced) // should always be last, so it doesn't push anything else around
+	if (!demosynced)
+	{
+		// should always be last, so it doesn't push anything else around
 		V_DrawThinString(x, y, f|((leveltime & 4) ? V_YELLOWMAP : V_REDMAP), "BAD DEMO!!");
+		y -= 8;
+	}
+
+	android_data.demo_inputdrawn = y;
 }
 
 static boolean lt_active = false;
@@ -2311,8 +2278,8 @@ static void ST_drawWeaponRing(powertype_t weapon, INT32 rwflag, INT32 wepflag, I
 static void ST_drawMatchHUD(void)
 {
 	char penaltystr[7];
-	const INT32 y = ST_WEAPONS_Y;
-	INT32 offset = ST_WEAPONS_X;
+	const INT32 y = APK_ST_WEAPONS_Y;
+	INT32 offset = APK_ST_WEAPONS_X;
 
 	if (F_GetPromptHideHud(y))
 		return;
@@ -2337,12 +2304,13 @@ static void ST_drawMatchHUD(void)
 				ST_drawWeaponSelect(offset, y);
 		}
 
-		ST_drawWeaponRing(pw_automaticring, RW_AUTO, WEP_AUTO, offset + ST_WEAPONS_W, y, autoring);
-		ST_drawWeaponRing(pw_bouncering, RW_BOUNCE, WEP_BOUNCE, offset + (ST_WEAPONS_W * 2), y, bouncering);
-		ST_drawWeaponRing(pw_scatterring, RW_SCATTER, WEP_SCATTER, offset + (ST_WEAPONS_W * 3), y, scatterring);
-		ST_drawWeaponRing(pw_grenadering, RW_GRENADE, WEP_GRENADE, offset + (ST_WEAPONS_W * 4), y, grenadering);
-		ST_drawWeaponRing(pw_explosionring, RW_EXPLODE, WEP_EXPLODE, offset + (ST_WEAPONS_W * 5), y, explosionring);
-		ST_drawWeaponRing(pw_railring, RW_RAIL, WEP_RAIL, offset + (ST_WEAPONS_W * 6), y, railring);
+		INT32 android_weapon_xoffs = 1;
+		ST_drawWeaponRing(pw_automaticring, RW_AUTO, WEP_AUTO, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, autoring);
+		ST_drawWeaponRing(pw_bouncering, RW_BOUNCE, WEP_BOUNCE, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, bouncering);
+		ST_drawWeaponRing(pw_scatterring, RW_SCATTER, WEP_SCATTER, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, scatterring);
+		ST_drawWeaponRing(pw_grenadering, RW_GRENADE, WEP_GRENADE, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, grenadering);
+		ST_drawWeaponRing(pw_explosionring, RW_EXPLODE, WEP_EXPLODE, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, explosionring);
+		ST_drawWeaponRing(pw_railring, RW_RAIL, WEP_RAIL, offset + (APK_ST_WEAPONS_W * android_weapon_xoffs++), y, railring);
 
 		if (stplyr->ammoremovaltimer && leveltime % 8 < 4)
 		{
@@ -2775,6 +2743,7 @@ static void ST_overlayDrawer(void)
 	boolean drawtouchcontrols = touch_useinputs; // Movement controls, jump and spin, etc.
 	INT32 touchalphalevel;
 #endif
+
 	// hu_showscores = auto hide score/time/rings when tab rankings are shown
 	if (!(hu_showscores && (netgame || multiplayer)))
 	{
@@ -2924,11 +2893,11 @@ static void ST_overlayDrawer(void)
 	if (!hu_showscores && (netgame || multiplayer) && LUA_HudEnabled(hud_textspectator))
 		ST_drawTextHUD();
 
-	// thx touchinputs making shit a pain in the ass - bitten
-	demoinputdrawn = 0;
+	// Bitten: thx touchinputs making shit a pain in the ass
+	android_data.demo_inputdrawn = 0;
 
 #ifdef TOUCHINPUTS
-	if (demoplayback || promptblockcontrols)
+	if (demoplayback || android_data.prompt_blockcontrols)
 		drawtouchcontrols = false;
 
 	if (splitscreen && stplyr == &players[secondarydisplayplayer])
@@ -2954,10 +2923,9 @@ static void ST_overlayDrawer(void)
 #endif
 	if ((cv_showinput.value && !players[displayplayer].spectator) || (modeattacking && !(demoplayback && hu_showscores)
 #ifdef TOUCHINPUTS
-	&& !drawtouchbuttons
+		&& (!drawtouchbuttons)
 #endif
 	))
-
 		ST_drawInput();
 
 	ST_drawDebugInfo();

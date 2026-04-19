@@ -55,8 +55,14 @@
     <Filter Include="SDLApp">
       <UniqueIdentifier>{3ae8d323-3eeb-47ab-8c28-b891616db1b4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Android_APK">
+      <UniqueIdentifier>{21b21naj-ndj2-2nd1-dn22-jdsdkpdsp2jd}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\android\apk_m_textreader.c">
+      <Filter>Android_APK</Filter>
+    </ClCompile>
     <ClInclude Include="..\p5prof.h">
       <Filter>A_Asm</Filter>
     </ClInclude>
@@ -199,9 +205,6 @@
       <Filter>H_Hud</Filter>
     </ClInclude>
     <ClInclude Include="..\hu_stuff.h">
-      <Filter>H_Hud</Filter>
-    </ClInclude>
-    <ClInclude Include="..\hu_font.h">
       <Filter>H_Hud</Filter>
     </ClInclude>
     <ClInclude Include="..\st_stuff.h">
@@ -710,9 +713,6 @@
       <Filter>H_Hud</Filter>
     </ClCompile>
     <ClCompile Include="..\hu_stuff.c">
-      <Filter>H_Hud</Filter>
-    </ClCompile>
-    <ClCompile Include="..\hu_font.c">
       <Filter>H_Hud</Filter>
     </ClCompile>
     <ClCompile Include="..\st_stuff.c">

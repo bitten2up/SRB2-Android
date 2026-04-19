@@ -5348,7 +5348,7 @@ static inline boolean P_UnArchiveLuabanksAndConsistency(save_t *save_p)
 		case 0x1d: // consistency marker
 			break;
 		default: // anything else is nonsense
-			CONS_Alert(CONS_ERROR, M_GetText("Failed consistency check\n"));
+			CONS_Alert(CONS_ERROR, M_GetText("Failed consistency check (\?\?\?)\n"));
 			return false;
 	}
 

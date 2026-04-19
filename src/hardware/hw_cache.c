@@ -29,13 +29,38 @@
 #include "../r_picformats.h"
 #include "../p_setup.h"
 
-// Values set after a call to HWR_ResizeBlock()
-static INT32 blocksize, blockwidth, blockheight;
-
 INT32 patchformat = GL_TEXFMT_AP_88; // use alpha for holes
 INT32 textureformat = GL_TEXFMT_P_8; // use chromakey for hole
 
 RGBA_t mapPalette[256] = {0}; // the palette for the currently loaded level or menu etc.
+
+// Android: Resize blocks for better OpenGL performance
+static INT32 blocksize, blockwidth, blockheight; // Values set after a call to HWR_ResizeBlock()
+static void HWR_ResizeBlock(INT32 originalwidth, INT32 originalheight)
+{
+	if (gl_powersoftwo)
+	{
+		blockwidth = 1;
+		while (blockwidth < originalwidth)
+			blockwidth <<= 1;
+
+		blockheight = 1;
+		while (blockheight < originalheight)
+			blockheight <<= 1;
+	}
+	else
+	{
+		blockwidth = originalwidth;
+		blockheight = originalheight;
+	}
+
+	if (blockwidth > 2048)
+		blockwidth = 2048;
+	if (blockheight > 2048)
+		blockheight = 2048;
+
+	blocksize = blockwidth * blockheight;
+}
 
 // Returns a pointer to the palette which should be used for caching textures.
 RGBA_t *HWR_GetTexturePalette(void)
@@ -294,12 +319,10 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 	palette = HWR_GetTexturePalette();
 
 	ncols = (pwidth * pblockwidth) / pwidth;
-	// BITTEN LOOK INTO THIS
-	//ncols = pwidth;
 
 	// source advance
 	xfrac = 0;
-	xfracstep = (pwidth        << FRACBITS) / pblockwidth;
+	xfracstep = (pwidth        << FRACBITS) / pblockwidth;;
 	yfracstep = (pheight       << FRACBITS) / pblockheight;
 	scale_y   = (pblockheight  << FRACBITS) / pheight;
 
@@ -415,39 +438,13 @@ static void HWR_DrawTexturePatchInCache(GLMipmap_t *mipmap,
 	}
 }
 
-static void HWR_ResizeBlock(INT32 originalwidth, INT32 originalheight)
-{
-	if (gl_powersoftwo)
-	{
-		blockwidth = 1;
-		while (blockwidth < originalwidth)
-			blockwidth <<= 1;
-
-		blockheight = 1;
-		while (blockheight < originalheight)
-			blockheight <<= 1;
-	}
-	else
-	{
-		blockwidth = originalwidth;
-		blockheight = originalheight;
-	}
-
-	if (blockwidth > 2048)
-		blockwidth = 2048;
-	if (blockheight > 2048)
-		blockheight = 2048;
-
-	blocksize = blockwidth * blockheight;
-}
-
 static UINT8 *MakeBlock(GLMipmap_t *grMipmap)
 {
 	UINT8 *block;
 	INT32 bpp, i;
 	UINT16 bu16 = ((0x00 <<8) | HWR_PATCHES_CHROMAKEY_COLORINDEX);
 
-	bpp   = format2bpp(grMipmap->format);
+	bpp =  format2bpp(grMipmap->format);
 	block = Z_Malloc(blocksize*bpp, PU_HWRCACHE, &(grMipmap->data));
 
 	switch (bpp)
@@ -474,23 +471,18 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex, GLMipmap_t 
 	UINT8 *block;
 	texture_t *texture;
 	texpatch_t *patch;
-#if 0 // IDK MAN - bitten
-	softwarepatch_t *realpatch;
-	UINT8 *pdata;
-#endif
 	INT32 blockwidth, blockheight, blocksize;
 
 	INT32 i;
 
 	texture = textures[texnum];
 
-#if 0 // assuming this is nolonger needed, but keeping until i get opengl working again
-    mipmap->flags = TF_CHROMAKEYED | TF_WRAPXY;
-
 	HWR_ResizeBlock(texture->width, texture->height);
+#if 0
+	// STAR NOTE: hi again...
 	mipmap->width = (UINT16)blockwidth;
 	mipmap->height = (UINT16)blockheight;
-    mipmap->format = textureformat;
+  	mipmap->format = textureformat;
 #endif
 
 	blockwidth = texture->width;
@@ -554,8 +546,15 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 	if (grMipmap->width == 0)
 	{
 		HWR_ResizeBlock(patch->width, patch->height);
+#if 1
 		grMipmap->width = (UINT16)blockwidth;
 		grMipmap->height = (UINT16)blockheight;
+#else
+		// STAR NOTE: can't test until OpenGL OpenGL's lol
+		grMipmap->width = grMipmap->height = 1;
+		while (grMipmap->width < (UINT16)blockwidth) grMipmap->width <<= 1;
+		while (grMipmap->height < (UINT16)blockheight) grMipmap->height <<= 1;
+#endif
 
 		// no wrap around, no chroma key
 		grMipmap->flags = 0;
@@ -694,7 +693,7 @@ static boolean FreeColormapsCallback(void *mem)
 	return false;
 }
 
-static void FreeTextureCache(boolean freeall)
+static void HWR_FreePatchCache(boolean freeall)
 {
 	boolean (*callback)(void *mem) = FreeTextureCallback;
 
@@ -709,13 +708,12 @@ static void FreeTextureCache(boolean freeall)
 void HWR_ClearAllTextures(void)
 {
 	HWD.pfnClearMipMapCache(); // free references to the textures
-	//FreeTextureCache(true);
+	HWR_FreePatchCache(true);
 }
 
-// free all texture colormaps after each level
 void HWR_FreeColormapCache(void)
 {
-	FreeTextureCache(false);
+	HWR_FreePatchCache(false);
 }
 
 void HWR_InitMapTextures(void)
@@ -1060,7 +1058,6 @@ void HWR_UnlockCachedPatch(GLPatch_t *gpatch)
 	Z_ChangeTag(gpatch->mipmap->data, PU_HWRCACHE_UNLOCKED);
 }
 
-// bitten note, functions were removed upstream
 patch_t *HWR_GetCachedGLPatchPwad(UINT16 wadnum, UINT16 lumpnum)
 {
 	lumpcache_t *lumpcache = wadfiles[wadnum]->patchcache;
@@ -1084,7 +1081,7 @@ static void HWR_DrawFadeMaskInCache(GLMipmap_t *mipmap, INT32 pblockwidth, INT32
 {
 	INT32 i,j;
 	fixed_t posx, posy, stepx, stepy;
-	UINT8 *block = mipmap->data; // places the data directly into here, it already has the space allocated from HWR_ResizeBlock
+	UINT8 *block = mipmap->data; // places the data directly into here
 	UINT8 *flat;
 	UINT8 *dest, *src, texel;
 	RGBA_t col;

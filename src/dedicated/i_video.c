@@ -1,4 +1,4 @@
-﻿#include "../doomdef.h"
+#include "../doomdef.h"
 #include "../command.h"
 #include "../i_video.h"
 

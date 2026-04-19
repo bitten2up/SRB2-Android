@@ -65,7 +65,7 @@ LOCAL_SRC_FILES :=\
 	$(LOCAL_PATH)/gme/Ym2612_GENS.cpp
 
 LOCAL_LDLIBS := -lz
-LOCAL_STATIC_LIBRARIES := c++_static
+# LOCAL_STATIC_LIBRARIES := c++_static
 include $(BUILD_SHARED_LIBRARY)
 
-$(call import-module,cxx-stl/llvm-libc++)
+# $(call import-module,cxx-stl/llvm-libc++)

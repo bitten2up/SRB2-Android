@@ -1,14 +1,21 @@
-// SONIC ROBO BLAST 2
+// Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
-// Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1998-2020 by Sonic Team Junior.
 //
-// This program is free software distributed under the
-// terms of the GNU General Public License, version 2.
-// See the 'LICENSE' file for more details.
+// Copyright (C) 1998-2000 by DooM Legacy Team.
+//
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
 //-----------------------------------------------------------------------------
-/// \file r_opengl.h
-/// \brief OpenGL API for Sonic Robo Blast 2
+/// \file
+/// \brief OpenGL API for Doom Legacy
 
 #ifndef _R_OPENGL_H_
 #define _R_OPENGL_H_
@@ -21,6 +28,7 @@
 #endif
 
 #ifndef HAVE_GLES2
+#error HAVE_GLES2 not set for some weird reason
 #include "SDL_opengl.h" //Alam_GBC: Simple, yes?
 #endif
 
@@ -30,6 +38,7 @@
 
 #else
 #include <GL/gl.h>
+#include <GL/glu.h>
 
 #ifdef STATIC_OPENGL // Because of the 1.3 functions, you'll need GLext to compile it if static
 #define GL_GLEXT_PROTOTYPES
@@ -41,6 +50,8 @@
 #include "../../doomdef.h"
 #include "../hw_drv.h"
 #include "../../z_zone.h"
+
+#include "../r_glcommon/r_glcommon.h"
 
 // ==========================================================================
 //                                                                DEFINITIONS
@@ -60,8 +71,6 @@
 //#if defined(HAVE_SDL) && !defined(_DEBUG)
 //#undef DEBUG_TO_FILE
 //#endif
-
-#include "../r_glcommon/r_glcommon.h"
 
 // ==========================================================================
 //                                                                     PROTOS

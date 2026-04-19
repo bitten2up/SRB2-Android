@@ -320,8 +320,6 @@ void gld_clipper_Clear(void)
 
 #define RMUL (1.6f/1.333333f)
 
-// wtf android???
-//angle_t gld_FrustumAngle(angle_t tiltangle, void *player)
 angle_t gld_FrustumAngle(float render_fov, angle_t tiltangle)
 {
 	double floatangle;

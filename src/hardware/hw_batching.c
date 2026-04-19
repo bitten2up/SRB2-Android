@@ -232,9 +232,9 @@ void HWR_RenderBatches(void)
 	// and a color array could replace the color calls.
 
 	// set state for first batch
+
 	if (cv_glshaders.value && gl_shadersavailable)
 	{
-		HWD.pfnSetBlend(currentPolyFlags);
 		HWD.pfnSetShader(currentShader);
 	}
 

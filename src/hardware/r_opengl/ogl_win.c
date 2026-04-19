@@ -52,12 +52,9 @@ static void UnSetRes(void);
 PFNWGLEXTSWAPCONTROLPROC wglSwapIntervalEXT = NULL;
 #endif
 
-PFNglClear pglClear;
-PFNglGetIntegerv pglGetIntegerv;
-PFNglGetString pglGetString;
-
 #define MAX_VIDEO_MODES   32
 static  vmode_t     video_modes[MAX_VIDEO_MODES];
+INT32     oglflags = 0;
 
 // **************************************************************************
 //                                                                  FUNCTIONS
@@ -116,7 +113,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, // handle to DLL module
 #define pwglDeleteContext wglDeleteContext;
 #define pwglMakeCurrent wglMakeCurrent;
 #else
-static HMODULE OGL32;
+static HMODULE OGL32, GLU32;
 typedef void *(WINAPI *PFNwglGetProcAddress) (const char *);
 static PFNwglGetProcAddress pwglGetProcAddress;
 typedef HGLRC (WINAPI *PFNwglCreateContext) (HDC hdc);
@@ -131,6 +128,13 @@ static PFNwglMakeCurrent pwglMakeCurrent;
 void *GLBackend_GetFunction(const char *proc)
 {
 	void *func = NULL;
+	if (strncmp(proc, "glu", 3) == 0)
+	{
+		if (GLU32)
+			func = GetProcAddress(GLU32, proc);
+		else
+			return NULL;
+	}
 	if (pwglGetProcAddress)
 		func = pwglGetProcAddress(proc);
 	if (!func)
@@ -147,21 +151,13 @@ boolean GLBackend_Init(void)
 	if (!OGL32)
 		return 0;
 
-<<<<<<< HEAD
 	GLU32 = LoadLibrary("GLU32.DLL");
 
 	pwglGetProcAddress = GLBackend_GetFunction("wglGetProcAddress");
 	pwglCreateContext = GLBackend_GetFunction("wglCreateContext");
 	pwglDeleteContext = GLBackend_GetFunction("wglDeleteContext");
 	pwglMakeCurrent = GLBackend_GetFunction("wglMakeCurrent");
-=======
-	pwglGetProcAddress = GetGLFunc("wglGetProcAddress");
-	pwglCreateContext = GetGLFunc("wglCreateContext");
-	pwglDeleteContext = GetGLFunc("wglDeleteContext");
-	pwglMakeCurrent = GetGLFunc("wglMakeCurrent");
->>>>>>> 7b6bf976646e44f6fa4ed92700770b64dfcdcfbc
 #endif
-
 	return GLBackend_LoadFunctions();
 }
 
@@ -342,18 +338,26 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 	GL_DBG_Printf("Version    : %s\n", pglGetString(GL_VERSION));
 	GL_DBG_Printf("Extensions : %s\n", gl_extensions);
 
+	// BP: disable advenced feature that don't work on somes hardware
+	// Hurdler: Now works on G400 with bios 1.6 and certified drivers 6.04
+	if (strstr(renderer, "810"))   oglflags |= GLF_NOZBUFREAD;
+	GL_DBG_Printf("oglflags   : 0x%X\n", oglflags);
+
 #ifdef USE_WGL_SWAP
-	if (GL_ExtensionAvailable("WGL_EXT_swap_control",gl_extensions))
+	if (GLExtension_Available("WGL_EXT_swap_control"))
 		wglSwapIntervalEXT = GLBackend_GetFunction("wglSwapIntervalEXT");
 	else
 		wglSwapIntervalEXT = NULL;
 #endif
 
-	if (GL_ExtensionAvailable("GL_EXT_texture_filter_anisotropic",gl_extensions))
+	if (GLExtension_Available("GL_EXT_texture_filter_anisotropic"))
 		pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
 	else
 		maximumAnisotropy = 0;
 
+#if 0
+	SetupGLFunc13();
+#endif
 	GLBackend_LoadExtraFunctions();
 
 	screen_depth = (GLbyte)(lvid->bpp*8);
@@ -362,8 +366,8 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 	else
 		textureformatGL = GL_RGB5_A1;
 
-	SetModelView(lvid->width, lvid->height);
-	SetStates();
+	GLBackend_SetModelView(lvid->width, lvid->height);
+	GLBackend_SetStates();
 	// we need to clear the depth buffer. Very important!!!
 	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
@@ -523,6 +527,7 @@ EXPORT void HWRAPI(Shutdown) (void)
 		ReleaseDC(hWnd, hDC);
 		hDC = NULL;
 	}
+	FreeLibrary(GLU32);
 	FreeLibrary(OGL32);
 	GL_DBG_Printf ("HWRAPI Shutdown(DONE)\n");
 }

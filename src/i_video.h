@@ -91,10 +91,6 @@ void VID_GetNativeResolution(INT32 *width, INT32 *height);
 */
 INT32 VID_CheckRenderer(void);
 
-/**	\brief Blits a region of the current framebuffer surface into the texture (does not present it.)
-*/
-void VID_BlitSurfaceRegion(INT32 x, INT32 y, INT32 w, INT32 h);
-
 /**	\brief Load OpenGL mode
 */
 void VID_StartupOpenGL(void);
@@ -128,10 +124,6 @@ void I_UpdateNoBlit(void);
 /**	\brief Update video system with updating frame
 */
 void I_FinishUpdate(void);
-
-/**	\brief I_FinishUpdate(), but checks the rendering context
-*/
-void I_OnLoopFinishUpdate(void);
 
 /**	\brief I_FinishUpdate(), but vsync disabled
 */

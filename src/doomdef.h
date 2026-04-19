@@ -19,6 +19,11 @@
 #undef NEWSIGNALHANDLER
 #endif
 
+#if 0
+// STAR NOTE: testing //
+#define NEWSIGNALHANDLER
+#endif
+
 // Sound system select
 // This should actually be in the makefile,
 // but I can't stand that gibberish. D:
@@ -158,6 +163,10 @@ extern char logfilename[1024];
 // TV support
 #if defined(__ANDROID__) || defined(__TVOS__)
 #define TV_PLATFORM
+#endif
+
+#if defined(HAVE_GLES2) || !defined(HAVE_GLES)
+#define HAVE_GL_FRAMEBUFFER
 #endif
 
 //#define DEVELOP // Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go. :3

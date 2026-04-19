@@ -719,6 +719,13 @@ void R_AddSpriteDefs(UINT16 wadnum)
 
 	if (spritesadded || framesadded)
 	{
+#if 1
+		// STAR NOTE: hi model rendering
+#ifdef HWRENDER
+		if (rendermode == render_opengl)
+			HWR_ReadModels();
+#endif
+#endif
 		nameonly(strcpy(wadname, wadfiles[wadnum]->filename));
 		CONS_Printf(M_GetText("%s added %s frames in %s sprites\n"), wadname, sizeu1(framesadded), sizeu2(spritesadded));
 	}
@@ -787,8 +794,11 @@ void R_InitSprites(void)
 	ST_ReloadSkinFaceGraphics();
 
 #ifdef HWRENDER
+#if 0
+	// STAR NOTE: yeah i had to just... remove it.... right quick :p
 	if (rendermode == render_opengl)
 		HWR_LoadModels();
+#endif
 #endif
 }
 

@@ -72,21 +72,17 @@
 #include "errno.h"
 #endif
 
+// Android
+#include "../android/apk_main.h"
+#include "../android/apk_m_textreader.h"
+#include "../w_handle.h"
+#define STAR_MODEL_TEST 1
+
 md2_t md2_models[NUMSPRITES];
 md2_t *md2_playermodels = NULL;
 size_t md2_numplayermodels = 0;
 
-
-/*
- * free model
- */
-#if 0
-static void md2_freeModel (model_t *model)
-{
-	UnloadModel(model);
-}
-#endif
-
+static wadfile_t *modelpack = NULL;
 
 //
 // load model
@@ -94,14 +90,14 @@ static void md2_freeModel (model_t *model)
 // Hurdler: the current path is the Legacy.exe path
 static model_t *md2_readModel(const char *filename)
 {
-	//Filename checking fixed ~Monster Iestyn and Golden
-	if (FIL_FileExists(va("%s"PATHSEP"%s", srb2home, filename)))
-		return LoadModel(va("%s"PATHSEP"%s", srb2home, filename), PU_STATIC);
+	if (modelpack)
+		return LoadModel(filename, PU_STATIC, modelpack);
 
-	if (FIL_FileExists(va("%s"PATHSEP"%s", srb2path, filename)))
-		return LoadModel(va("%s"PATHSEP"%s", srb2path, filename), PU_STATIC);
+	char *fn = APK_M_FindFile(filename);
+	if (!fn)
+		return NULL;
 
-	return NULL;
+	return LoadModel(fn, PU_STATIC, NULL);
 }
 
 static inline void md2_printModelInfo (model_t *model)
@@ -150,7 +146,16 @@ static void PNG_warn(png_structp PNG, png_const_charp pngtext)
 	CONS_Debug(DBG_RENDER, "libpng warning at %p: %s", PNG, pngtext);
 }
 
-static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_t *grpatch)
+static void PNG_IOReader(png_structp png_ptr, png_bytep data, png_size_t length)
+{
+	png_io_t *f = png_get_io_ptr(png_ptr);
+	if (length > (f->size - f->position))
+		png_error(png_ptr, "PNG_IOReader: buffer overrun");
+	memcpy(data, f->buffer + f->position, length);
+	f->position += length;
+}
+
+static GLTextureFormat_t PNG_Load(const UINT8 *source, size_t source_size, int *w, int *h, GLPatch_t *grpatch)
 {
 	png_structp png_ptr;
 	png_infop png_info_ptr;
@@ -161,28 +166,13 @@ static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_
 	jmp_buf jmpbuf;
 #endif
 #endif
-	volatile png_FILE_p png_FILE;
-	//Filename checking fixed ~Monster Iestyn and Golden
-	char *pngfilename = va("%s"PATHSEP"models"PATHSEP"%s", srb2home, filename);
-
-	FIL_ForceExtension(pngfilename, ".png");
-	png_FILE = fopen(pngfilename, "rb");
-	if (!png_FILE)
-	{
-		pngfilename = va("%s"PATHSEP"models"PATHSEP"%s", srb2path, filename);
-		FIL_ForceExtension(pngfilename, ".png");
-		png_FILE = fopen(pngfilename, "rb");
-		//CONS_Debug(DBG_RENDER, "M_SavePNG: Error on opening %s for loading\n", filename);
-		if (!png_FILE)
-			return 0;
-	}
+	png_io_t png_io;
 
 	png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL,
 		PNG_error, PNG_warn);
 	if (!png_ptr)
 	{
 		CONS_Debug(DBG_RENDER, "PNG_Load: Error on initialize libpng\n");
-		fclose(png_FILE);
 		return 0;
 	}
 
@@ -191,7 +181,6 @@ static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_
 	{
 		CONS_Debug(DBG_RENDER, "PNG_Load: Error on allocate for libpng\n");
 		png_destroy_read_struct(&png_ptr, NULL, NULL);
-		fclose(png_FILE);
 		return 0;
 	}
 
@@ -201,9 +190,7 @@ static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_
 	if (setjmp(png_jmpbuf(png_ptr)))
 #endif
 	{
-		//CONS_Debug(DBG_RENDER, "libpng load error on %s\n", filename);
 		png_destroy_read_struct(&png_ptr, &png_info_ptr, NULL);
-		fclose(png_FILE);
 		Z_Free(grpatch->mipmap->data);
 		return 0;
 	}
@@ -211,7 +198,10 @@ static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_
 	png_memcpy(png_jmpbuf(png_ptr), jmpbuf, sizeof jmp_buf);
 #endif
 
-	png_init_io(png_ptr, png_FILE);
+	png_io.buffer = source;
+	png_io.size = source_size;
+	png_io.position = 0;
+	png_set_read_fn(png_ptr, &png_io, PNG_IOReader);
 
 #ifdef PNG_SET_USER_LIMITS_SUPPORTED
 	png_set_user_limits(png_ptr, 2048, 2048);
@@ -255,115 +245,60 @@ static GLTextureFormat_t PNG_Load(const char *filename, int *w, int *h, GLPatch_
 
 	png_destroy_read_struct(&png_ptr, &png_info_ptr, NULL);
 
-	fclose(png_FILE);
 	*w = (int)width;
 	*h = (int)height;
 	return GL_TEXFMT_RGBA;
 }
 #endif
 
-typedef struct
+static GLTextureFormat_t LoadTexture(const char *filename, int *w, int *h, GLPatch_t *grpatch)
 {
-	UINT8 manufacturer;
-	UINT8 version;
-	UINT8 encoding;
-	UINT8 bitsPerPixel;
-	INT16 xmin;
-	INT16 ymin;
-	INT16 xmax;
-	INT16 ymax;
-	INT16 hDpi;
-	INT16 vDpi;
-	UINT8 colorMap[48];
-	UINT8 reserved;
-	UINT8 numPlanes;
-	INT16 bytesPerLine;
-	INT16 paletteInfo;
-	INT16 hScreenSize;
-	INT16 vScreenSize;
-	UINT8 filler[54];
-} PcxHeader;
+	GLTextureFormat_t fmt = 0;
+	char pngfilename[4096];
+	UINT8 *buffer = NULL;
+	size_t fileLen = 0;
 
-static GLTextureFormat_t PCX_Load(const char *filename, int *w, int *h,
-	GLPatch_t *grpatch)
-{
-	PcxHeader header;
-#define PALSIZE 768
-	UINT8 palette[PALSIZE];
-	const UINT8 *pal;
-	RGBA_t *image;
-	size_t pw, ph, size, ptr = 0;
-	INT32 ch, rep;
-	FILE *file;
-	//Filename checking fixed ~Monster Iestyn and Golden
-	char *pcxfilename = va("%s"PATHSEP"models"PATHSEP"%s", srb2home, filename);
+	snprintf(pngfilename, sizeof pngfilename, "models/%s", filename);
 
-	FIL_ForceExtension(pcxfilename, ".pcx");
-	file = fopen(pcxfilename, "rb");
-	if (!file)
+	FIL_ForceExtension(pngfilename, ".png");
+
+	if (modelpack)
 	{
-		pcxfilename = va("%s"PATHSEP"models"PATHSEP"%s", srb2path, filename);
-		FIL_ForceExtension(pcxfilename, ".pcx");
-		file = fopen(pcxfilename, "rb");
-		if (!file)
+		UINT16 lump = APK_Resource_CheckNumForName(modelpack, pngfilename);
+		if (lump == INT16_MAX)
 			return 0;
-	}
 
-	if (fread(&header, sizeof (PcxHeader), 1, file) != 1)
+		buffer = APK_Resource_CacheLumpNum(modelpack, lump, PU_STATIC);
+		fileLen = APK_Resource_LumpLength(modelpack, lump);
+	}
+	else
 	{
-		fclose(file);
-		return 0;
+		char *fn = APK_M_FindFile(pngfilename);
+		if (!fn)
+			return 0;
+
+		filehandle_t *f = File_Open(fn, "rb", FILEHANDLE_SDL);
+		if (!f) // still couldn't open it somehow
+			return 0;
+
+		fileLen = File_Size(f);
+		buffer = ZZ_Alloc(fileLen);
+
+		File_Read(buffer, fileLen, 1, f);
+		File_Close(f);
 	}
 
-	if (header.bitsPerPixel != 8)
-	{
-		fclose(file);
-		return 0;
-	}
+#ifdef HAVE_PNG
+	fmt = PNG_Load(buffer, fileLen, w, h, grpatch);
+#endif
 
-	fseek(file, -PALSIZE, SEEK_END);
+	Z_Free(buffer);
 
-	pw = *w = header.xmax - header.xmin + 1;
-	ph = *h = header.ymax - header.ymin + 1;
-	image = Z_Malloc(pw*ph*4, PU_HWRMODELTEXTURE, &grpatch->mipmap->data);
-
-	if (fread(palette, sizeof (UINT8), PALSIZE, file) != PALSIZE)
-	{
-		Z_Free(image);
-		fclose(file);
-		return 0;
-	}
-	fseek(file, sizeof (PcxHeader), SEEK_SET);
-
-	size = pw * ph;
-	while (ptr < size)
-	{
-		ch = fgetc(file);  //Hurdler: beurk
-		if (ch >= 192)
-		{
-			rep = ch - 192;
-			ch = fgetc(file);
-		}
-		else
-		{
-			rep = 1;
-		}
-		while (rep--)
-		{
-			pal = palette + ch*3;
-			image[ptr].s.red   = *pal++;
-			image[ptr].s.green = *pal++;
-			image[ptr].s.blue  = *pal++;
-			image[ptr].s.alpha = 0xFF;
-			ptr++;
-		}
-	}
-	fclose(file);
-	return GL_TEXFMT_RGBA;
+	return fmt;
 }
 
 // -----------------+
-// md2_loadTexture  : Download a pcx or png texture for models
+// md2_loadTexture  : Download a png texture for models
 // -----------------+
 static void md2_loadTexture(md2_t *model)
 {
@@ -390,12 +325,10 @@ static void md2_loadTexture(md2_t *model)
 	if (!grPatch->mipmap->downloaded && !grPatch->mipmap->data)
 	{
 		int w = 0, h = 0;
+		UINT32 size;
+		RGBA_t *image;
 
-#ifdef HAVE_PNG
-		grPatch->mipmap->format = PNG_Load(filename, &w, &h, grPatch);
-		if (grPatch->mipmap->format == 0)
-#endif
-		grPatch->mipmap->format = PCX_Load(filename, &w, &h, grPatch);
+		grPatch->mipmap->format = LoadTexture(filename, &w, &h, grPatch);
 		if (grPatch->mipmap->format == 0)
 		{
 			model->notexturefile = true; // mark it so its not searched for again repeatedly
@@ -410,26 +343,20 @@ static void md2_loadTexture(md2_t *model)
 		grPatch->mipmap->width = (UINT16)w;
 		grPatch->mipmap->height = (UINT16)h;
 
-		// for palette rendering, color cube is applied in post-processing instead of here
-		if (!HWR_ShouldUsePaletteRendering())
+		// Lactozilla: Apply colour cube
+		image = grPatch->mipmap->data;
+		size = w*h;
+		while (size--)
 		{
-			UINT32 size;
-			RGBA_t *image;
-			// Lactozilla: Apply colour cube
-			image = grPatch->mipmap->data;
-			size = w*h;
-			while (size--)
-			{
-				V_CubeApply(&image->s.red, &image->s.green, &image->s.blue);
-				image++;
-			}
+			V_CubeApply(&image->s.red, &image->s.green, &image->s.blue);
+			image++;
 		}
 	}
 	HWD.pfnSetTexture(grPatch->mipmap);
 }
 
 // -----------------+
-// md2_loadBlendTexture  : Download a pcx or png texture for blending MD2 models
+// md2_loadBlendTexture  : Download a png texture for blending MD2 models
 // -----------------+
 static void md2_loadBlendTexture(md2_t *model)
 {
@@ -459,11 +386,7 @@ static void md2_loadBlendTexture(md2_t *model)
 	if (!grPatch->mipmap->downloaded && !grPatch->mipmap->data)
 	{
 		int w = 0, h = 0;
-#ifdef HAVE_PNG
-		grPatch->mipmap->format = PNG_Load(filename, &w, &h, grPatch);
-		if (grPatch->mipmap->format == 0)
-#endif
-		grPatch->mipmap->format = PCX_Load(filename, &w, &h, grPatch);
+		grPatch->mipmap->format = LoadTexture(filename, &w, &h, grPatch);
 		if (grPatch->mipmap->format == 0)
 		{
 			model->noblendfile = true; // mark it so its not searched for again repeatedly
@@ -487,79 +410,95 @@ static void md2_loadBlendTexture(md2_t *model)
 // Don't spam the console, or the OS with fopen requests!
 static boolean nomd2s = false;
 
+static char *GetModelDefFile(const char *filename, size_t *size)
+{
+	if (nomd2s)
+		return NULL;
+
+	char *fn = APK_M_FindFile(filename);
+	if (!fn)
+		return NULL;
+
+	// read the models.dat file
+	filehandle_t *f = File_Open(fn, "rt", FILEHANDLE_SDL);
+
+	if (!f)
+	{
+		CONS_Alert(CONS_ERROR, "Error while loading model definition file: Could not open file %s\n", fn);
+		nomd2s = true;
+		return NULL;
+	}
+
+	size_t sz = File_Size(f);
+	char *text = ZZ_Alloc(sz);
+
+	if (File_Read(text, 1, sz, f) < sz)
+	{
+		CONS_Alert(CONS_ERROR, "Error while loading model definition file: Could not read file %s\n", fn);
+		Z_Free(text);
+		return NULL;
+	}
+
+	*size = sz;
+
+	File_Close(f);
+
+	return text;
+}
+
 void HWR_InitModels(void)
 {
 	size_t i;
+	INT32 s;
 
-	for (i = 0; i < NUMSPRITES; i++)
+	for (s = 0; s < numskins; s++)
+	{
+		md2_playermodels[s].scale = -1.0f;
+		md2_playermodels[s].offset = 0.0f;
+		md2_playermodels[s].model = NULL;
+		md2_playermodels[s].grpatch = NULL;
+		md2_playermodels[s].notexturefile = false;
+		md2_playermodels[s].noblendfile = false;
+		md2_playermodels[s].found = false;
+		md2_playermodels[s].error = false;
+	}
+	for (i = 0; i < numsprites; i++)
 	{
 		md2_models[i].scale = -1.0f;
+		md2_models[i].offset = 0.0f;
 		md2_models[i].model = NULL;
 		md2_models[i].grpatch = NULL;
+		md2_models[i].blendgrpatch = NULL;
 		md2_models[i].notexturefile = false;
 		md2_models[i].noblendfile = false;
 		md2_models[i].found = false;
 		md2_models[i].error = false;
 	}
 
-	if (numsprites && numskins)
-		HWR_LoadModels();
+	nomd2s = false;
 }
 
-void HWR_LoadModels(void)
+static void ReadModelDefs(char *data, size_t size)
 {
 	size_t i;
 	INT32 s;
-	FILE *f;
-
-	char name[26], filename[32];
-	// name[24] is used to check for names in the models.dat file that match with sprites or player skins
-	// sprite names are always 4 characters long, and names is for player skins can be up to 19 characters long
-	// PLAYERMODELPREFIX is 6 characters long
+	char name[24], filename[32];
 	float scale, offset;
-	size_t prefixlen;
 
-	if (nomd2s)
-		return;
+	textreader_t *r = TextReader_New(data, size);
+	char *line = NULL;
 
-	// realloc player models table
-	if (numskins != (INT32)md2_numplayermodels)
+	size_t l = TextReader_GetLineLength(r);
+	size_t prefixlen = strlen(PLAYERMODELPREFIX);
+
+	while (l)
 	{
-		md2_numplayermodels = (size_t)numskins;
-		md2_playermodels = Z_Realloc(md2_playermodels, sizeof(md2_t) * md2_numplayermodels, PU_STATIC, NULL);
+		line = Z_Realloc(line, l, PU_STATIC, NULL);
+		TextReader_GetLine(r, line, l);
 
-		for (s = 0; s < numskins; s++)
-		{
-			md2_playermodels[s].scale = -1.0f;
-			md2_playermodels[s].model = NULL;
-			md2_playermodels[s].grpatch = NULL;
-			md2_playermodels[s].notexturefile = false;
-			md2_playermodels[s].noblendfile = false;
-			md2_playermodels[s].found = false;
-			md2_playermodels[s].error = false;
-		}
-	}
+		if (sscanf(line, "%25s %31s %f %f", name, filename, &scale, &offset) != 4)
+			break;
 
-	// read the models.dat file
-	//Filename checking fixed ~Monster Iestyn and Golden
-	f = fopen(va("%s"PATHSEP"%s", srb2home, "models.dat"), "rt");
-
-	if (!f)
-	{
-		f = fopen(va("%s"PATHSEP"%s", srb2path, "models.dat"), "rt");
-		if (!f)
-		{
-			CONS_Printf("%s %s\n", M_GetText("Error while loading models.dat:"), strerror(errno));
-			nomd2s = true;
-			return;
-		}
-	}
-
-	// length of the player model prefix
-	prefixlen = strlen(PLAYERMODELPREFIX);
-
-	while (fscanf(f, "%25s %31s %f %f", name, filename, &scale, &offset) == 4)
-	{
 		char *skinname = name;
 		size_t len = strlen(name);
 
@@ -599,10 +538,124 @@ addskinmodel:
 
 modelfound:
 		// Move on to the next line...
-		continue;
+		l = TextReader_GetLineLength(r);
 	}
 
-	fclose(f);
+	Z_Free(line);
+
+	TextReader_Delete(r);
+}
+
+boolean HWR_ModelPackExists(const char *filename)
+{
+	char buf[4096];
+
+	strlcpy(buf, filename, sizeof buf);
+
+	return APK_M_FindFile(buf) != NULL;
+}
+
+static boolean LoadModelPack(char *filename)
+{
+	char *fn = APK_M_FindFile(filename);
+	if (!fn)
+		return false;
+
+	modelpack = APK_W_LoadResourceFile(fn, FILEHANDLE_SDL);
+
+	return modelpack != NULL;
+}
+
+// Looks for a model pack or a model.dat file to read model definitions from.
+// If modelpack is set to its default value, then models.dat is loaded first.
+// Otherwise, we look for a model pack on the filesystem.
+// If that fails, then we just look for a models.dat again.
+void HWR_ReadModels(void)
+{
+	char *text = NULL;
+	size_t size = 0;
+
+	if (!cv_usemodelpack.value)
+	{
+		text = GetModelDefFile("models.dat", &size);
+		if (text)
+		{
+			ReadModelDefs(text, size);
+			Z_Free(text);
+		}
+		return;
+	}
+
+	if (strcmp(cv_modelpack.string, cv_modelpack.defaultvalue) == 0)
+		text = GetModelDefFile("models.dat", &size);
+
+	if (!text)
+	{
+		char buf[4096];
+
+		strlcpy(buf, cv_modelpack.string, sizeof buf);
+
+		if (LoadModelPack(buf))
+		{
+			UINT16 lump = APK_Resource_CheckNumForName(modelpack, "models.dat");
+			if (lump != INT16_MAX)
+			{
+				text = APK_Resource_CacheLumpNum(modelpack, lump, PU_STATIC);
+				size = APK_Resource_LumpLength(modelpack, lump);
+			}
+		}
+		else
+			text = GetModelDefFile("models.dat", &size);
+	}
+
+	if (text)
+	{
+		ReadModelDefs(text, size);
+		Z_Free(text);
+	}
+}
+
+static void FreeModelData(md2_t *md2)
+{
+	if (md2->model)
+	{
+		UnloadModel(md2->model);
+		md2->model = NULL;
+	}
+
+	if (md2->grpatch)
+	{
+		Patch_Free(md2->grpatch);
+		md2->grpatch = NULL;
+	}
+
+	if (md2->blendgrpatch)
+	{
+		Patch_Free(md2->blendgrpatch);
+		md2->blendgrpatch = NULL;
+	}
+}
+
+void HWR_FreeModelData(boolean reload_models)
+{
+	size_t i;
+	INT32 s;
+
+	HWD.pfnDeleteModelData();
+
+	for (s = 0; s < MAXSKINS; s++)
+		FreeModelData(&md2_playermodels[s]);
+	for (i = 0; i < NUMSPRITES; i++)
+		FreeModelData(&md2_models[i]);
+
+	if (modelpack)
+	{
+		APK_W_DeleteResourceFile(modelpack);
+		modelpack = NULL;
+	}
+
+	if (reload_models)
+		HWR_InitModels();
 }
 
 // Define for getting accurate color brightness readings according to how the human eye sees them.
@@ -1291,7 +1344,6 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 	modelspr2frames_t *spr2frames = NULL;
 	FTransform p;
 	FSurfaceInfo Surf;
-	FBITFIELD flags;
 
 	if (!cv_glmodels.value)
 		return false;
@@ -1459,6 +1511,9 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				// note down the max_s and max_t that end up in the VBO
 				md2->model->vbo_max_s = md2->model->max_s;
 				md2->model->vbo_max_t = md2->model->max_t;
+#ifndef STAR_MODEL_TEST
+				HWD.pfnCreateModelVBOs(md2->model);
+#endif
 			}
 			else
 			{
@@ -1467,13 +1522,14 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 				return false;
 			}
 		}
+#ifdef STAR_MODEL_TEST
 		if (!md2->model->hasVBOs)
 		{
 			HWD.pfnCreateModelVBOs(md2->model);
 			md2->model->hasVBOs = true;
 		}
+#endif
 
-		//finalscale = md2->scale;
 		//HWD.pfnSetBlend(blend); // This seems to actually break translucency?
 		//Hurdler: arf, I don't like that implementation at all... too much crappy
 
@@ -1697,8 +1753,10 @@ boolean HWR_DrawModel(gl_vissprite_t *spr)
 			HWD.pfnDrawModel(md2->model, frame, durs, tics, nextFrame, &p, md2->scale * xs, md2->scale * ys, flip, hflip, &Surf);
 		}
 	}
-	// bitten check
+
+#ifdef STAR_MODEL_TEST
 	HWD.pfnSetShader(SHADER_NONE);
+#endif
 
 	return true;
 }

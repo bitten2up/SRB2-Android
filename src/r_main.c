@@ -42,6 +42,9 @@
 #include "hardware/hw_main.h"
 #endif
 
+// Android
+#include "android/apk_nativescreenres.h"
+
 // Fineangles in the SCREENWIDTH wide window.
 #define FIELDOFVIEW 2048
 
@@ -156,7 +159,7 @@ consvar_t cv_shadow = CVAR_INIT ("shadow", "On", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_skybox = CVAR_INIT ("skybox", "On", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_allowmlook = CVAR_INIT ("allowmlook", "Yes", CV_NETVAR|CV_ALLOWLUA, CV_YesNo, NULL);
 consvar_t cv_showhud = CVAR_INIT ("showhud", "Yes", CV_CALL|CV_ALLOWLUA,  CV_YesNo, R_SetViewSize);
-consvar_t cv_translucenthud = CVAR_INIT ("translucenthud", "10", CV_SAVE|CV_SLIDER_SAFE, translucenthud_cons_t, NULL);
+consvar_t cv_translucenthud = CVAR_INIT ("translucenthud", "10", CV_SAVE|APK_CV_SLIDER_SAFE, translucenthud_cons_t, NULL);
 
 consvar_t cv_translucency = CVAR_INIT ("translucency", "On", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_drawdist = CVAR_INIT ("drawdist", "Infinite", CV_SAVE, drawdist_cons_t, NULL);
@@ -956,6 +959,10 @@ void R_ExecuteSetViewSize(void)
 fixed_t R_GetPlayerFov(player_t *player)
 {
 	fixed_t fov = cv_fov.value + player->fovadd;
+#ifdef NATIVESCREENRES
+	// SRB2Android: ok my turn now
+	APK_R_GetNativeResFov(&fov);
+#endif
 	return max(MINFOV*FRACUNIT, min(fov, MAXFOV*FRACUNIT));
 }
 
@@ -965,13 +972,10 @@ static void R_SetFov(fixed_t playerfov)
 	fovtan = FixedMul(FINETANGENT(fov >> ANGLETOFINESHIFT), viewmorph.zoomneeded);
 	if (splitscreen == 1) // Splitscreen FOV should be adjusted to maintain expected vertical view
 		fovtan = 17*fovtan/10;
+
 #ifdef NATIVESCREENRES
-	if (cv_nativeres.value && cv_nativeresfov.value)
-	{
-		fixed_t resmul = FixedDiv(vid.width * FRACUNIT, vid.height * FRACUNIT);
-		if (resmul > FRACUNIT)
-			fovtan = FixedMul(fovtan, (7*resmul/10));
-	}
+	// SRB2Android: ok my turn now
+	APK_R_GetNativeResFov(&fov);
 #endif
 
 	// this is only used for planes rendering in software mode
@@ -1659,8 +1663,8 @@ void R_RegisterEngineStuff(void)
 	if (dedicated)
 		return;
 
-#ifdef MOBILE_PLATFORM // Override CVARs
-	// Change the default draw distance
+#ifdef MOBILE_PLATFORM // Android: Override CVARs //
+	// Android: Change the default draw distance
 	cv_drawdist.defaultvalue = "4096";
 #endif
 
@@ -1669,8 +1673,6 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_drawdist);
 	CV_RegisterVar(&cv_drawdist_nights);
 	CV_RegisterVar(&cv_drawdist_precip);
-
-	CV_RegisterVar(&cv_translucency);
 	CV_RegisterVar(&cv_fovchange);
 	CV_RegisterVar(&cv_fov);
 

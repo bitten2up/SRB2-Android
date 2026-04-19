@@ -64,3 +64,7 @@ default_packages:=\
 
 $(foreach p,$(default_packages),\
 	$(eval $(call Check_pkg_config,$(p))))
+
+# ANDROID START #
+include xtra/Makefile.d/xtra.mk
+# ANDROID DONE #

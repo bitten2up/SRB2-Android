@@ -49,8 +49,6 @@ void HWR_DrawConsoleFill(INT32 x, INT32 y, INT32 w, INT32 h, INT32 color, UINT32
 UINT8 *HWR_GetScreenshot(void);
 boolean HWR_Screenshot(const char *pathname);
 
-float HWR_GetFOV(player_t *player);
-
 void HWR_AddCommands(void);
 void transform(float *cx, float *cy, float *cz);
 INT32 HWR_GetTextureUsed(void);
@@ -59,7 +57,6 @@ void HWR_StartScreenWipe(void);
 void HWR_EndScreenWipe(void);
 void HWR_DrawIntermissionBG(void);
 void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum);
-void HWR_DoTintedWipe(UINT8 wipenum, UINT8 scrnnum);
 void HWR_MakeScreenFinalTexture(void);
 void HWR_DrawScreenFinalTexture(int width, int height);
 
@@ -73,15 +70,6 @@ FBITFIELD HWR_GetBlendModeFlag(INT32 style);
 FBITFIELD HWR_SurfaceBlend(INT32 style, INT32 transtablenum, FSurfaceInfo *pSurf);
 FBITFIELD HWR_TranstableToAlpha(INT32 transtablenum, FSurfaceInfo *pSurf);
 
-void HWR_RecreateContext(void);
-
-void HWR_CompileShaders(void);
-
-void HWR_LoadAllCustomShaders(void);
-void HWR_LoadCustomShadersFromFile(UINT16 wadnum, boolean PK3);
-const char *HWR_GetShaderName(INT32 shader);
-
-extern customshaderxlat_t shaderxlat[];
 boolean HWR_ShouldUsePaletteRendering(void);
 
 extern CV_PossibleValue_t glanisotropicmode_cons_t[];
@@ -93,11 +81,17 @@ extern consvar_t cv_glcoronas;
 extern consvar_t cv_glcoronasize;
 #endif
 
+// Android
+extern consvar_t cv_usemodelpack, cv_modelpack;
+
 extern consvar_t cv_glshaders, cv_glallowshaders;
 extern consvar_t cv_glmodels;
 extern consvar_t cv_glmodelinterpolation;
 extern consvar_t cv_glmodellighting;
+#ifdef HAVE_GL_FRAMEBUFFER
+// Android
 extern consvar_t cv_glframebuffer, cv_glrenderbufferdepth;
+#endif
 extern consvar_t cv_glfiltermode;
 extern consvar_t cv_glanisotropicmode;
 extern consvar_t cv_glsolvetjoin;
@@ -111,17 +105,6 @@ extern consvar_t cv_glpaletterendering;
 extern consvar_t cv_glpalettedepth;
 
 extern consvar_t cv_glwireframe;
-
-extern float gl_viewwidth, gl_viewheight, gl_baseviewwindowy;
-
-extern float gl_viewwindowx, gl_basewindowcentery;
-
-extern boolean gl_init;
-extern boolean gl_maploaded;
-extern boolean gl_maptexturesloaded;
-extern boolean gl_sessioncommandsadded;
-extern boolean gl_shadersavailable;
-extern boolean gl_powersoftwo;
 
 // BP: big hack for a test in lighting ref : 1249753487AB
 extern fixed_t *hwbbox;
@@ -145,5 +128,14 @@ extern ps_metric_t ps_hw_numpolyflags;
 extern ps_metric_t ps_hw_numcolors;
 extern ps_metric_t ps_hw_batchsorttime;
 extern ps_metric_t ps_hw_batchdrawtime;
+
+extern boolean gl_init;
+extern boolean gl_maploaded;
+extern boolean gl_maptexturesloaded;
+extern boolean gl_sessioncommandsadded;
+extern boolean gl_shadersavailable;
+
+// Android
+extern boolean gl_powersoftwo;
 
 #endif

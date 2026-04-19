@@ -1393,14 +1393,13 @@ static inline boolean saveTGA(const char *file_name, void *buffer,
 
 UINT8 *HWR_GetScreenshot(void)
 {
-	// BITTEN FIX THIS SHIT
-	UINT8 *buf = malloc(vid.width * vid.height * SCREENSHOT_BITS * sizeof (*buf));
+	UINT8 *buf = malloc(vid.width * vid.height * 3 * sizeof (*buf));
 	int tex = HWR_ShouldUsePaletteRendering() ? HWD_SCREENTEXTURE_GENERIC3 : HWD_SCREENTEXTURE_GENERIC2;
+
 	if (!buf)
 		return NULL;
-
-	// returns either 24bit 888 RGB or 32bit 8888 RGBA
-	HWD.pfnReadRect(0, 0, vid.width, vid.height, vid.width * SCREENSHOT_BITS, (void *)buf);
+	// returns 24bit 888 RGB
+	HWD.pfnReadScreenTexture(tex, (void *)buf);
 	return buf;
 }
 

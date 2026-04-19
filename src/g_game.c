@@ -53,9 +53,11 @@
 #include "lua_hud.h"
 #include "lua_libs.h"
 
+// Android
 #ifdef TOUCHINPUTS
 #include "ts_main.h"
 #endif
+#include "android/apk_main.h"
 
 gameaction_t gameaction;
 gamestate_t gamestate = GS_NULL;
@@ -294,11 +296,11 @@ consvar_t cv_chattime = CVAR_INIT ("chattime", "8", CV_SAVE, chattime_cons_t, NU
 
 // chatwidth
 static CV_PossibleValue_t chatwidth_cons_t[] = {{64, "MIN"}, {300, "MAX"}, {0, NULL}};
-consvar_t cv_chatwidth = CVAR_INIT ("chatwidth", "150", CV_SAVE|CV_SLIDER_SAFE, chatwidth_cons_t, NULL);
+consvar_t cv_chatwidth = CVAR_INIT ("chatwidth", "150", CV_SAVE|APK_CV_SLIDER_SAFE, chatwidth_cons_t, NULL);
 
 // chatheight
 static CV_PossibleValue_t chatheight_cons_t[] = {{6, "MIN"}, {22, "MAX"}, {0, NULL}};
-consvar_t cv_chatheight= CVAR_INIT ("chatheight", "8", CV_SAVE|CV_SLIDER_SAFE, chatheight_cons_t, NULL);
+consvar_t cv_chatheight= CVAR_INIT ("chatheight", "8", CV_SAVE|APK_CV_SLIDER_SAFE, chatheight_cons_t, NULL);
 
 // chat notifications (do you want to hear beeps? I'd understand if you didn't.)
 consvar_t cv_chatnotifications= CVAR_INIT ("chatnotifications", "On", CV_SAVE, CV_OnOff, NULL);
@@ -352,32 +354,27 @@ consvar_t cv_autobrake = CVAR_INIT ("autobrake", "On", CV_SAVE|CV_CALL, CV_OnOff
 consvar_t cv_autobrake2 = CVAR_INIT ("autobrake2", "On", CV_SAVE|CV_CALL, CV_OnOff, AutoBrake2_OnChange);
 
 // hi here's some new controls
-CV_PossibleValue_t zerotoone_cons_t[] = {{0, "MIN"}, {FRACUNIT, "MAX"}, {0, NULL}};
-
-#define CAMCVARFLAGS (CV_FLOAT|CV_SAVE|CV_ALLOWLUA|CV_SLIDER_SAFE)
-
+static CV_PossibleValue_t zerotoone_cons_t[] = {{0, "MIN"}, {FRACUNIT, "MAX"}, {0, NULL}};
 consvar_t cv_cam_shiftfacing[2] = {
-	CVAR_INIT ("cam_shiftfacingchar", "0.375", CAMCVARFLAGS, zerotoone_cons_t, NULL),
-	CVAR_INIT ("cam2_shiftfacingchar", "0.375", CAMCVARFLAGS, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam_shiftfacingchar", "0.375", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam2_shiftfacingchar", "0.375", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
 };
 consvar_t cv_cam_turnfacing[2] = {
-	CVAR_INIT ("cam_turnfacingchar", "0.25", CAMCVARFLAGS, zerotoone_cons_t, NULL),
-	CVAR_INIT ("cam2_turnfacingchar", "0.25", CAMCVARFLAGS, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam_turnfacingchar", "0.25", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam2_turnfacingchar", "0.25", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
 };
 consvar_t cv_cam_turnfacingability[2] = {
-	CVAR_INIT ("cam_turnfacingability", "0.125", CAMCVARFLAGS, zerotoone_cons_t, NULL),
-	CVAR_INIT ("cam2_turnfacingability", "0.125", CAMCVARFLAGS, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam_turnfacingability", "0.125", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam2_turnfacingability", "0.125", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
 };
 consvar_t cv_cam_turnfacingspindash[2] = {
-	CVAR_INIT ("cam_turnfacingspindash", "0.25", CAMCVARFLAGS, zerotoone_cons_t, NULL),
-	CVAR_INIT ("cam2_turnfacingspindash", "0.25", CAMCVARFLAGS, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam_turnfacingspindash", "0.25", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam2_turnfacingspindash", "0.25", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
 };
 consvar_t cv_cam_turnfacinginput[2] = {
-	CVAR_INIT ("cam_turnfacinginput", "0.375", CAMCVARFLAGS, zerotoone_cons_t, NULL),
-	CVAR_INIT ("cam2_turnfacinginput", "0.375", CAMCVARFLAGS, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam_turnfacinginput", "0.375", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
+	CVAR_INIT ("cam2_turnfacinginput", "0.375", CV_FLOAT|CV_SAVE|CV_ALLOWLUA, zerotoone_cons_t, NULL),
 };
-
-#undef CAMCVARFLAGS
 
 static CV_PossibleValue_t centertoggle_cons_t[] = {{0, "Hold"}, {1, "Toggle"}, {2, "Sticky Hold"}, {0, NULL}};
 consvar_t cv_cam_centertoggle[2] = {
@@ -1112,41 +1109,16 @@ static fixed_t forwardmove[2] = {25<<FRACBITS>>16, 50<<FRACBITS>>16};
 static fixed_t sidemove[2] = {25<<FRACBITS>>16, 50<<FRACBITS>>16}; // faster!
 static fixed_t angleturn[3] = {640, 1280, 320}; // + slow turn
 
-static joystickvector2_t joystickmovevectors[2], joysticklookvectors[2];
-
-#ifdef TOUCHINPUTS
-joystickvector2_t touchmovevector;
-#endif
-
-#ifdef ACCELEROMETER
-joystickvector2_t accelmovevector;
-#endif
-
 INT16 ticcmd_oldangleturn[2];
 boolean ticcmd_centerviewdown[2]; // For simple controls, lock the camera behind the player
 mobj_t *ticcmd_ztargetfocus[2]; // Locking onto an object?
-
-static boolean G_CanBuildTiccmd(player_t *player)
-{
-	// why build a ticcmd if we're paused?
-	// Or, for that matter, if we're being reborn.
-	// ...OR if we're blindfolded. No looking into the floor.
-  if (ignoregameinputs || paused || P_AutoPause() || (gamestate == GS_LEVEL && (player->playerstate == PST_REBORN || ((gametyperules & GTR_TAG)
-  && (leveltime < hidetime * TICRATE) && (player->pflags & PF_TAGIT)))))
-		//@TODO splitscreen player
-		return false;
-	return true;
-}
-
 void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 {
-	INT32 tspeed, forward, side;
-	INT32 axis, strafeaxis, moveaxis, turnaxis, lookaxis;
-	INT32 i;
-
 	boolean forcestrafe = false;
 	boolean forcefullinput = false;
+	INT32 tspeed, forward, side, axis, strafeaxis, moveaxis, turnaxis, lookaxis, i;
 
+	// Android: modified for better vector controlling
 	joystickvector2_t *movejoystickvector, *lookjoystickvector;
 
 	const INT32 speed = 1;
@@ -1211,8 +1183,12 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 		((cv_cam_lockedinput[forplayer].value && !ticcmd_ztargetfocus[forplayer]) || (player->pflags & PF_STARTDASH)) &&
 		!player->climbing && player->powers[pw_carry] != CR_MINECART;
 
-	if (!G_CanBuildTiccmd(player))
-	{
+	// why build a ticcmd if we're paused?
+	// Or, for that matter, if we're being reborn.
+	// ...OR if we're blindfolded. No looking into the floor.
+	if (ignoregameinputs || paused || P_AutoPause() || (gamestate == GS_LEVEL && (player->playerstate == PST_REBORN || ((gametyperules & GTR_TAG)
+	&& (leveltime < hidetime * TICRATE) && (player->pflags & PF_TAGIT)))))
+	{//@TODO splitscreen player
 		cmd->angleturn = ticcmd_oldangleturn[forplayer];
 		cmd->aiming = G_ClipAimingPitch(myaiming);
 		return;
@@ -1235,6 +1211,8 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 		movebkey = (movebkey || PLAYERINPUTDOWN(ssplayer, GC_DPADDL) || PLAYERINPUTDOWN(ssplayer, GC_DPADDR));
 	}
 #endif
+	movejoystickvector = &android_joystickmovevectors[forplayer];
+	lookjoystickvector = &android_joysticklookvectors[forplayer];
 
 	if (strafeisturn)
 	{
@@ -1247,9 +1225,6 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 		((chasecam && !player->spectator) ? chasefreelook : alwaysfreelook);
 	analogjoystickmove = usejoystick && !Joystick.bGamepadStyle;
 	gamepadjoystickmove = usejoystick && Joystick.bGamepadStyle;
-
-	movejoystickvector = &joystickmovevectors[forplayer];
-	lookjoystickvector = &joysticklookvectors[forplayer];
 
 	thisjoyaiming = (chasecam && !player->spectator) ? chasefreelook : alwaysfreelook;
 
@@ -1363,31 +1338,31 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 	// Yikes!
 	if (touch_useinputs)
 	{
-		touchmovevector.xaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, (INT32)(touchxmove * JOYAXISRANGE)));
-		touchmovevector.yaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, (INT32)(touchymove * JOYAXISRANGE)));
+		android_touchmovevector.xaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, (INT32)(touchxmove * JOYAXISRANGE)));
+		android_touchmovevector.yaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, (INT32)(touchymove * JOYAXISRANGE)));
 
-		G_HandleVectorDeadZone(&touchmovevector, cv_touchjoydeadzone.value);
+		G_HandleVectorDeadZone(&android_touchmovevector, cv_touchjoydeadzone.value);
 
-		if (ssplayer == 1 && touchmovevector.xaxis != 0)
-			side += ((touchmovevector.xaxis * sidemove[1]) >> 10);
+		if (ssplayer == 1 && android_touchmovevector.xaxis != 0)
+			side += ((android_touchmovevector.xaxis * sidemove[1]) >> 10);
 	}
 	else
-		touchmovevector.xaxis = touchmovevector.yaxis = 0;
+		android_touchmovevector.xaxis = android_touchmovevector.yaxis = 0;
 #endif
 
 #ifdef ACCELEROMETER
 	if (cv_useaccelerometer.value && (accelxmove || accelymove))
 	{
-		accelmovevector.xaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, accelxmove));
-		accelmovevector.yaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, accelymove));
+		android_accelmovevector.xaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, accelxmove));
+		android_accelmovevector.yaxis = min(JOYAXISRANGE, max(-JOYAXISRANGE, accelymove));
 
-		G_HandleVectorDeadZone(&accelmovevector, cv_acceldeadzone.value);
+		G_HandleVectorDeadZone(&android_accelmovevector, cv_acceldeadzone.value);
 
-		if (ssplayer == 1 && accelmovevector.xaxis != 0)
-			side += ((accelmovevector.xaxis * sidemove[1]) >> 10);
+		if (ssplayer == 1 && android_accelmovevector.xaxis != 0)
+			side += ((android_accelmovevector.xaxis * sidemove[1]) >> 10);
 	}
 	else
-		accelmovevector.xaxis = accelmovevector.yaxis = 0;
+		android_accelmovevector.xaxis = android_accelmovevector.yaxis = 0;
 #endif
 
 	// forward with key or button
@@ -1404,13 +1379,13 @@ void G_BuildTiccmd(ticcmd_t *cmd, INT32 realtics, UINT8 ssplayer)
 		forward -= ((movejoystickvector->yaxis * forwardmove[1]) >> 10); // ANALOG!
 
 #ifdef TOUCHINPUTS
-	if (ssplayer == 1 && touchmovevector.yaxis != 0)
-		forward -= ((touchmovevector.yaxis * forwardmove[1]) >> 10);
+	if (ssplayer == 1 && android_touchmovevector.yaxis != 0)
+		forward -= ((android_touchmovevector.yaxis * forwardmove[1]) >> 10);
 #endif
 
 #ifdef ACCELEROMETER
-	if (ssplayer == 1 && accelmovevector.yaxis != 0)
-		forward -= ((accelmovevector.yaxis * forwardmove[1]) >> 10);
+	if (ssplayer == 1 && android_accelmovevector.yaxis != 0)
+		forward -= ((android_accelmovevector.yaxis * forwardmove[1]) >> 10);
 #endif
 
 	// some people strafe left & right with mouse buttons
@@ -2091,15 +2066,17 @@ boolean G_IsTitleCardAvailable(void)
 
 INT32 pausedelay = 0;
 boolean pausebreakkey = false;
-INT32 camtoggledelay, camtoggledelay2 = 0;
+static INT32 camtoggledelay, camtoggledelay2 = 0;
 
 static boolean ViewpointSwitchResponder(event_t *ev)
 {
 	INT32 direction = 0;
+
 	if (ev->key == KEY_F12 || ev->key == gamecontrol[GC_VIEWPOINTNEXT][0] || ev->key == gamecontrol[GC_VIEWPOINTNEXT][1])
 		direction = 1;
 	if (ev->key == gamecontrol[GC_VIEWPOINTPREV][0] || ev->key == gamecontrol[GC_VIEWPOINTPREV][1])
 		direction = -1;
+
 	// This enabled reverse-iterating with shift+F12, sadly I had to
 	// disable this in case your shift key is bound to a control =((
 	//if (shiftdown)
@@ -2188,21 +2165,19 @@ boolean G_Responder(event_t *ev)
 		((demoplayback && !modeattacking && !titledemo) || gamestate == GS_TITLESCREEN))
 	{
 		INT32 key = ev->key;
-		boolean finger = (ev->type == ev_touchdown || ev->type == ev_touchup);
+		boolean android_usingfinger = (ev->type == ev_touchdown || ev->type == ev_touchup);
 
-		if (((ev->type == ev_keydown && ev->key != 301) || finger) && !(gamestate == GS_TITLESCREEN && finalecount < (cv_tutorialprompt.value ? TICRATE : 0)))
+		if (((ev->type == ev_keydown && ev->key != 301) || android_usingfinger) && !(gamestate == GS_TITLESCREEN && finalecount < (cv_tutorialprompt.value ? TICRATE : 0)))
 		{
 #ifdef TOUCHINPUTS
-			if (finger)
+			if (android_usingfinger)
 				inputmethod = INPUTMETHOD_TOUCH;
 			else
 #endif
 				G_DetectInputMethod(key);
-
 			M_StartControlPanel();
 			return true;
 		}
-
 		return false;
 	}
 	else if (demoplayback && titledemo)
@@ -2290,9 +2265,6 @@ boolean G_Responder(event_t *ev)
 			{
 				if (G_HandlePauseKey(ev->key == KEY_PAUSE))
 				{
-				// i dont think this is required - bitten
-					//G_DetectControlMethod(ev->key);
-					//return true;
 					pausebreakkey = (ev->key == KEY_PAUSE);
 					if (menuactive || pausedelay < 0 || leveltime < 2)
 						return true;
@@ -2322,12 +2294,22 @@ boolean G_Responder(event_t *ev)
 				|| ev->key == gamecontrol[GC_CAMTOGGLE][1])
 			{
 				G_DetectControlMethod(ev->key);
-				G_ToggleChaseCam();
+				APK_G_ToggleChaseCam(0, false);
+				if (!camtoggledelay)
+				{
+					camtoggledelay = NEWTICRATE / 7;
+					CV_SetValue(&cv_chasecam, cv_chasecam.value ? 0 : 1);
+				}
 			}
 			if (ev->key == gamecontrolbis[GC_CAMTOGGLE][0]
 				|| ev->key == gamecontrolbis[GC_CAMTOGGLE][1])
 			{
-				G_ToggleChaseCam2();
+				APK_G_ToggleChaseCam(1, false);
+				if (!camtoggledelay2)
+				{
+					camtoggledelay2 = NEWTICRATE / 7;
+					CV_SetValue(&cv_chasecam2, cv_chasecam2.value ? 0 : 1);
+				}
 			}
 			return true;
 
@@ -2335,91 +2317,22 @@ boolean G_Responder(event_t *ev)
 			return false; // always let key up events filter down
 
 		case ev_mouse:
-		case ev_joystick:
-		case ev_joystick2:
-		case ev_accelerometer:
 			return true; // eat events
+
+		case ev_joystick:
+			return true; // eat events
+
+		case ev_joystick2:
+			return true; // eat events
+
+		case ev_accelerometer: // Android: eat events
+			return true;
 
 		default:
 			break;
 	}
 
 	return false;
-}
-
-// Returns true if you can switch your viewpoint to this player.
-boolean G_CanViewpointSwitchToPlayer(player_t *player)
-{
-	player_t *myself = &players[consoleplayer];
-
-	if (player->spectator)
-		return false;
-
-	if (G_GametypeHasTeams())
-	{
-		if (myself->ctfteam && player->ctfteam != myself->ctfteam)
-			return false;
-	}
-	else if (gametyperules & GTR_HIDEFROZEN)
-	{
-		if (myself->pflags & PF_TAGIT)
-			return false;
-	}
-	// Other Tag-based gametypes?
-	else if (G_TagGametype())
-	{
-		if (!myself->spectator && (myself->pflags & PF_TAGIT) != (player->pflags & PF_TAGIT))
-			return false;
-	}
-	else if (G_GametypeHasSpectators() && G_RingSlingerGametype())
-	{
-		if (!myself->spectator)
-			return false;
-	}
-
-	return true;
-}
-
-// Returns true if you can switch your viewpoint at all.
-boolean G_CanViewpointSwitch(boolean luahook)
-{
-	// ViewpointSwitch Lua hook.
-	UINT8 canSwitchView = 0;
-	INT32 checkdisplayplayer = displayplayer;
-
-	if (splitscreen || !netgame)
-		return false;
-
-	if (D_NumPlayers() <= 1)
-		return false;
-
-	do
-	{
-		checkdisplayplayer++;
-		if (checkdisplayplayer == MAXPLAYERS)
-			checkdisplayplayer = 0;
-
-		if (!playeringame[checkdisplayplayer])
-			continue;
-
-		// Call ViewpointSwitch hooks here.
-		if (luahook)
-		{
-			canSwitchView = LUA_HookViewpointSwitch(&players[consoleplayer], &players[checkdisplayplayer], false);
-			if (canSwitchView == 1) // Set viewpoint to this player
-				break;
-			else if (canSwitchView == 2) // Skip this player
-				continue;
-		}
-
-		if (!G_CanViewpointSwitchToPlayer(&players[checkdisplayplayer]))
-			continue;
-
-		break;
-	} while (checkdisplayplayer != consoleplayer);
-
-	// had any change??
-	return (checkdisplayplayer != displayplayer);
 }
 
 //
@@ -2693,6 +2606,9 @@ void G_Ticker(boolean run)
 			memset(player_name_changes, 0, sizeof player_name_changes);
 		}
 	}
+
+	// StarManiaKG: I made an Android unique ticker!
+	APK_P_MainTicker(run);
 }
 
 //
@@ -4546,8 +4462,6 @@ void G_LoadGameSettings(void)
 	S_InitRuntimeSounds();
 }
 
-static boolean gamedatainpath = false;
-
 #define GAMEDATA_ID 0x86E4A27C // Change every major version, as usual
 #define COMPAT_GAMEDATA_ID 0xFCAFE211 // TODO: 2.3: Delete
 
@@ -4584,12 +4498,13 @@ void G_LoadGameData(gamedata_t *data)
 	M_ClearSecrets(data); // emblems, unlocks, maps visited, etc
 	data->totalplaytime = 0; // total play time (separate from all)
 
-
-	if (M_CheckParm("-nodata") || !I_StoragePermission())
+	if (M_CheckParm("-nodata"))
 	{
 		// Don't load at all.
 		return;
 	}
+
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
 
 	if (M_CheckParm("-resetdata"))
 	{
@@ -4599,15 +4514,20 @@ void G_LoadGameData(gamedata_t *data)
 	}
 
 	savebuffer.size = FIL_ReadFile(va(pandf, srb2home, gamedatafilename), &savebuffer.buf);
+
+#ifdef USE_GAMEDATA_PATHS
 	if (!savebuffer.size)
 	{
-#ifdef USE_GAMEDATA_PATHS
-		if (FIL_ReadFile(va(pandf, srb2path, gamedatafilename), &savebuffer))
-			gamedatainpath = true;
-		else
+		savebuffer.size = FIL_ReadFile(va(pandf, srb2path, gamedatafilename), &savebuffer.buf);
+		if (savebuffer.size != 0)
+			android_data.gamedata_inpath = true;
+	}
 #endif
-			// No gamedata. We can save a new one.
-			data->loaded = true;
+
+	if (!savebuffer.size)
+	{
+		// No gamedata. We can save a new one.
+		data->loaded = true;
 		return;
 	}
 
@@ -4804,8 +4724,10 @@ void G_SaveGameData(gamedata_t *data)
 	if (!data)
 		return; // data struct not valid
 
-	if (!data->loaded || !I_StoragePermission())
+	if (!data->loaded)
 		return; // If never loaded (-nodata), don't save
+
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
 
 	savebuffer.size = GAMEDATASIZE;
 	savebuffer.buf = (UINT8 *)malloc(savebuffer.size);
@@ -4907,72 +4829,48 @@ void G_SaveGameData(gamedata_t *data)
 			P_WriteUINT32(&savebuffer, data->nightsrecords[i]->time[curmare]);
 		}
 	}
+
 #ifdef USE_GAMEDATA_PATHS
-    if (gamedatainpath)
+    if (android_data.gamedata_inpath)
+	{
 		FIL_WriteFile(va(pandf, srb2path, gamedatafilename), savebuffer.buf, savebuffer.pos);
-	else
+		return;
+	}
 #endif
+
 	FIL_WriteFile(va(pandf, srb2home, gamedatafilename), savebuffer.buf, savebuffer.pos);
 	free(savebuffer.buf);
 }
 
 #define VERSIONSIZE 16
 
-static void GetSaveGameName(char *savename, UINT32 slot)
-{
-	if (marathonmode)
-		strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
-	else
-		snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
-}
-
-size_t G_ReadSaveGameSlot(char *savename, UINT8 **buffer, UINT32 slot)
-{
-	size_t length = 0;
-
-	cursavegamename = savegamename[0];
-	curliveeventbackup = liveeventbackup[0];
-
-	GetSaveGameName(savename, slot);
-	length = FIL_ReadFile(savename, buffer);
-
-#ifdef USE_SAVEGAME_PATHS
-	if (!length)
-	{
-		cursavegamename = savegamename[1];
-		curliveeventbackup = liveeventbackup[1];
-
-		GetSaveGameName(savename, slot);
-		length = FIL_ReadFile(savename, buffer);
-	}
-#endif
-
-	return length;
-}
-
 //
-// G_LoadGame
-// Can be called by the menu task.
+// G_InitFromSavegame
+// Can be called by the startup code or the menu task.
 //
 void G_LoadGame(UINT32 slot, INT16 mapoverride)
 {
 	save_t savebuffer;
 	char vcheck[VERSIONSIZE];
-	char savename[SAVEGAMENAMELEN];
+	char savename[255];
 
 	// memset savedata to all 0, fixes calling perfectly valid saves corrupt because of bots
 	memset(&savedata, 0, sizeof(savedata));
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
+
+#ifdef SAVEGAME_OTHERVERSIONS
+	//Oh christ.  The force load response needs access to mapoverride too...
+	startonmapnum = mapoverride;
+#endif
 
 	if (marathonmode)
-		strcpy(savename, liveeventbackup);
+		strcpy(savename, curliveeventbackup);
 	else
-		sprintf(savename, savegamename, slot);
+		sprintf(savename, cursavegamename, slot);
 
 	savebuffer.size = FIL_ReadFile(savename, &savebuffer.buf);
-	if (!G_ReadSaveGameSlot(savename, &savebuffer.buf, slot))
+	if (!savebuffer.size)
 	{
 		CONS_Printf(M_GetText("Couldn't read file %s\n"), savename);
 		return;
@@ -4984,6 +4882,11 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 	sprintf(vcheck, (marathonmode ? "back-up %d" : "version %d"), VERSION);
 	if (strcmp((const char *)&savebuffer.buf[savebuffer.pos], (const char *)vcheck))
 	{
+#ifdef SAVEGAME_OTHERVERSIONS
+		M_ShowESCMessage(M_GetText("Save game from different version.\nYou can load this savegame, but\nsaving afterwards will be disabled.\n\nDo you want to continue anyway?\n\n(Press 'Y' to confirm)\n"),
+		               M_ForceLoadGameResponse, MM_YESNO);
+		//Freeing done by the callback function of the above message
+#else
 		M_ClearMenus(true); // so ESC backs out to title
 		M_ShowESCMessage("Save game from different version\n\n");
 		Command_ExitGame_f();
@@ -4991,9 +4894,16 @@ void G_LoadGame(UINT32 slot, INT16 mapoverride)
 
 		// no cheating!
 		memset(&savedata, 0, sizeof(savedata));
+#endif
 		return; // bad version
 	}
 	savebuffer.pos += VERSIONSIZE;
+
+//	if (demoplayback) // reset game engine
+//		G_StopDemo();
+
+//	paused = false;
+//	automapactive = false;
 
 	// dearchive all the modifications
 	if (!P_LoadGame(&savebuffer, mapoverride))
@@ -5034,16 +4944,15 @@ void G_SaveGame(UINT32 slot, INT16 mapnum)
 {
 	save_t savebuffer;
 	boolean saved;
-	char savename[SAVEGAMENAMELEN];
+	char savename[256] = "";
 	const char *backup;
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
 
 	if (marathonmode)
-		strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
+		strcpy(savename, curliveeventbackup);
 	else
-		snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
+		sprintf(savename, cursavegamename, slot);
 	backup = va("%s",savename);
 
 	gameaction = ga_nothing;
@@ -5091,16 +5000,15 @@ void G_SaveGameOver(UINT32 slot, boolean modifylives)
 	save_t savebuffer;
 	boolean saved = false;
 	char vcheck[VERSIONSIZE];
-	char savename[SAVEGAMENAMELEN];
+	char savename[255];
 	const char *backup;
 
-	if (!I_StoragePermission())
-		return;
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
 
 	if (marathonmode)
-		strlcpy(savename, curliveeventbackup, SAVEGAMENAMELEN);
+		strcpy(savename, curliveeventbackup);
 	else
-		snprintf(savename, SAVEGAMENAMELEN, cursavegamename, slot);
+		sprintf(savename, cursavegamename, slot);
 	backup = va("%s",savename);
 
 	savebuffer.size = FIL_ReadFile(savename, &savebuffer.buf);
@@ -5194,19 +5102,6 @@ cleanup:
 
 }
 #undef BADSAVE
-
-char *G_LiveEventHasBackup(void)
-{
-	if (FIL_FileExists(liveeventbackup[0]))
-		return liveeventbackup[0];
-
-#ifdef USE_SAVEGAME_PATHS
-	if (FIL_FileExists(liveeventbackup[1]))
-		return liveeventbackup[1];
-#endif
-
-	return NULL;
-}
 
 //
 // G_DeferedInitNew

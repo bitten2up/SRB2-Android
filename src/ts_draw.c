@@ -13,11 +13,15 @@
 #include "ts_draw.h"
 #include "ts_custom.h"
 
+#include "android/apk_main.h"
+
+#include "xtra/xtv_video.h"
+
 #include "doomstat.h" // paused
 #include "netcode/d_netcmd.h" // cv_playercolor
 #include "f_finale.h" // F_GetPromptHideHud
 #include "g_game.h"
-#include "hu_stuff.h" // HU_FONTSTART
+#include "hu_stuff.h" // fonts
 #include "m_menu.h" // M_IsOnTouchOptions
 #include "m_misc.h" // moviemode
 #include "p_tick.h" // leveltime
@@ -256,7 +260,7 @@ static void DrawJoystick(fixed_t dpadx, fixed_t dpady, fixed_t dpadw, fixed_t dp
 
 	float xmove = 0.0f, ymove = 0.0f;
 	fixed_t stickx, sticky;
-	joystickvector2_t *joy = &touchmovevector;
+	joystickvector2_t *joy = &android_touchmovevector;
 
 	fixed_t basescalex = FixedDiv(dpadw, cursor->width*FRACUNIT);
 	fixed_t basescaley = FixedDiv(dpadh, cursor->height*FRACUNIT);
@@ -647,7 +651,7 @@ static void DrawNavigationButton(INT32 nav)
 		if (!symb)
 			return;
 
-		font = hu_font.chars[toupper(symb) - HU_FONTSTART];
+		font = hu_font.chars[toupper(symb) - FONTSTART];
 		if (!font)
 			return;
 

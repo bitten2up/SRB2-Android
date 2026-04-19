@@ -2675,6 +2675,7 @@ static void HWR_Subsector(size_t num)
 // BP: big hack for a test in lighning ref : 1249753487AB
 fixed_t *hwbbox;
 
+#if 0
 static void HWR_RenderBSPNode(INT32 bspnum)
 {
 	node_t *bsp = &nodes[bspnum];
@@ -2717,6 +2718,37 @@ static void HWR_RenderBSPNode(INT32 bspnum)
 		HWR_RenderBSPNode(bsp->children[side^1]);
 	}
 }
+#else
+// BITTEN FIX(?)
+static void HWR_RenderBSPNode(INT32 bspnum)
+{
+    node_t *bsp;
+    INT32 side;
+
+    ps_numbspcalls.value.i++;
+
+    while (!(bspnum & NF_SUBSECTOR))  // Found a subsector?
+    {
+        bsp = &nodes[bspnum];
+
+        // Decide which side the view point is on.
+        side = R_PointOnSide(viewx, viewy, bsp);
+        // BP: big hack for a test in lighning ref : 1249753487AB
+        hwbbox = bsp->bbox[side];
+        // Recursively divide front space.
+        HWR_RenderBSPNode(bsp->children[side]);
+
+        // Possibly divide back space.
+
+        if (!HWR_CheckBBox(bsp->bbox[side^1]))
+            return;
+
+        bspnum = bsp->children[side^1];
+    }
+
+    HWR_Subsector(bspnum == -1 ? 0 : bspnum & ~NF_SUBSECTOR);
+}
+#endif
 
 // ==========================================================================
 // gl_things.c
@@ -5299,27 +5331,6 @@ void HWR_SetViewSize(void)
 	HWD.pfnFlushScreenTextures();
 }
 
-float HWR_GetFOV(player_t *player)
-{
-	fixed_t pfov = cv_fov.value;
-	float fov;
-
-	if (player)
-		pfov += player->fovadd;
-
-	fov = FixedToFloat(pfov);
-
-#ifdef NATIVESCREENRES
-	if (cv_nativeres.value && cv_nativeresfov.value)
-	{
-		float resmul = ((float)vid.width / (float)vid.height);
-		fov = atan(tan(fov*M_PI/360)*(resmul*0.7))*360/M_PI;
-	}
-#endif
-
-	return fov;
-}
-
 // Set view aiming, for the sky dome, the skybox,
 // and the normal view, all with a single function.
 static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean skybox)
@@ -5382,7 +5393,11 @@ static void HWR_SetupView(player_t *player, INT32 viewnumber, float fpov, boolea
 		R_SetupFrame(player);
 
 	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
 		return;
+	}
+
 	gl_viewx = FixedToFloat(viewx);
 	gl_viewy = FixedToFloat(viewy);
 	gl_viewz = FixedToFloat(viewz);
@@ -5487,6 +5502,7 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 
 	if (I_AppOnBackground())
 	{
+		// Android: please don't eat my resources while i'm gone thanks
 		HWR_ClearDrawNodes();
 		return;
 	}
@@ -5521,7 +5537,10 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	NetUpdate();
 
 	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
 		return;
+	}
 
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
@@ -5534,16 +5553,12 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 {
 	const float fpov = FixedToFloat(R_GetPlayerFov(player));
-	angle_t viewrollangle = R_GetLocalViewRollAngle(player);
-	// fuck it -bitten
-	//const float fpov = FixedToFloat(R_GetPlayerFov(player));
-	postimg_t *type;
 
 	const boolean skybox = (skyboxmo[0] && cv_skybox.value); // True if there's a skybox object and skyboxes are on
 
 	FRGBAFloat ClearColor;
 
-	ClearColor.red = 0.0f;
+	ClearColor.red = 0.0f; // bitten fucking debugggs shiiiiiiitttttttt
 	ClearColor.green = 0.0f;
 	ClearColor.blue = 0.0f;
 	ClearColor.alpha = 1.0f;
@@ -5560,20 +5575,26 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	PS_STOP_TIMING(ps_hw_skyboxtime);
 
 	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
 		return;
+	}
 
 	HWR_SetupView(player, viewnumber, fpov, false);
 
 	framecount++; // timedemo
 
 	if (I_AppOnBackground())
+	{
+		// Android: PLEASE don't eat my resources while i'm gone thanks
 		return;
+	}
+
 	// check for new console commands.
 	NetUpdate();
 
 	//------------------------------------------------------------------------
 	HWR_ClearView(); // Clears the depth buffer and resets the view I believe
-
 	if (!skybox && drawsky) // Don't draw the regular sky if there's a skybox
 		HWR_DrawSkyBackground(player);
 
@@ -5625,6 +5646,7 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 
 	if (I_AppOnBackground())
 	{
+		// Android: please don't eat my resources while i'm gone thanks
 		HWR_ClearDrawNodes();
 		return;
 	}
@@ -5669,7 +5691,10 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	NetUpdate();
 
 	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
 		return;
+	}
 
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
@@ -5756,10 +5781,13 @@ static CV_PossibleValue_t glshaders_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Igno
 static CV_PossibleValue_t glmodelinterpolation_cons_t[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
 static CV_PossibleValue_t glfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Smooth"}, {0, NULL}};
 static CV_PossibleValue_t glshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
+#ifdef HAVE_GL_FRAMEBUFFER
 CV_PossibleValue_t glrenderbufferdepth_cons_t[] = {{0, "Default"}, {1, "16 bits"}, {2, "24 bits"}, {3, "32 bits"}, {4, "Float"}, {0, NULL}};
 
 static void CV_glframebuffer_OnChange(void);
 static void CV_glrenderbufferdepth_OnChange(void);
+#endif
+static void CV_modelpack_OnChange(void);
 static void CV_glfiltermode_OnChange(void);
 static void CV_glanisotropic_OnChange(void);
 static void CV_glmodellighting_OnChange(void);
@@ -5774,6 +5802,9 @@ static CV_PossibleValue_t glfiltermode_cons_t[] = {{HWD_SET_TEXTUREFILTER_POINTS
 	{HWD_SET_TEXTUREFILTER_MIXED3, "Nearest_Mipmap"},
 	{0, NULL}};
 CV_PossibleValue_t glanisotropicmode_cons_t[] = {{1, "MIN"}, {16, "MAX"}, {0, NULL}};
+
+consvar_t cv_usemodelpack = CVAR_INIT ("usemodelpack", "Off", CV_SAVE | CV_CALL | CV_NOINIT, CV_OnOff, CV_modelpack_OnChange);
+consvar_t cv_modelpack = CVAR_INIT ("modelpack", "modelpacks/default.zip", CV_SAVE | CV_CALL | CV_NOINIT, NULL, CV_modelpack_OnChange);
 
 consvar_t cv_glshaders = CVAR_INIT ("gr_shaders", "On", CV_SAVE|CV_CALL, glshaders_cons_t, CV_glshaders_OnChange);
 
@@ -5801,20 +5832,6 @@ consvar_t cv_glsolvetjoin = CVAR_INIT ("gr_solvetjoin", "On", 0, CV_OnOff, NULL)
 
 consvar_t cv_glbatching = CVAR_INIT ("gr_batching", "On", 0, CV_OnOff, NULL);
 
-consvar_t cv_glframebuffer = CVAR_INIT ("gr_framebuffer", "Off", CV_SAVE|CV_CALL, CV_OnOff, CV_glframebuffer_OnChange);
-consvar_t cv_glrenderbufferdepth = CVAR_INIT ("gr_renderbufferdepth", "Float", CV_SAVE|CV_CALL, glrenderbufferdepth_cons_t, CV_glrenderbufferdepth_OnChange);
-
-static void CV_glframebuffer_OnChange(void)
-{
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_FRAMEBUFFER, cv_glframebuffer.value);
-}
-
-static void CV_glrenderbufferdepth_OnChange(void)
-{
-	if (rendermode == render_opengl)
-		HWD.pfnSetSpecialState(HWD_SET_RENDERBUFFER_DEPTH, cv_glrenderbufferdepth.value);
-}
 static CV_PossibleValue_t glpalettedepth_cons_t[] = {{16, "16 bits"}, {24, "24 bits"}, {0, NULL}};
 
 consvar_t cv_glpaletterendering = CVAR_INIT ("gr_paletterendering", "On", CV_SAVE|CV_CALL, CV_OnOff, CV_glpaletterendering_OnChange);
@@ -5822,6 +5839,21 @@ consvar_t cv_glpalettedepth = CVAR_INIT ("gr_palettedepth", "16 bits", CV_SAVE|C
 
 #define ONLY_IF_GL_LOADED if (vid.glstate != VID_GL_LIBRARY_LOADED) return;
 consvar_t cv_glwireframe = CVAR_INIT ("gr_wireframe", "Off", 0, CV_OnOff, NULL);
+
+#ifdef HAVE_GL_FRAMEBUFFER
+consvar_t cv_glframebuffer = CVAR_INIT ("gr_framebuffer", "Off", CV_SAVE|CV_CALL, CV_OnOff, CV_glframebuffer_OnChange);
+consvar_t cv_glrenderbufferdepth = CVAR_INIT ("gr_renderbufferdepth", "Float", CV_SAVE|CV_CALL, glrenderbufferdepth_cons_t, CV_glrenderbufferdepth_OnChange);
+#endif
+
+static void CV_modelpack_OnChange(void)
+{
+	ONLY_IF_GL_LOADED
+	if (!cv_usemodelpack.value || (cv_usemodelpack.value && HWR_ModelPackExists(cv_modelpack.string)))
+	{
+		HWR_FreeModelData(true);
+		HWR_ReadModels();
+	}
+}
 
 static void CV_glfiltermode_OnChange(void)
 {
@@ -5872,6 +5904,20 @@ static void CV_glshaders_OnChange(void)
 	}
 }
 
+#ifdef HAVE_GL_FRAMEBUFFER
+static void CV_glframebuffer_OnChange(void)
+{
+	if (rendermode == render_opengl)
+		HWD.pfnSetSpecialState(HWD_SET_FRAMEBUFFER, cv_glframebuffer.value);
+}
+
+static void CV_glrenderbufferdepth_OnChange(void)
+{
+	if (rendermode == render_opengl)
+		HWD.pfnSetSpecialState(HWD_SET_RENDERBUFFER_DEPTH, cv_glrenderbufferdepth.value);
+}
+#endif
+
 //added by Hurdler: console varibale that are saved
 void HWR_AddCommands(void)
 {
@@ -5881,6 +5927,10 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_glcoronasize);
 	CV_RegisterVar(&cv_glcoronas);
 #endif
+
+	// Android
+	CV_RegisterVar(&cv_usemodelpack);
+	CV_RegisterVar(&cv_modelpack);
 
 	CV_RegisterVar(&cv_glmodellighting);
 	CV_RegisterVar(&cv_glmodelinterpolation);
@@ -5898,8 +5948,10 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_glsolvetjoin);
 
 	CV_RegisterVar(&cv_glbatching);
+#ifdef HAVE_GL_FRAMEBUFFER
 	CV_RegisterVar(&cv_glframebuffer);
 	CV_RegisterVar(&cv_glrenderbufferdepth);
+#endif
 
 	CV_RegisterVar(&cv_glpaletterendering);
 	CV_RegisterVar(&cv_glpalettedepth);
@@ -5915,24 +5967,34 @@ void HWR_Startup(void)
 	{
 		CONS_Printf("HWR_Startup()...\n");
 
-#if defined(__ANDROID__)
-		gl_powersoftwo = true;
-#endif
 		textureformat = patchformat = GL_TEXFMT_RGBA;
 
 		HWR_InitPolyPool();
 		HWR_InitMapTextures();
+#if 0
+		// STAR NOTE: helps you test bitten
 		HWR_InitModels();
+		HWR_ReadModels();
+#endif
 
 #ifdef ALAM_LIGHTING
 		HWR_InitLight();
 #endif
 
+		// STAR NOTE: helps you further test bitten
+#if 1
 		gl_shadersavailable = HWR_InitShaders();
+#else
+		gl_shadersavailable = false;
+#endif
 		HWR_SetShaderState();
 		HWR_LoadAllCustomShaders();
 		HWR_TogglePaletteRendering();
 	}
+
+#if 1
+	CONS_Printf("OPENGL init-ed!\n");
+#endif
 
 	gl_init = true;
 }
@@ -5943,8 +6005,10 @@ void HWR_Startup(void)
 void HWR_Switch(void)
 {
 	// Set special states from CVARs
+#ifdef HAVE_GL_FRAMEBUFFER
 	CV_glframebuffer_OnChange();
 	CV_glrenderbufferdepth_OnChange();
+#endif
 	CV_glfiltermode_OnChange();
 	CV_glanisotropic_OnChange();
 
@@ -5969,6 +6033,7 @@ void HWR_Shutdown(void)
 	HWR_FreeExtraSubsectors();
 	HWR_FreePolyPool();
 	HWR_FreeMapTextures();
+	HWR_FreeModelData(false);
 	HWD.pfnFlushScreenTextures();
 }
 
@@ -6221,6 +6286,7 @@ void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum)
 	{
 		FSurfaceInfo surf = {0};
 		FBITFIELD polyflags = PF_Modulated|PF_NoDepthTest;
+
 		polyflags |= (wipestyleflags & WSF_TOWHITE) ? PF_Additive : PF_ReverseSubtract;
 		surf.PolyColor.s.red = FADEREDFACTOR;
 		surf.PolyColor.s.green = FADEGREENFACTOR;
@@ -6240,27 +6306,10 @@ void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum)
 	}
 }
 
-#if 0
-void HWR_DoTintedWipe(UINT8 wipenum, UINT8 scrnnum)
-{
-#ifdef HAVE_GLES2
-	if (!HWR_WipeCheck(wipenum, scrnnum))
-		return;
-
-	HWR_GetFadeMask(wipelumpnum);
-	HWD.pfnDoTintedWipe((wipestyleflags & WSF_FADEIN), (wipestyleflags & WSF_TOWHITE));
-#else
-	// It does the same thing
-	HWR_DoWipe(wipenum, scrnnum);
-#endif
-}
-#endif
-
-void HWR_RecreateContext(void)
+void HWR_MakeScreenFinalTexture(void)
 {
 	int tex = HWR_ShouldUsePaletteRendering() ? HWD_SCREENTEXTURE_GENERIC3 : HWD_SCREENTEXTURE_GENERIC2;
-	if (vid.glstate == VID_GL_LIBRARY_LOADED)
-		HWD.pfnMakeScreenTexture(tex);
+	HWD.pfnMakeScreenTexture(tex);
 }
 
 void HWR_DrawScreenFinalTexture(int width, int height)

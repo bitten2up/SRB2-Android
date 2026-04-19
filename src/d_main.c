@@ -80,11 +80,6 @@
 #include "config.h.in"
 #endif
 
-#ifdef TOUCHINPUTS
-#include "ts_custom.h"
-#include "ts_draw.h"
-#endif
-
 #ifdef HWRENDER
 #include "hardware/hw_main.h" // 3D View Rendering
 #endif
@@ -99,10 +94,12 @@
 
 #include "lua_script.h"
 
-#ifdef LOGMESSAGES
-FILE *logstream = NULL;
-char logfilename[1024];
+// Android
+#ifdef TOUCHINPUTS
+#include "ts_custom.h"
+#include "ts_draw.h"
 #endif
+#include "android/apk_main.h"
 
 // Version numbers for netplay :upside_down_face:
 int    VERSION;
@@ -359,12 +356,12 @@ static void D_Display(void)
 
 #ifdef HWRENDER
 	// Display the last renderer switching error, if there was any
-	if (renderswitcherror == render_opengl)
+	if (android_data.renderer_switcherror == render_opengl)
 		VID_DisplayGLError();
-#endif
 
 	// Clear the last renderer switching error
-	renderswitcherror = 0;
+	android_data.renderer_switcherror = 0;
+#endif
 
 	// View morph
 	if (rendermode == render_soft && !splitscreen)
@@ -1109,7 +1106,7 @@ void D_StartTitle(void)
 	if (list->files == NULL) \
 	{ \
 		list->files = calloc(2, sizeof(list->files)); \
-		list->hashes = calloc(sizeof(list->hashes), 2); \
+		list->hashes = calloc(2, sizeof(list->hashes)); \
 		list->numfiles = 1; \
 	} \
 	else \
@@ -1226,7 +1223,6 @@ static void IdentifyVersion(void)
 
 #if defined(__ANDROID__)
 	fhandletype_t handletype = FILEHANDLE_SDL;
-	D_SetupHome();
 #else
 	char *srb2wad;
 	fhandletype_t handletype = FILEHANDLE_STANDARD;
@@ -1269,7 +1265,7 @@ static void IdentifyVersion(void)
 	configfile[sizeof configfile - 1] = '\0';
 
 	// Commercial.
-	srb2wad = malloc(strlen(srb2waddir)+1+8+1);
+	srb2wad = malloc(strlen(srb2waddir)+1+strlen(basepk3)+1);
 	if (srb2wad == NULL)
 		I_Error("No more free memory to look in %s", srb2waddir);
 	else
@@ -1403,6 +1399,10 @@ void D_SRB2Main(void)
 	ChangeDirForUrlHandler();
 #endif
 
+#if defined(__ANDROID__)
+	D_SetupHome();
+#endif
+
 	// identify the main IWAD file to use
 	IdentifyVersion();
 
@@ -1503,6 +1503,11 @@ void D_SRB2Main(void)
 	// Make backups of some SOCcable tables.
 	P_BackupTables();
 
+#ifdef SPLASH_SCREEN
+	// Android: Show a neat little splash screen!
+	APK_I_ShowSplashScreen();
+#endif
+
 	mainwads = 3; // doesn't include music.pk3
 #ifdef USE_PATCH_DTA
 	mainwads++;
@@ -1513,13 +1518,7 @@ void D_SRB2Main(void)
 
 #ifdef ANDROID_FILE_UNPACK
 	CONS_Printf("W_UnpackMultipleFiles(): Unpacking IWAD and main PWADs.\n");
-
-#ifndef DEVELOP
-	W_UnpackMultipleFiles(&startupwadfiles, true);
-#else
-	W_UnpackMultipleFiles(&startupwadfiles, false);
-#endif
-
+	W_UnpackMultipleFiles(&startupwadfiles);
 	// The main files added at startup are handled by SDL_RWops
 	// and can be loaded from the inside the APK.
 	startuphandletype = FILEHANDLE_SDL;
@@ -1696,6 +1695,11 @@ void D_SRB2Main(void)
 		GetMODVersion_Console();
 #endif
 	}
+
+#ifdef SPLASH_SCREEN
+	// Android: Hide our Splash Screen now!
+	APK_I_HideSplashScreen();
+#endif
 
 	// init all NETWORK
 	CONS_Printf("D_CheckNetGame(): Checking network game status.\n");
@@ -1955,7 +1959,7 @@ static void FindUsableStorageLocation(char *dest, size_t destsize, char *path, c
 
 static void D_AndroidSetupHome(const char *userhome)
 {
-	const char *homelist[3] = {0, 0, 0};
+	const char *homelist[3] = { NULL, NULL, NULL };
 	INT32 next = 0;
 
 	strlcpy(srb2home, userhome, sizeof(srb2home));
@@ -2085,10 +2089,10 @@ static int cmp_strlen_desc(const void *A, const void *B)
 
 boolean D_IsPathAllowed(const char *path)
 {
-	char *paths[] = {
+	const char *paths[] = {
 		srb2home,
 		srb2path,
-		cv_addons_folder.zstring
+		cv_addons_folder.string
 	};
 
 	const size_t n_paths = sizeof paths / sizeof *paths;
@@ -2135,4 +2139,3 @@ boolean D_CheckPathAllowed(const char *path, const char *why)
 
 	return true;
 }
-

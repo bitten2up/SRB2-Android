@@ -1,6 +1,7 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 2020-2021 by Jaime Ita Passos.
+// Copyright (C) 2025 by StarManiaKG & Bitten2Up.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -9,14 +10,12 @@
 /// \file  ndk_crash_handler.c
 /// \brief Android crash handler
 
-#include "jni_android.h"
 #include "ndk_crash_handler.h"
+#include "jni_android.h"
 
 #include <stdio.h>
 #include <unwind.h>
 #include <dlfcn.h>
-
-static FILE *errorlog = NULL;
 
 typedef struct BacktraceState
 {
@@ -45,22 +44,28 @@ size_t NDKCrashHandler_CaptureBacktrace(void **buffer, size_t max)
 	return state.current - buffer;
 }
 
-static void NDKCrashHandler_PrintToLog(const char *fmt, ...)
+static void NDKCrashHandler_PrintToLog(FILE *log_file, const char *fmt, ...)
 {
-	char txt[8192] = "";
+	static char txt[8192] = "";
 
+	if (!log_file)
+		return;
+
+#if 0
+	// STAR NOTE: normal
 	va_list argptr;
 	va_start(argptr, fmt);
 	Android_vsnprintf(txt, 8192, fmt, argptr);
 	va_end(argptr);
+#else
+	strlcat(txt, fmt, 8192);
+#endif
 
-	if (errorlog)
-		fwrite(txt, strlen(txt), 1, errorlog);
-
+	fwrite(txt, strlen(txt), 1, log_file);
 	CON_LogMessage(txt);
 }
 
-static void NDKCrashHandler_StackTrace(void)
+static void NDKCrashHandler_StackTrace(FILE *stacktrace_file)
 {
 	const int max = 4096;
 	void *buffer[max];
@@ -70,7 +75,7 @@ static void NDKCrashHandler_StackTrace(void)
 	if (!count)
 		return;
 
-	NDKCrashHandler_PrintToLog("Stack trace:\n");
+	NDKCrashHandler_PrintToLog(stacktrace_file, "Stack trace:\n");
 	for (i = 0; i < count; i++)
 	{
 		Dl_info info;
@@ -80,42 +85,75 @@ static void NDKCrashHandler_StackTrace(void)
 		if (dladdr(addr, &info) && info.dli_sname)
 			symbol = info.dli_sname;
 
-		NDKCrashHandler_PrintToLog("%d: %p %s\n", i, addr, symbol);
+		NDKCrashHandler_PrintToLog(stacktrace_file, "%d: %p %s\n", i, addr, symbol);
 	}
 }
 
-void NDKCrashHandler_ReportSignal(const char *sigmsg)
+void NDKCrashHandler_ReportSignal(const char *sigmsg, int signum)
 {
+	static FILE *crash_log = NULL;
 	INT32 i;
 
-	// open errorlog.txt
-	errorlog = fopen(va("%s/errorlog.txt", I_SharedStorageLocation()), "wt+");
-	NDKCrashHandler_PrintToLog("Application killed by signal: %s\n\n", sigmsg);
+	// open crash-log.txt
+	crash_log = fopen(va("%s/crash-log.txt", I_SharedStorageLocation()), "wt+");
 
-	NDKCrashHandler_PrintToLog("Device info:\n", sigmsg);
+#if 0
+	// Get the current time as a string.
+	time_t rawtime;
+	struct tm timeinfo;
+	char timestr[32];
+	time(&rawtime);
+	localtime_r(&rawtime, &timeinfo);
+	strftime(timestr, 32, "%a, %d %b %Y %T %z", &timeinfo);
+
+	// Let the user know what the heck is happening
+	int fd = -1;
+	bt_write_file(fd, "------------------------\n"); // Nice looking seperator
+	bt_write_all(fd, "An error occurred within SRB2! Send this stack trace to someone who can help!\n");
+	if (fd != -1) // If the crash log exists,
+		bt_write_stderr("(Or find crash-log.txt in your SRB2 directory.)\n"); // tell the user where the crash log is.
+
+	// Tell the log when we crashed.
+	bt_write_file(fd, "Time of crash: ");
+	bt_write_file(fd, timestr);
+	bt_write_file(fd, "\n");
+
+	// Give the crash log the cause and a nice 'Backtrace:' thing
+	// The signal is given to the user when the parent process sees we crashed.
+	bt_write_file(fd, "Cause: ");
+	bt_write_file(fd, strsignal(signum));
+	bt_write_file(fd, "\n"); // Newline for the signal name
+#endif
+
+	// write crash info
+	NDKCrashHandler_PrintToLog(crash_log, "Application killed by signal: %d, %s\n\n", signum, sigmsg);
+	NDKCrashHandler_PrintToLog(crash_log, "Device info:\n", sigmsg);
 	for (i = 0; JNI_DeviceInfoReference[i].info; i++)
 	{
 		JNI_DeviceInfoReference_t *ref = &JNI_DeviceInfoReference[i];
 		JNI_DeviceInfo_t info_e = ref->info_enum;
-		NDKCrashHandler_PrintToLog("   %s: %s\n", ref->display_info, JNI_DeviceInfo[info_e]);
+		NDKCrashHandler_PrintToLog(crash_log, "\t%s: %s\n", ref->display_info, JNI_DeviceInfo[info_e]);
 	}
 
 	if (JNI_ABICount)
 	{
-		NDKCrashHandler_PrintToLog("Supported ABIs: ");
+		NDKCrashHandler_PrintToLog(crash_log, "Supported ABIs: ");
 		for (i = 0; i < JNI_ABICount; i++)
 		{
-			NDKCrashHandler_PrintToLog("%s", JNI_ABIList[i]);
+			NDKCrashHandler_PrintToLog(crash_log, "%s", JNI_ABIList[i]);
 			if (i == JNI_ABICount-1)
-				NDKCrashHandler_PrintToLog("\n");
+				NDKCrashHandler_PrintToLog(crash_log, "\n");
 			else
-				NDKCrashHandler_PrintToLog(", ");
+				NDKCrashHandler_PrintToLog(crash_log, ", ");
 		}
 	}
 
-	NDKCrashHandler_PrintToLog("\n");
-	NDKCrashHandler_StackTrace();
+	NDKCrashHandler_PrintToLog(crash_log, "\n");
+	NDKCrashHandler_StackTrace(crash_log);
 
-	if (errorlog)
-		fclose(errorlog);
+	if (crash_log)
+	{
+		fclose(crash_log);
+		crash_log = NULL;
+	}
 }

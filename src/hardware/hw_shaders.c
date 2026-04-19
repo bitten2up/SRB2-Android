@@ -13,10 +13,13 @@
 
 #include "hw_glob.h"
 #include "hw_drv.h"
-#include "hw_shaders.h"
 #ifdef HAVE_GLES2
-#include "shaders/shaders_gles2.h"
+	#include "shaders/shaders_gles2.h"
+#else
+	#error SHOULD BE GLES2
+	#include "shaders/shaders_gl2.h"
 #endif
+#include "hw_shaders.h"
 #include "../z_zone.h"
 
 // ================
@@ -56,9 +59,40 @@ static struct {
 
 	// UI tinted wipe shader
 	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_UI_TINTED_WIPE_FRAGMENT_SHADER},
+#ifdef HAVE_GLES2
+        // Default shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_DEFAULT_ALPHA_TEST},
+
+        // Floor shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+
+        // Wall shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+
+        // Sprite shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+
+        // Model shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+
+        // Model lighting shader with alpha test
+    {GLSL_MODEL_LIGHTING_VERTEX_SHADER, GLSL_MODEL_LIGHTING_ALPHA_TEST},
+
+        // Water shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_WATER_ALPHA_TEST},
+
+        // Fade mask shader
+    {GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_FRAGMENT_SHADER},
+
+        // Additive and subtractive fade mask shader
+    {GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_ADDITIVEANDSUBTRACTIVE_FRAGMENT_SHADER},
+#endif
 
 	{NULL, NULL},
 };
+
+#if 1
+// STAR NOTE: come back here right now stupid
 
 typedef struct
 {
@@ -79,6 +113,7 @@ typedef struct
 //static shader_t gl_shaders[NUMSHADERTARGETS*2];
 
 static shadertarget_t gl_shadertargets[NUMSHADERTARGETS];
+#endif
 
 #define WHITESPACE_CHARS " \t"
 
@@ -103,7 +138,6 @@ boolean HWR_InitShaders(void)
 		gl_shadertargets[i].base_shader = i;
 		gl_shadertargets[i].custom_shader = -1;
 	}
-
 	HWR_CompileShaders();
 
 	return true;
@@ -469,6 +503,7 @@ static const char version_directives[][14] = {
 	"#version 130\n",
 	"#version 120\n",
 	"#version 110\n",
+	"#version 100\n",
 };
 
 static boolean HWR_VersionDirectiveExists(const char* source)

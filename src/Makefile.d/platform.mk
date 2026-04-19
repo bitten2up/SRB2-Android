@@ -14,12 +14,9 @@ mkdir=mkdir -p
 cat=cat
 endif
 
+# SRB2Android #
 ifndef MAKE_DIR
 MAKE_DIR:=Makefile.d/
-endif
-
-ifdef ANDROID
-LINUX64=1
 endif
 
 ifdef LINUX64

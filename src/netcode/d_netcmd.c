@@ -53,6 +53,10 @@
 #include "../m_perfstats.h"
 #include "../u_list.h"
 
+// Android
+#include "../android/apk_main.h"
+#include "../android/apk_nativescreenres.h"
+
 #ifdef NETGAME_DEVMODE
 #define CV_RESTRICT CV_NETVAR
 #else
@@ -264,6 +268,8 @@ consvar_t cv_usejoystick = CVAR_INIT ("use_gamepad", "1", CV_SAVE|CV_CALL|CV_NOI
 consvar_t cv_usejoystick2 = CVAR_INIT ("use_gamepad2", "2", CV_SAVE|CV_CALL|CV_NOINIT, usejoystick_cons_t, I_ChangeJoystick2);
 
 #ifdef ACCELEROMETER
+static CV_PossibleValue_t zerotoone_cons_t[] = {{0, "MIN"}, {FRACUNIT, "MAX"}, {0, NULL}};
+
 consvar_t cv_useaccelerometer = CVAR_INIT ("use_accelerometer", "Off", CV_SAVE|CV_CALL, CV_OnOff, G_ResetAccelerometer);
 consvar_t cv_acceldeadzone = CVAR_INIT ("accelerometer_deadzone", "0.75", CV_FLOAT | CV_SAVE, zerotoone_cons_t, NULL);
 
@@ -338,9 +344,6 @@ consvar_t cv_timetic = CVAR_INIT ("timerres", "Classic", CV_SAVE, timetic_cons_t
 static CV_PossibleValue_t powerupdisplay_cons_t[] = {{0, "Never"}, {1, "First-person only"}, {2, "Always"}, {0, NULL}};
 consvar_t cv_powerupdisplay = CVAR_INIT ("powerupdisplay", "First-person only", CV_SAVE, powerupdisplay_cons_t, NULL);
 
-static CV_PossibleValue_t liveshudpos_cons_t[] = {{0, "Bottom left"}, {1, "Top right"}, {2, "Automatic"}, {0, NULL}};
-consvar_t cv_liveshudpos = CVAR_INIT ("liveshudpos", "Automatic", CV_SAVE, liveshudpos_cons_t, NULL);
-
 static CV_PossibleValue_t pointlimit_cons_t[] = {{1, "MIN"}, {MAXSCORE, "MAX"}, {0, "None"}, {0, NULL}};
 consvar_t cv_pointlimit = CVAR_INIT ("pointlimit", "None", CV_SAVE|CV_NETVAR|CV_CALL|CV_NOINIT|CV_ALLOWLUA, pointlimit_cons_t, PointLimit_OnChange);
 static CV_PossibleValue_t timelimit_cons_t[] = {{1, "MIN"}, {30, "MAX"}, {0, "None"}, {0, NULL}};
@@ -399,8 +402,6 @@ consvar_t cv_runscripts = CVAR_INIT ("runscripts", "Yes", CV_ALLOWLUA, CV_YesNo,
 
 consvar_t cv_pause = CVAR_INIT ("pausepermission", "Server", CV_SAVE|CV_NETVAR|CV_ALLOWLUA, pause_cons_t, NULL);
 consvar_t cv_mute = CVAR_INIT ("mute", "Off", CV_NETVAR|CV_CALL|CV_ALLOWLUA, CV_OnOff, Mute_OnChange);
-
-consvar_t cv_thinkless = CVAR_INIT("thinkless", "Off", CV_SAVE, CV_OnOff, NULL);
 
 consvar_t cv_sleep = CVAR_INIT ("cpusleep", "1", CV_SAVE, sleeping_cons_t, NULL);
 
@@ -651,11 +652,6 @@ void D_RegisterServerCommands(void)
 	CV_RegisterVar(&cv_pingtimeout);
 	CV_RegisterVar(&cv_showping);
 
-#ifdef MOBILE_PLATFORM
-	cv_thinkless.defaultvalue = "On";
-#endif
-	CV_RegisterVar(&cv_thinkless);
-
 	CV_RegisterVar(&cv_allowseenames);
 
 	// Other filesrch.c consvars are defined in D_RegisterClientCommands
@@ -779,7 +775,6 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_itemfinder);
 	CV_RegisterVar(&cv_showinput);
 	CV_RegisterVar(&cv_showinputjoy);
-	CV_RegisterVar(&cv_liveshudpos);
 
 	// time attack ghost options are also saved to config
 	CV_RegisterVar(&cv_ghost_bestscore);
@@ -949,16 +944,8 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_scr_depth);
 	CV_RegisterVar(&cv_scr_width);
 	CV_RegisterVar(&cv_scr_height);
-
-#ifdef NATIVESCREENRES
-	SCR_SetMaxNativeResDivider(SCR_GetMaxNativeResDivider(0, 0));
-
-	CV_RegisterVar(&cv_nativeres);
-	CV_RegisterVar(&cv_nativeresdiv);
-	CV_RegisterVar(&cv_nativeresauto);
-	CV_RegisterVar(&cv_nativeresfov);
-	CV_RegisterVar(&cv_nativerescompare);
-#endif
+	CV_RegisterVar(&cv_scr_width_w);
+	CV_RegisterVar(&cv_scr_height_w);
 
 	CV_RegisterVar(&cv_soundtest);
 
@@ -975,6 +962,18 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_mapthingnum);
 
 	CV_RegisterVar(&cv_freedemocamera);
+
+	// SRB2Android
+	CV_RegisterVar(&cv_android_liveshudpos);
+	CV_RegisterVar(&cv_android_thinkless);
+#ifdef NATIVESCREENRES
+	SCR_SetMaxNativeResDivider(SCR_GetMaxNativeResDivider(0, 0));
+	CV_RegisterVar(&cv_nativeres);
+	CV_RegisterVar(&cv_nativeresdiv);
+	CV_RegisterVar(&cv_nativeresauto);
+	CV_RegisterVar(&cv_nativeresfov);
+	CV_RegisterVar(&cv_nativerescompare);
+#endif
 
 	// add cheat commands
 	COM_AddCommand("noclip", Command_CheatNoClip_f, COM_LUA);

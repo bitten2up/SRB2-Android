@@ -17,8 +17,6 @@
 boolean gld_clipper_SafeCheckRange(angle_t startAngle, angle_t endAngle);
 void gld_clipper_SafeAddClipRange(angle_t startangle, angle_t endangle);
 void gld_clipper_Clear(void);
-// bitten has no fucking clue which one to use
-//angle_t gld_FrustumAngle(angle_t tiltangle, void *player);
 angle_t gld_FrustumAngle(float render_fov, angle_t tiltangle);
 #ifdef HAVE_SPHEREFRUSTRUM
 void gld_FrustrumSetup(void);

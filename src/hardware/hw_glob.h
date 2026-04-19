@@ -149,7 +149,7 @@ extern INT32 textureformat;
 // hw_shaders.c
 // --------
 boolean HWR_InitShaders(void);
-//void HWR_CompileShaders(void);
+void HWR_CompileShaders(void);
 
 int HWR_GetShaderFromTarget(int shader_target);
 

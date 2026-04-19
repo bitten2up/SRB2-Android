@@ -92,6 +92,7 @@ typedef enum
 	MN_OP_P2JOYSTICK,
 	MN_OP_P2CAMERA,
 
+	// SRB2Android
 	MN_OP_TOUCHSCREEN,
 	MN_OP_TOUCHCONTROLS,
 
@@ -99,7 +100,7 @@ typedef enum
 
 	MN_OP_VIDEO,
 	MN_OP_VIDEOMODE,
-	MN_OP_RESOLUTIONDEF,
+	MN_OP_RESOLUTIONDEF, // SRB2Android
 	MN_OP_COLOR,
 	MN_OP_OPENGL,
 	MN_OP_OPENGL_LIGHTING,
@@ -259,6 +260,9 @@ M_waiting_mode_t;
 
 extern M_waiting_mode_t m_waiting_mode;
 
+// Called by linux_x/i_video_xshm.c
+void M_QuitResponse(INT32 ch);
+
 // Determines whether to show a level in the list (platter version does not need to be exposed)
 boolean M_CanShowLevelInList(INT32 mapnum, INT32 gt);
 
@@ -318,7 +322,6 @@ boolean M_CanShowLevelInList(INT32 mapnum, INT32 gt);
 #define IT_GRAYEDOUT2  (IT_SPACE  +IT_TRANSTEXT2)
 #define IT_HEADER      (IT_SPACE  +IT_HEADERTEXT)
 #define IT_SECRET      (IT_SPACE  +IT_QUESTIONMARKS)
-#define IT_GOBACK      (IT_TRANSTEXT2)
 
 // Confirm (press 'Y') / Return (press 'N') / Press a key / ESC messages
 const char *M_GetUserActionString(INT32 type);
@@ -396,16 +399,9 @@ typedef struct menu_s
 } menu_t;
 
 void M_SetupNextMenu(menu_t *menudef);
-void M_SetupPrevMenu(menu_t *menudef);
 void M_ClearMenus(boolean callexitmenufunc);
 
-// Menu navigation
-void M_NavigationAdvance(menu_t *menudef);
-void M_NavigationReturn(menu_t *menudef);
-
-#define MOBILEMENU_CONST_OPTHORZSHIFT 12
-#define MOBILEMENU_CONST_OPTANIMSPEED 2
-
+// SRB2Android: Menu navigation
 #ifdef TOUCHINPUTS
 void M_TSNav_Update(void);
 
@@ -495,7 +491,6 @@ extern gtdesc_t gametypedesc[NUMGAMETYPES];
 // mode descriptions for video mode menu
 typedef struct
 {
-	INT32 width, height; // width and height
 	INT32 modenum; // video mode number in the vidmodes list
 	const char *desc;  // XXXxYYY
 	UINT8 goodratio; // aspect correct if 1

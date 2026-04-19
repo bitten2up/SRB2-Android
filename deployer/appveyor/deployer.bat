@@ -40,7 +40,7 @@ if x%APPVEYOR_REPO_BRANCH:deployer=%==x%APPVEYOR_REPO_BRANCH% (
     )
 )
 
-: Release tags always get optional assets (music.dta)
+: Release tags always get optional assets (music.pk3)
 if [%APPVEYOR_REPO_TAG%] == [true] (
     set "ASSET_FILES_OPTIONAL_GET=1"
 )
@@ -120,7 +120,7 @@ mkdir "assets\patch"
 7z x -y "%ASSET_ARCHIVE_PATH_LOCAL%" -o"assets\installer" >null
 7z x -y "%ASSET_ARCHIVE_PATCH_PATH_LOCAL%" -o"assets\patch" >null
 
-: Copy optional files to full installer (music.dta)
+: Copy optional files to full installer (music.pk3)
 if [%ASSET_FILES_OPTIONAL_GET%] == [1] (
     7z x -y "%ASSET_ARCHIVE_OPTIONAL_PATH_LOCAL%" -o"assets\installer" >null
 )

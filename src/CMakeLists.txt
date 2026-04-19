@@ -16,6 +16,9 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	g_demo.c
 	g_game.c
 	g_input.c
+	ts_main.c
+	ts_draw.c
+	ts_custom.c
 	am_map.c
 	command.c
 	console.c
@@ -518,3 +521,9 @@ endif()
 if(SRB2_CONFIG_ENABLE_CLANG_TIDY_CXX)
 	target_set_default_clang_tidy(SRB2SDL2 CXX "-*,clang-analyzer-*,modernize-*")
 endif()
+
+# Android
+if (__ANDROID__)
+	add_subdirectory(android)
+endif()
+add_subdirectory(xtra)

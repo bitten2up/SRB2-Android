@@ -11,6 +11,7 @@
 #define _HW_MODEL_H_
 
 #include "../doomtype.h"
+#include "../w_wad.h"
 
 typedef struct
 {
@@ -98,7 +99,6 @@ typedef struct model_s
 	int numTags;
 	tag_t *tags;
 
-	// bitten note, dont feel like fixing
 	boolean hasVBOs;
 
 	char *frameNames;
@@ -122,7 +122,7 @@ extern model_t *modelHead;
 void HWR_ReloadModels(void);
 
 tag_t *GetTagByName(model_t *model, char *name, int frame);
-model_t *LoadModel(const char *filename, int ztag);
+model_t *LoadModel(const char *filename, int ztag, wadfile_t *wadfile);
 void UnloadModel(model_t *model);
 void Optimize(model_t *model);
 void LoadModelInterpolationSettings(model_t *model);

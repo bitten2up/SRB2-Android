@@ -1,7 +1,8 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2021 by Sonic Team Junior.
-// Copyright (C) 2020-2021 by Jaime Ita Passos.
+// Copyright (C) 2020-2023 by SRB2 Mobile Project.
+// Copyright (C) 2025 by Bitten2Up.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -19,7 +20,6 @@
 
 #ifdef GL_SHADERS
 #include "../shaders/gl_shaders.h"
-#include "../hw_shaders.h"
 #endif
 
 #include <stdarg.h>
@@ -29,29 +29,17 @@ const GLubyte *gl_renderer = NULL;
 const GLubyte *gl_extensions = NULL;
 
 // ==========================================================================
-//                                                                  CONSTANTS
-// ==========================================================================
-
-GLuint NOTEXTURE_NUM = 0;
-float NEAR_CLIPPING_PLANE = NZCLIP_PLANE;
-
-// ==========================================================================
 //                                                                    GLOBALS
 // ==========================================================================
 
-RGBA_t *TextureBuffer = NULL;
-static size_t TextureBufferSize = 0;
+GLRGBAFloat white = {1.0f, 1.0f, 1.0f, 1.0f};
+GLRGBAFloat black = {0.0f, 0.0f, 0.0f, 1.0f};
 
-// Linked list of all lighttables.
-static LTListItem *LightTablesTail = NULL;
-static LTListItem *LightTablesHead = NULL;
+RGBA_t *textureBuffer = NULL;
+size_t textureBufferSize = 0;
 
-static RGBA_t screenPalette[256] = {0}; // the palette for the postprocessing step in palette rendering
-static GLuint screenPaletteTex = 0; // 1D texture containing the screen palette
-static GLuint paletteLookupTex = 0; // 3D texture containing RGB -> palette index lookup table
-RGBA_t  myPaletteData[256]; // the palette for converting textures to RGBA
-
-GLint   screen_width    = 0;
+RGBA_t  myPaletteData[256];
+GLint   screen_width    = 0;               // used by Draw2DLine()
 GLint   screen_height   = 0;
 GLbyte  screen_depth    = 0;
 GLint   textureformatGL = 0;
@@ -66,25 +54,24 @@ GLint anisotropic_filter = 0;
 boolean alpha_test = false;
 float alpha_threshold = 0.0f;
 
+float near_clipping_plane = NZCLIP_PLANE;
+
 // Linked list of all textures.
 FTextureInfo *TexCacheTail = NULL;
 FTextureInfo *TexCacheHead = NULL;
 
 GLuint      tex_downloaded  = 0;
-static GLuint lt_downloaded = 0; // currently bound lighttable texture
 GLfloat     fov             = 90.0f;
 FBITFIELD   CurrentPolyFlags;
 
-// Sryder:	NextTexAvail is broken for these because palette changes or changes to the texture filter or antialiasing
-//			flush all of the stored textures, leaving them unavailable at times such as between levels
-//			These need to start at 0 and be set to their number, and be reset to 0 when deleted so that intel GPUs
-//			can know when the textures aren't there, as textures are always considered resident in their virtual memory
-GLuint screenTextures[NUMSCREENTEXTURES] = {0};
 GLuint screentexture = 0;
 GLuint startScreenWipe = 0;
 GLuint endScreenWipe = 0;
 GLuint finalScreenTexture = 0;
 
+static GLuint blank_texture_num = 0;
+
+#ifdef HAVE_GL_FRAMEBUFFER
 GLuint FramebufferObject, FramebufferTexture;
 GLuint RenderbufferObject, RenderbufferDepthBits;
 GLboolean FramebufferEnabled = GL_FALSE, RenderToFramebuffer = GL_FALSE;
@@ -99,12 +86,27 @@ GLenum RenderbufferFormats[NumRenderbufferFormats] =
 	GL_DEPTH_COMPONENT32,
 	GL_DEPTH_COMPONENT32F
 };
+#endif
 
 // Linked list of all models.
 static GLModelList *ModelListTail = NULL;
 static GLModelList *ModelListHead = NULL;
 
 boolean model_lighting = false;
+
+// Sryder:	NextTexAvail is broken for these because palette changes or changes to the texture filter or antialiasing
+//			flush all of the stored textures, leaving them unavailable at times such as between levels
+//			These need to start at 0 and be set to their number, and be reset to 0 when deleted so that intel GPUs
+//			can know when the textures aren't there, as textures are always considered resident in their virtual memory
+GLuint screenTextures[NUMSCREENTEXTURES] = {0};
+
+RGBA_t screenPalette[256] = {0}; // the palette for the postprocessing step in palette rendering
+GLuint screenPaletteTex = 0; // 1D texture containing the screen palette
+GLuint paletteLookupTex = 0; // 3D texture containing RGB -> palette index lookup table
+
+// Linked list of all lighttables.
+LTListItem *LightTablesTail = NULL;
+LTListItem *LightTablesHead = NULL;
 
 // ==========================================================================
 //                                                                 EXTENSIONS
@@ -115,22 +117,30 @@ boolean GLExtension_vertex_buffer_object;
 boolean GLExtension_texture_filter_anisotropic;
 boolean GLExtension_vertex_program;
 boolean GLExtension_fragment_program;
+#ifdef HAVE_GL_FRAMEBUFFER
 boolean GLExtension_framebuffer_object;
+#endif
 boolean GLExtension_shaders; // Not an extension on its own, but it is set if multiple extensions are available.
 
 static FExtensionList const ExtensionList[] = {
 	{"GL_ARB_multitexture", &GLExtension_multitexture},
 
+#ifndef HAVE_GLES2
 	{"GL_ARB_vertex_buffer_object", &GLExtension_vertex_buffer_object},
+#endif
 
 	{"GL_ARB_texture_filter_anisotropic", &GLExtension_texture_filter_anisotropic},
 	{"GL_EXT_texture_filter_anisotropic", &GLExtension_texture_filter_anisotropic},
 
+#ifndef HAVE_GLES2
 	{"GL_ARB_vertex_program", &GLExtension_vertex_program},
 	{"GL_ARB_fragment_program", &GLExtension_fragment_program},
+#endif
 
+#ifdef HAVE_GL_FRAMEBUFFER
 	{"GL_ARB_framebuffer_object", &GLExtension_framebuffer_object},
 	{"GL_OES_framebuffer_object", &GLExtension_framebuffer_object},
+#endif
 
 	{NULL, NULL}
 };
@@ -138,16 +148,34 @@ static FExtensionList const ExtensionList[] = {
 static void PrintExtensions(const GLubyte *extensions);
 
 // ==========================================================================
+//                                                                    BACKEND
+// ==========================================================================
+
+#if 0
+boolean GLBackend_useprogram = false;
+#endif
+
+// ==========================================================================
 //                                                           OPENGL FUNCTIONS
 // ==========================================================================
 
-#ifndef STATIC_OPENGL
-/* Miscellaneous */
 PFNglClear pglClear;
-PFNglGetFloatv pglGetFloatv;
-PFNglPolygonMode pglPolygonMode;
 PFNglGetIntegerv pglGetIntegerv;
 PFNglGetString pglGetString;
+
+#ifndef STATIC_OPENGL
+/* Miscellaneous */
+#if 0
+// STAR NOTE: bro
+PFNglClear pglClear;
+#endif
+PFNglGetFloatv pglGetFloatv;
+PFNglPolygonMode pglPolygonMode;
+#if 0
+// STAR NOTE: bro
+PFNglGetIntegerv pglGetIntegerv;
+PFNglGetString pglGetString;
+#endif
 PFNglGetError pglGetError;
 PFNglClearColor pglClearColor;
 PFNglColorMask pglColorMask;
@@ -155,9 +183,17 @@ PFNglAlphaFunc pglAlphaFunc;
 PFNglBlendFunc pglBlendFunc;
 PFNglCullFace pglCullFace;
 PFNglPolygonOffset pglPolygonOffset;
+#if 1
+// STAR NOTE: hi
+PFNglScissor pglScissor;
+#endif
 PFNglEnable pglEnable;
 PFNglDisable pglDisable;
-
+#if 1
+// STAR NOTE: still hi
+PFNglGetFloatv pglGetFloatv;
+PFNglPolygonMode pglPolygonMode;
+#endif
 /* Depth buffer */
 PFNglDepthFunc pglDepthFunc;
 PFNglDepthMask pglDepthMask;
@@ -189,6 +225,14 @@ PFNglBindTexture pglBindTexture;
 PFNglCopyTexImage2D pglCopyTexImage2D;
 PFNglCopyTexSubImage2D pglCopyTexSubImage2D;
 PFNglTexImage3D pglTexImage3D;
+
+#if 1
+// STAR NOTE: hi
+/* 1.3 functions for multitexturing */
+PFNglMultiTexCoord2f pglMultiTexCoord2f;
+PFNglMultiTexCoord2fv pglMultiTexCoord2fv;
+#endif
+
 #endif
 
 //
@@ -204,21 +248,25 @@ PFNglClientActiveTexture pglClientActiveTexture;
 // Mipmapping
 //
 
-#ifdef HAVE_GLES
+// STAR NOTE: testing testing 1234
+
+//#ifdef HAVE_GLES
 PFNglGenerateMipmap pglGenerateMipmap;
-#endif
+//#endif
 
 //
 // Depth functions
 //
 
-#ifndef HAVE_GLES
-	PFNglClearDepth pglClearDepth;
-	PFNglDepthRange pglDepthRange;
-#else
-	PFNglClearDepthf pglClearDepthf;
-	PFNglDepthRangef pglDepthRangef;
-#endif
+// STAR NOTE: testing testing 1234
+
+//#ifndef HAVE_GLES
+PFNglClearDepth pglClearDepth;
+PFNglDepthRange pglDepthRange;
+//#else
+PFNglClearDepthf pglClearDepthf;
+PFNglDepthRangef pglDepthRangef;
+//#endif
 
 //
 // Legacy functions
@@ -250,6 +298,10 @@ PFNglShadeModel pglShadeModel;
 PFNglLightfv pglLightfv;
 PFNglLightModelfv pglLightModelfv;
 PFNglMaterialfv pglMaterialfv;
+#if 1
+// STAR NOTE: hi
+PFNglMateriali pglMateriali;
+#endif
 
 /* Texture mapping */
 PFNglTexEnvi pglTexEnvi;
@@ -272,6 +324,7 @@ PFNglDeleteBuffers pglDeleteBuffers;
 /* 2.0 functions */
 PFNglBlendEquation pglBlendEquation;
 
+#ifdef HAVE_GL_FRAMEBUFFER
 /* 3.0 functions for framebuffers and renderbuffers */
 PFNglGenFramebuffers pglGenFramebuffers;
 PFNglBindFramebuffer pglBindFramebuffer;
@@ -283,6 +336,13 @@ PFNglBindRenderbuffer pglBindRenderbuffer;
 PFNglDeleteRenderbuffers pglDeleteRenderbuffers;
 PFNglRenderbufferStorage pglRenderbufferStorage;
 PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
+#endif
+
+#if 1
+// STAR NOTE: hi
+/* Vertex Attrib */
+PFNglVertexAttribPointer pglVertexAttribPointer;
+#endif
 
 boolean GLBackend_LoadCommonFunctions(void)
 {
@@ -366,7 +426,14 @@ static const char *GetGLError(GLenum error)
 		case GL_INVALID_VALUE:                 return "GL_INVALID_VALUE";
 		case GL_INVALID_OPERATION:             return "GL_INVALID_OPERATION";
 		case GL_OUT_OF_MEMORY:                 return "GL_OUT_OF_MEMORY";
+#ifdef GL_INVALID_FRAMEBUFFER_OPERATION
+		/* StarManiaKG: sometimes this doesn't get defined.
+			How? Beyond me.
+			Hence, we just do things like this instead.
+			Easier for me, easier for the compiler.
+		*/
 		case GL_INVALID_FRAMEBUFFER_OPERATION: return "GL_INVALID_FRAMEBUFFER_OPERATION";
+#endif
 		default:                               return "unknown error";
 	}
 }
@@ -480,7 +547,7 @@ static void SetBlendMode(FBITFIELD flags)
 // PF_Masked - we could use an ALPHA_TEST of GL_EQUAL, and alpha ref of 0,
 //             is it faster when pixels are discarded ?
 
-void SetBlendingStates(FBITFIELD PolyFlags)
+void GLBackend_SetBlend(FBITFIELD PolyFlags)
 {
 	FBITFIELD Xor = CurrentPolyFlags^PolyFlags;
 
@@ -518,7 +585,7 @@ void SetBlendingStates(FBITFIELD PolyFlags)
 		if (Xor & PF_RemoveYWrap)
 		{
 			if (PolyFlags & PF_RemoveYWrap)
-				SetClamp(GL_TEXTURE_WRAP_T);
+				GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
 		}
 
 		if (Xor & PF_ForceWrapX)
@@ -570,9 +637,7 @@ void SetBlendingStates(FBITFIELD PolyFlags)
 			}
 		}
 		if (PolyFlags & PF_NoTexture)
-		{
-			SetNoTexture();
-		}
+			GLBackend_SetNoTexture();
 	}
 
 	CurrentPolyFlags = PolyFlags;
@@ -614,6 +679,28 @@ INT32 GLBackend_InvertAlphaTestShader(INT32 type)
 	return type;
 }
 
+#if 0
+// STAR NOTE: come back here right now stupid
+
+typedef struct
+{
+	int base_shader; // index of base shader_t
+	int custom_shader; // index of custom shader_t
+} shadertarget_t;
+
+typedef struct
+{
+	char *vertex;
+	char *fragment;
+	boolean compiled;
+} shader_t; // these are in an array and accessed by indices
+
+// the array has NUMSHADERTARGETS entries for base shaders and for custom shaders
+// the array could be expanded in the future to fit "dynamic" custom shaders that
+// aren't fixed to shader targets
+static shader_t gl_shaders[NUMSHADERTARGETS*2];
+#endif
+
 INT32 GLBackend_GetShaderType(INT32 type)
 {
 
@@ -642,30 +729,29 @@ INT32 GLBackend_GetShaderType(INT32 type)
 	return type;
 }
 
-void SetSurface(INT32 w, INT32 h)
+void GLBackend_SetSurface(INT32 w, INT32 h)
 {
-	SetModelView(w, h);
-	SetStates();
-
+	GLBackend_SetModelView(w, h);
+	GLBackend_SetStates();
 	pglClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
+
+static boolean version_checked = false;
 
 boolean GLBackend_InitContext(void)
 {
 	if (!GLBackend_LoadCommonFunctions())
 		return false;
 
-	if (gl_version == NULL || gl_renderer == NULL)
+	if (!version_checked)
 	{
 		gl_version = pglGetString(GL_VERSION);
 		gl_renderer = pglGetString(GL_RENDERER);
+		gl_extensions = pglGetString(GL_EXTENSIONS);
 
-#if defined(__ANDROID__)
-		I_OutputMsg("OpenGL version: %s\n", gl_version);
-		I_OutputMsg("GPU: %s\n", gl_renderer);
-#else
-		GL_DBG_Printf("OpenGL %s\n", gl_version);
+		GL_DBG_Printf("OpenGL Version: %s\n", gl_version);
 		GL_DBG_Printf("GPU: %s\n", gl_renderer);
+		GL_DBG_Printf("Extensions: %s\n", gl_extensions);
 
 		if (strcmp((const char*)gl_renderer, "GDI Generic") == 0 &&
 			strcmp((const char*)gl_version, "1.1.0") == 0)
@@ -676,9 +762,12 @@ boolean GLBackend_InitContext(void)
 			// Also set the renderer variable back to software so the next launch won't
 			// repeat this error.
 			CV_StealthSet(&cv_renderer, "Software");
-			I_Error("OpenGL Error: Failed to access the GPU. There may be an issue with your graphics drivers.");
+			I_Error("OpenGL Error: Failed to access the GPU. Possible reasons include:\n"
+					"- GPU vendor has dropped OpenGL support on your GPU and OS. (Old GPU?)\n"
+					"- GPU drivers are missing or broken. You may need to update your drivers.");
 		}
-#endif
+
+		version_checked = true;
 	}
 
 	if (gl_extensions == NULL)
@@ -687,55 +776,20 @@ boolean GLBackend_InitContext(void)
 	return true;
 }
 
-void GLBackend_RecreateContext(void)
+void GLBackend_DeleteModelData(void)
 {
-	while (TexCacheHead)
-	{
-		FTextureInfo *pTexInfo = TexCacheHead;
-		GLMipmap_t *texture = pTexInfo->texture;
-
-		if (pTexInfo->downloaded)
-			pTexInfo->downloaded = 0;
-
-		if (texture)
-			texture->downloaded = 0;
-
-		TexCacheHead = pTexInfo->next;
-		free(pTexInfo);
-	}
-
-	TexCacheTail = TexCacheHead = NULL;
-
-	GLTexture_FlushScreen();
-	tex_downloaded = 0;
-
-	if (GLExtension_framebuffer_object)
-	{
-		// Unbind the framebuffer and renderbuffer
-		pglBindFramebuffer(GL_FRAMEBUFFER, 0);
-		pglBindRenderbuffer(GL_RENDERBUFFER, 0);
-
-		FramebufferObject = FramebufferTexture = 0;
-		RenderbufferObject = 0;
-	}
-
 	while (ModelListHead)
 	{
 		GLModelList *pModel = ModelListHead;
 
 		if (pModel->model && pModel->model->meshes)
-			GLModel_ClearVBOs(pModel->model);
+			GLModel_DeleteVBOs(pModel->model);
 
 		ModelListHead = pModel->next;
 		free(pModel);
 	}
 
 	ModelListTail = ModelListHead = NULL;
-
-#ifdef GL_SHADERS
-	Shader_CleanPrograms();
-	Shader_Compile();
-#endif
 }
 
 static size_t lerpBufferSize = 0;
@@ -943,6 +997,9 @@ void GLModel_ClearVBOs(model_t *model)
 {
 	int i, j;
 
+	if (!model->hasVBOs)
+		return;
+
 	for (i = 0; i < model->numMeshes; i++)
 	{
 		mesh_t *mesh = &model->meshes[i];
@@ -968,16 +1025,71 @@ void GLModel_ClearVBOs(model_t *model)
 	model->hasVBOs = false;
 }
 
+void GLModel_DeleteVBOs(model_t *model)
+{
+	int i, j;
+
+	if (!model->hasVBOs)
+		return;
+
+	for (i = 0; i < model->numMeshes; i++)
+	{
+		mesh_t *mesh = &model->meshes[i];
+
+		if (mesh->frames)
+		{
+			for (j = 0; j < model->meshes[i].numFrames; j++)
+			{
+				mdlframe_t *frame = &mesh->frames[j];
+				if (frame->vboID)
+					pglDeleteBuffers(1, &frame->vboID);
+				frame->vboID = 0;
+			}
+		}
+		else if (mesh->tinyframes)
+		{
+			for (j = 0; j < model->meshes[i].numFrames; j++)
+			{
+				tinyframe_t *frame = &mesh->tinyframes[j];
+				if (frame->vboID)
+					pglDeleteBuffers(1, &frame->vboID);
+				frame->vboID = 0;
+			}
+		}
+	}
+
+	model->hasVBOs = false;
+}
+
 void GLTexture_AllocBuffer(GLMipmap_t *pTexInfo)
 {
 	size_t size = pTexInfo->width * pTexInfo->height;
-	if (size > TextureBufferSize)
+	if (size > textureBufferSize)
 	{
-		TextureBuffer = realloc(TextureBuffer, size * sizeof(RGBA_t));
-		if (TextureBuffer == NULL)
+		textureBuffer = realloc(textureBuffer, size * sizeof(RGBA_t));
+		if (textureBuffer == NULL)
 			I_Error("GLTexture_AllocBuffer: out of memory allocating %s bytes", sizeu1(size * sizeof(RGBA_t)));
-		TextureBufferSize = size;
+		textureBufferSize = size;
 	}
+}
+
+void GLTexture_Disable(void)
+{
+	if (tex_downloaded == blank_texture_num)
+		return;
+
+	if (blank_texture_num == 0)
+	{
+		// Generate a 1x1 white pixel as the blank texture
+		UINT8 whitepixel[4] = {255, 255, 255, 255};
+		pglGenTextures(1, &blank_texture_num);
+		pglBindTexture(GL_TEXTURE_2D, blank_texture_num);
+		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, whitepixel);
+	}
+	else
+		pglBindTexture(GL_TEXTURE_2D, blank_texture_num);
+
+	tex_downloaded = blank_texture_num;
 }
 
 // -----------------+
@@ -986,8 +1098,6 @@ void GLTexture_AllocBuffer(GLMipmap_t *pTexInfo)
 // -----------------+
 void GLTexture_Flush(void)
 {
-	//GL_DBG_Printf ("GLTexture_Flush()\n");
-
 	while (TexCacheHead)
 	{
 		FTextureInfo *pTexInfo = TexCacheHead;
@@ -1009,9 +1119,9 @@ void GLTexture_Flush(void)
 	TexCacheTail = TexCacheHead = NULL; //Hurdler: well, TexCacheHead is already NULL
 	tex_downloaded = 0;
 
-	free(TextureBuffer);
-	TextureBuffer = NULL;
-	TextureBufferSize = 0;
+	free(textureBuffer);
+	textureBuffer = NULL;
+	textureBufferSize = 0;
 }
 
 
@@ -1019,7 +1129,8 @@ void GLTexture_Flush(void)
 //			a new size
 void GLTexture_FlushScreen(void)
 {
-#if 0 // keeping this temperally - bitten
+	// bitten note: star removed some of the fucking code i need here for screenTextures[]... THANKS STAR
+	// star note: love you too bitten
 	if (screentexture)
 		pglDeleteTextures(1, &screentexture);
 	if (startScreenWipe)
@@ -1028,11 +1139,11 @@ void GLTexture_FlushScreen(void)
 		pglDeleteTextures(1, &endScreenWipe);
 	if (finalScreenTexture)
 		pglDeleteTextures(1, &finalScreenTexture);
-#endif
-	int i;
-	pglDeleteTextures(NUMSCREENTEXTURES, screenTextures);
-	for (i = 0; i < NUMSCREENTEXTURES; i++)
-		screenTextures[i] = 0;
+
+	screentexture = 0;
+	startScreenWipe = 0;
+	endScreenWipe = 0;
+	finalScreenTexture = 0;
 }
 
 
@@ -1113,6 +1224,7 @@ INT32 GLTexture_GetMemoryUsage(FTextureInfo *head)
 	return res;
 }
 
+#ifdef HAVE_GL_FRAMEBUFFER
 void GLFramebuffer_Generate(void)
 {
 	if (!GLExtension_framebuffer_object)
@@ -1292,6 +1404,7 @@ void GLFramebuffer_SetDepth(INT32 depth)
 {
 	RenderbufferDepthBits = min(max(depth, 0), NumRenderbufferFormats-1);
 }
+#endif
 
 void GLBackend_ReadRect(INT32 x, INT32 y, INT32 width, INT32 height, INT32 dst_stride, UINT16 *dst_data)
 {
@@ -1347,24 +1460,6 @@ void GLBackend_ReadRect(INT32 x, INT32 y, INT32 width, INT32 height, INT32 dst_s
 	}
 }
 
-void GLBackend_ReadRectRGBA(INT32 x, INT32 y, INT32 width, INT32 height, UINT32 *dst_data)
-{
-	INT32 i, row_width = (width * sizeof(UINT32));
-	UINT32 *src_data = malloc(row_width * height);
-
-	if (!src_data)
-		return;
-
-	pglPixelStorei(GL_PACK_ALIGNMENT, 1);
-	pglReadPixels(x, y, width, height, GL_RGBA, GL_UNSIGNED_BYTE, (GLubyte *)src_data);
-	pglPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-
-	for (i = height-1; i >= 0; i--)
-		memcpy(&dst_data[i * width], &src_data[(height-i-1) * width], row_width);
-
-	free(src_data);
-}
-
 void GLExtension_Init(void)
 {
 	INT32 i = 0;
@@ -1373,6 +1468,13 @@ void GLExtension_Init(void)
 
 	GL_DBG_Printf("Extensions: ");
 	PrintExtensions(gl_extensions);
+
+#ifdef HAVE_GLES2
+	GLExtension_vertex_buffer_object = true;
+	GLExtension_vertex_program = true;
+	GLExtension_fragment_program = true;
+#endif
+
 
 	while (ExtensionList[i].name)
 	{
@@ -1411,6 +1513,8 @@ void GLExtension_Init(void)
 	}
 	else
 		maximumAnisotropy = 1;
+
+	glanisotropicmode_cons_t[1].value = maximumAnisotropy;
 }
 
 boolean GLExtension_Available(const char *extension)
@@ -1476,7 +1580,9 @@ boolean GLExtension_LoadFunctions(void)
 	{
 		const char *list[] =
 		{
+#if 1
 			"TexImage3D",
+#endif
 			"ActiveTexture",
 #ifndef HAVE_GLES2
 			"ClientActiveTexture",
@@ -1486,7 +1592,6 @@ boolean GLExtension_LoadFunctions(void)
 
 		if (CheckFunctionList(list))
 		{
-			GETOPENGLFUNC(TexImage3D)
 			GETOPENGLFUNC(ActiveTexture)
 #ifndef HAVE_GLES2
 			GETOPENGLFUNC(ClientActiveTexture)
@@ -1518,6 +1623,7 @@ boolean GLExtension_LoadFunctions(void)
 			EXTUNSUPPORTED(GLExtension_vertex_buffer_object);
 	}
 
+#ifdef HAVE_GL_FRAMEBUFFER
 	if (GLExtension_framebuffer_object)
 	{
 		const char *list[] =
@@ -1551,6 +1657,7 @@ boolean GLExtension_LoadFunctions(void)
 		else
 			EXTUNSUPPORTED(GLExtension_framebuffer_object);
 	}
+#endif
 
 	return true;
 }

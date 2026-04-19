@@ -350,35 +350,15 @@ boolean G_HandlePauseKey(boolean ispausebreak)
 		}
 	}
 
+	if (modeattacking && !demoplayback && (gamestate == GS_LEVEL))
+		return true;
+
 	return false;
 }
 
 boolean G_CanRetryModeAttack(void)
 {
 	return (modeattacking && !demoplayback && (gamestate == GS_LEVEL));
-}
-// Handles the camera toggle key being pressed.
-boolean G_ToggleChaseCam(void)
-{
-	if (!camtoggledelay)
-	{
-		camtoggledelay = NEWTICRATE / 7;
-		CV_SetValue(&cv_chasecam, cv_chasecam.value ? 0 : 1);
-		return true;
-	}
-	return false;
-}
-
-// Handles the camera toggle key being pressed by the second player.
-boolean G_ToggleChaseCam2(void)
-{
-	if (!camtoggledelay2)
-	{
-		camtoggledelay2 = NEWTICRATE / 7;
-		CV_SetValue(&cv_chasecam2, cv_chasecam2.value ? 0 : 1);
-		return true;
-	}
-	return false;
 }
 
 typedef struct

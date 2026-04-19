@@ -327,7 +327,7 @@ UINT8 CL_CheckDownloadable(boolean direct)
 				dlstatus = DLSTATUS_WONTSEND;
 		}
 
-	if (direct && !dlstatus)
+	if (direct && dlstatus) // bitten hack was !dlstatus
 	{
 		if (!I_SystemStoragePermission()) // No storage permission
 			dlstatus = DLSTATUS_NOPERMS;

@@ -29,15 +29,10 @@ EXPORT boolean HWRAPI(Init) (void);
 #ifndef HAVE_SDL
 EXPORT void HWRAPI(Shutdown) (void);
 #endif
-EXPORT void HWRAPI(RecreateContext) (void);
-#ifdef _WINDOWS
-EXPORT void HWRAPI(GetModeList) (vmode_t **pvidmodes, INT32 *numvidmodes);
-#endif
 EXPORT void HWRAPI(SetTexturePalette) (RGBA_t *ppal);
 EXPORT void HWRAPI(FinishUpdate) (INT32 waitvbl);
 EXPORT void HWRAPI(Draw2DLine) (F2DCoord *v1, F2DCoord *v2, RGBA_t Color);
 EXPORT void HWRAPI(DrawPolygon) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags);
-EXPORT void HWRAPI(DrawPolygonShader) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, INT32 shader);
 EXPORT void HWRAPI(DrawIndexedTriangles) (FSurfaceInfo *pSurf, FOutVector *pOutVerts, FUINT iNumPts, FBITFIELD PolyFlags, UINT32 *IndexArray);
 EXPORT void HWRAPI(RenderSkyDome) (gl_sky_t *sky);
 EXPORT void HWRAPI(SetBlend) (FBITFIELD PolyFlags);
@@ -45,16 +40,14 @@ EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask, FBOOLEAN DepthMask, FRGBAFl
 EXPORT void HWRAPI(SetTexture) (GLMipmap_t *TexInfo);
 EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *TexInfo);
 EXPORT void HWRAPI(DeleteTexture) (GLMipmap_t *TexInfo);
-EXPORT void HWRAPI(ReadRect) (INT32 x, INT32 y, INT32 width, INT32 height, INT32 dst_stride, UINT32 *dst_data);
 EXPORT void HWRAPI(ReadScreenTexture) (int tex, UINT8 *dst_data);
 EXPORT void HWRAPI(GClipRect) (INT32 minx, INT32 miny, INT32 maxx, INT32 maxy, float nearclip);
 EXPORT void HWRAPI(ClearMipMapCache) (void);
 
 EXPORT void HWRAPI(SetSpecialState) (hwdspecialstate_t IdState, INT32 Value);
+
 //Hurdler: added for new development
 EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface);
-//EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration, float tics, INT32 nextFrameIndex, FTransform *pos, float hscale, float vscale, UINT8 flipped, UINT8 hflipped, FSurfaceInfo *Surface);
-
 EXPORT void HWRAPI(CreateModelVBOs) (model_t *model);
 EXPORT void HWRAPI(SetTransform) (FTransform *ptransform);
 EXPORT INT32 HWRAPI(GetTextureUsed) (void);
@@ -76,11 +69,17 @@ EXPORT void HWRAPI(UnSetShader) (void);
 
 EXPORT void HWRAPI(SetShaderInfo) (hwdshaderinfo_t info, INT32 value);
 
-EXPORT void HWRAPI(SetPaletteLookup)(UINT8 *lut);
-EXPORT UINT32 HWRAPI(CreateLightTable)(RGBA_t *hw_lighttable);
-EXPORT void HWRAPI(UpdateLightTable)(UINT32 id, RGBA_t *hw_lighttable);
-EXPORT void HWRAPI(ClearLightTables)(void);
-EXPORT void HWRAPI(SetScreenPalette)(RGBA_t *palette);
+EXPORT void HWRAPI(SetPaletteLookup) (UINT8 *lut);
+EXPORT UINT32 HWRAPI(CreateLightTable) (RGBA_t *hw_lighttable);
+EXPORT void HWRAPI(UpdateLightTable) (UINT32 id, RGBA_t *hw_lighttable);
+EXPORT void HWRAPI(ClearLightTables) (void);
+EXPORT void HWRAPI(SetScreenPalette) (RGBA_t *palette);
+
+#if 1
+// STAR NOTE: hi extended model rendering
+EXPORT void HWRAPI(DeleteModelVBOs) (model_t *model);
+EXPORT void HWRAPI(DeleteModelData) (void);
+#endif
 
 // ==========================================================================
 //                                      HWR DRIVER OBJECT, FOR CLIENT PROGRAM
@@ -93,10 +92,8 @@ struct hwdriver_s
 	Init                pfnInit;
 	SetTexturePalette   pfnSetTexturePalette;
 	FinishUpdate        pfnFinishUpdate;
-	RecreateContext     pfnRecreateContext;
 	Draw2DLine          pfnDraw2DLine;
 	DrawPolygon         pfnDrawPolygon;
-	DrawPolygonShader   pfnDrawPolygonShader;
 	DrawIndexedTriangles    pfnDrawIndexedTriangles;
 	RenderSkyDome       pfnRenderSkyDome;
 	SetBlend            pfnSetBlend;
@@ -124,7 +121,6 @@ struct hwdriver_s
 	DrawScreenTexture   pfnDrawScreenTexture;
 	MakeScreenTexture   pfnMakeScreenTexture;
 	DrawScreenFinalTexture  pfnDrawScreenFinalTexture;
-	ReadRect        		pfnReadRect;
 
 	InitShaders         pfnInitShaders;
 	LoadShader          pfnLoadShader;
@@ -139,6 +135,12 @@ struct hwdriver_s
 	UpdateLightTable    pfnUpdateLightTable;
 	ClearLightTables    pfnClearLightTables;
 	SetScreenPalette    pfnSetScreenPalette;
+
+#if 1
+	// STAR NOTE: hi extended model rendering for modelpack stuff i think
+	DeleteModelVBOs     pfnDeleteModelVBOs;
+	DeleteModelData     pfnDeleteModelData;
+#endif
 };
 
 extern struct hwdriver_s hwdriver;

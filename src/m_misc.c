@@ -101,6 +101,9 @@ typedef off_t off64_t;
  #endif
 #endif
 
+// Android
+#include "android/apk_main.h"
+
 static CV_PossibleValue_t screenshot_cons_t[] = {{0, "Default"}, {1, "HOME"}, {2, "SRB2"}, {3, "CUSTOM"}, {0, NULL}};
 consvar_t cv_screenshot_option = CVAR_INIT ("screenshot_option", "Default", CV_SAVE|CV_CALL, screenshot_cons_t, Screenshot_option_Onchange);
 consvar_t cv_screenshot_folder = CVAR_INIT ("screenshot_folder", "", CV_SAVE, NULL, NULL);
@@ -469,6 +472,8 @@ void Command_SaveConfig_f(void)
 		CONS_Printf(M_GetText("saveconfig <filename[.cfg]> [-silent] : save config to a file\n"));
 		return;
 	}
+
+	APK_CHECK_FOR_STORAGE_ACCESS({ return; })
 
 	strcpy(tmpstr, COM_Argv(1));
 	FIL_ForceExtension(tmpstr, ".cfg");

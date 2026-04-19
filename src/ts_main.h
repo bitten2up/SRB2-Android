@@ -188,7 +188,7 @@ typedef struct
 	touchpreset_e preset; // touch_preset
 	touchmovementstyle_e movementstyle; // touch_movementstyle
 
-	boolean altliveshud; // ST_AltLivesHUDEnabled
+	boolean altliveshud; // APK_ST_AltLivesHUDEnabled
 	boolean ringslinger; // G_RingSlingerGametype
 	boolean ctfgametype; // gametyperules & GTR_TEAMFLAGS
 	boolean nights; // maptol & TOL_NIGHTS
@@ -197,7 +197,7 @@ typedef struct
 	boolean splitscreen;
 	UINT8 modeattacking;
 	boolean canpause;
-	boolean canviewpointswitch; // G_CanViewpointSwitch()
+	boolean canviewpointswitch; // APK_G_CanViewpointSwitch()
 	boolean cantalk; // netgame && !CHAT_MUTE
 	boolean canteamtalk; // G_GametypeHasTeams() && players[consoleplayer].ctfteam
 	boolean promptactive;

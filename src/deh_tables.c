@@ -3255,7 +3255,6 @@ const char *const STATE_LIST[] = { // array length left dynamic for sanity testi
 	"S_MARIOBUSH2",
 	"S_TOAD",
 
-
 	// Nights-specific stuff
 	"S_NIGHTSDRONE_MAN1",
 	"S_NIGHTSDRONE_MAN2",
@@ -4882,7 +4881,10 @@ const char *const HUDITEMS_LIST[] = {
 	"TIMELEFTNUM",
 	"TIMEUP",
 	"HUNTPICS",
-	"POWERUPS"
+	"POWERUPS",
+
+	// ANDROID //
+	"ANDROID_LIVES"
 };
 
 const char *const MENUTYPES_LIST[] = {
@@ -5641,7 +5643,9 @@ struct int_const_s const INT_CONST[] = {
 	{"CV_HIDDEN",CV_HIDEN},
 	{"CV_CHEAT",CV_CHEAT},
 	{"CV_ALLOWLUA",CV_ALLOWLUA},
-	{"CV_SLIDER_SAFE",CV_SLIDER_SAFE},
+	// ANDROID
+	{"APK_CV_SLIDER_SAFE",APK_CV_SLIDER_SAFE},
+	{"CV_SLIDER_SAFE",APK_CV_SLIDER_SAFE}, // backwards-compat
 
 	// v_video flags
 	{"V_NOSCALEPATCH",V_NOSCALEPATCH},

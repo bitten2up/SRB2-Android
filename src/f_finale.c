@@ -30,7 +30,6 @@
 #include "m_menu.h"
 #include "dehacked.h"
 #include "g_input.h"
-#include "ts_main.h" // touchfingers
 #include "console.h"
 #include "m_random.h"
 #include "m_misc.h" // moviemode functionality
@@ -44,6 +43,10 @@
 
 #include "lua_hud.h"
 #include "lua_hook.h"
+
+// Android
+#include "android/apk_main.h" // android_data
+#include "ts_main.h" // touchfingers
 
 // Stage of animation:
 // 0 = text, 1 = art screen
@@ -207,10 +210,9 @@ static INT32 sparklloop;
 // PROMPT STATE
 //
 boolean promptactive = false;
-boolean promptblockcontrols = false;
-
 static mobj_t *promptmo;
 static INT16 promptpostexectag;
+static boolean promptblockcontrols;
 static char *promptpagetext = NULL;
 static INT32 callpromptnum = INT32_MAX;
 static INT32 callpagenum = INT32_MAX;
@@ -832,8 +834,12 @@ void F_IntroDrawer(void)
 	}
 	else if (intro_scenenum == 1 && intro_curtime < 5*TICRATE)
 	{
-		INT32 input = inputmethod, trans;
+		INT32 trans = intro_curtime + 10 - (5*TICRATE);
+		INT32 input = inputmethod;
 		const char *skiptext;
+
+		if (trans < 0)
+			trans = 0;
 
 		if (I_OnTVDevice())
 			input = INPUTMETHOD_TVREMOTE;
@@ -848,10 +854,6 @@ void F_IntroDrawer(void)
 			skiptext = "\x86""Push ""\x82""Center""\x86"" to skip...";
 		else
 			skiptext = "\x86""Press ""\x82""ENTER""\x86"" to skip...";
-
-		trans = intro_curtime + 10 - (5*TICRATE);
-		if (trans < 0)
-			trans = 0;
 
 		V_DrawRightAlignedString(BASEVIDWIDTH-4, BASEVIDHEIGHT-12, V_ALLOWLOWERCASE|(trans<<V_ALPHASHIFT), skiptext);
 	}
@@ -941,6 +943,7 @@ void F_IntroTicker(void)
 
 					if (!I_AppOnBackground())
 					{
+						I_UpdateNoBlit();
 #ifdef HAVE_THREADS
 						I_lock_mutex(&m_menu_mutex);
 #endif
@@ -1502,6 +1505,9 @@ boolean F_CreditResponder(event_t *event)
 	}
 	else if (event->type != ev_touchdown)
 		return false;
+
+	if (keypressed)
+		return true;
 
 	keypressed = true;
 	return true;
@@ -3426,7 +3432,7 @@ void F_TitleScreenDrawer(void)
 			{
 				INT32 time = finalecount - 45;
 				if (time >= 0)
-					HU_DrawTapAnywhere((tic_t)time, 0);
+					APK_HU_DrawTapAnywhere((tic_t)time, 0);
 			}
 #endif
 
@@ -3960,7 +3966,6 @@ boolean F_ContinueResponder(event_t *event)
 			default:
 				return false;
 		}
-
 		G_DetectControlMethod(key);
 	}
 
@@ -4219,7 +4224,7 @@ static void F_GetPageTextGeometry(UINT8 *pagelines, boolean *rightside, INT32 *b
 	*textr = *rightside ? BASEVIDWIDTH - (((*boxh * 4) + (*boxh/2)*4) + 4) : BASEVIDWIDTH-4;
 }
 
-fixed_t F_GetPromptHideHudBound(void)
+static fixed_t F_GetPromptHideHudBound(void)
 {
 	UINT8 pagelines;
 	boolean rightside;
@@ -4238,6 +4243,8 @@ fixed_t F_GetPromptHideHudBound(void)
 	// calc boxheight (see V_DrawPromptBack)
 	boxh *= vid.dup;
 	boxh = (boxh * 4) + (boxh/2)*5; // 4 lines of space plus gaps between and some leeway
+
+	android_data.prompt_hidehudbound = (0 - boxh);
 
 	// return a coordinate to check
 	// if negative: don't show hud elements below this coordinate (visually)
@@ -4371,7 +4378,8 @@ void F_EndTextPrompt(boolean forceexec, boolean noexec)
 		if (promptmo && promptmo->player && promptblockcontrols)
 			promptmo->reactiontime = TICRATE/4; // prevent jumping right away // \todo account freeze realtime for this)
 		// \todo reset frozen realtime?
-		promptblockcontrols = false;
+
+		android_data.prompt_blockcontrols = false;
 	}
 
 	// \todo net safety, maybe loop all player thinkers?
@@ -4466,6 +4474,8 @@ void F_StartTextPrompt(INT32 promptnum, INT32 pagenum, mobj_t *mo, UINT16 postex
 	}
 	else
 		F_EndTextPrompt(true, false); // run the post-effects immediately
+
+	android_data.prompt_blockcontrols = promptblockcontrols;
 }
 
 static boolean F_GetTextPromptTutorialTag(char *tag, INT32 length)

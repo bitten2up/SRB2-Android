@@ -939,6 +939,15 @@ next_token:
 
 		numskins++;
 	}
+
+#if 1
+		// STAR NOTE: hi model rendering
+#ifdef HWRENDER
+		if (rendermode == render_opengl)
+			HWR_ReadModels();
+#endif
+#endif
+
 	return;
 }
 

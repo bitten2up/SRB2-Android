@@ -59,8 +59,6 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #include <conio.h>
 #endif
 
-#include "time.h" // For log timestamps
-
 #ifdef _MSC_VER
 #pragma warning(disable : 4214 4244)
 #endif
@@ -109,7 +107,7 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #include <poll.h>
 #endif
 
-#if defined (__unix__) || (defined (UNIXCOMMON) && !(defined (__APPLE__) || defined(__ANDROID__)))
+#if defined (__unix__) || (defined (UNIXCOMMON) && !(defined (__APPLE__)) || defined(__ANDROID__))
 #include <errno.h>
 #include <sys/wait.h>
 #ifndef __HAIKU__ // haiku's crash dialog is just objectively better
@@ -196,7 +194,6 @@ static char returnWadPath[256];
 //Alam_GBC: SDL
 
 #include "../doomdef.h"
-#include "../doomstat.h"
 #include "../m_misc.h"
 #include "../i_time.h"
 #include "../i_video.h"
@@ -207,7 +204,6 @@ static char returnWadPath[256];
 #include "../netcode/d_net.h"
 #include "../netcode/commands.h"
 #include "../g_game.h"
-#include "../s_sound.h"
 #include "../filesrch.h"
 #include "endtxt.h"
 #include "sdlmain.h"
@@ -231,13 +227,140 @@ static char returnWadPath[256];
 #include "../byteptr.h"
 #endif
 
-#if 0
-// BITTEN FIX SHIT
+#if !(defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON))
+#include "time.h" // For log timestamps
+#endif
+
 // A little more than the minimum sleep duration on Windows.
 // May be incorrect for other platforms, but we don't currently have a way to
 // query the scheduler granularity. SDL will do what's needed to make this as
 // low as possible though.
 #define MIN_SLEEP_DURATION_MS 2.1
+
+/**	\brief	Open joystick handle
+*/
+static boolean JoyOpenDevice(SDLJoyInfo_t *joy, int joyindex, INT32 player)
+{
+	SDL_Joystick *newdev = NULL;
+	int num_joy = 0;
+
+	if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0)
+	{
+		CONS_Printf(M_GetText("Joystick subsystem not started\n"));
+		return false;
+	}
+
+	if (joyindex <= 0)
+		return false;
+
+	num_joy = SDL_NumJoysticks();
+
+	if (num_joy == 0)
+	{
+		CONS_Printf(M_GetText("Found no joysticks on this system\n"));
+		return false;
+	}
+
+	newdev = SDL_JoystickOpen(joyindex-1);
+
+	// Handle the edge case where the device <-> joystick index assignment can change due to hotplugging
+	// This indexing is SDL's responsibility and there's not much we can do about it.
+	//
+	// Example:
+	// 1. Plug Controller A   -> Index 0 opened
+	// 2. Plug Controller B   -> Index 1 opened
+	// 3. Unplug Controller A -> Index 0 closed, Index 1 active
+	// 4. Unplug Controller B -> Index 0 inactive, Index 1 closed
+	// 5. Plug Controller B   -> Index 0 opened
+	// 6. Plug Controller A   -> Index 0 REPLACED, opened as Controller A; Index 1 is now Controller B
+	if (joy->dev)
+	{
+		if (joy->dev == newdev // same device, nothing to do
+			|| (newdev == NULL && SDL_JoystickGetAttached(joy->dev))) // we failed, but already have a working device
+			return true;
+		// Else, we're changing devices, so send neutral joy events
+		CONS_Debug(DBG_GAMELOGIC, "Joystick%d device is changing; resetting events...\n", player);
+		I_ShutdownJoystick();
+	}
+
+	joy->dev = newdev;
+	joy->index = joyindex;
+
+	if (joy->dev == NULL)
+	{
+		CONS_Debug(DBG_GAMELOGIC, M_GetText("Joystick%d: Couldn't open device - %s\n"), player, SDL_GetError());
+		return false;
+	}
+	else
+	{
+		CONS_Debug(DBG_GAMELOGIC, M_GetText("Joystick%d: %s\n"), player, SDL_JoystickName(joy->dev));
+
+		joy->axises = SDL_JoystickNumAxes(joy->dev);
+		if (joy->axises > JOYAXISSET*2)
+			joy->axises = JOYAXISSET*2;
+
+		joy->buttons = SDL_JoystickNumButtons(joy->dev);
+		if (joy->buttons > JOYBUTTONS)
+			joy->buttons = JOYBUTTONS;
+
+		joy->hats = SDL_JoystickNumHats(joy->dev);
+		if (joy->hats > JOYHATS)
+			joy->hats = JOYHATS;
+
+		joy->balls = SDL_JoystickNumBalls(joy->dev);
+	}
+
+	return true;
+}
+
+/**	\brief	Returns an appropriate joystick device index
+*/
+static INT32 JoyIndex(INT32 index)
+{
+#ifdef ACCELEROMETER
+	if (I_JoystickIsAccelerometer(index))
+	{
+		// Nope, that's the accelerometer. Don't use it.
+		index++;
+	}
+#endif
+
+	// Don't select TV remotes either.
+	if (I_JoystickIsTVRemote(index))
+		index++;
+
+	return index;
+}
+
+/**	\brief	Initializes a joystick
+*/
+static INT32 JoyInit(SDL_Joystick **newjoy, SDLJoyInfo_t *joyinfo, INT32 *index, INT32 player)
+{
+	SDL_Joystick *joy = NULL;
+	INT32 device = JoyIndex(*index);
+
+	if (*index)
+		joy = SDL_JoystickOpen(device-1);
+	if (newjoy)
+		(*newjoy) = joy;
+
+	if (joy && joyinfo->dev == joy) // don't override an active device
+		(*index) = I_GetJoystickDeviceIndex(joyinfo->dev) + 1;
+	else if (joy && JoyOpenDevice(joyinfo, device, player))
+	{
+		// SDL's device indexes are unstable, so cv_usejoystick may not match
+		// the actual device index. So let's cheat a bit and find the device's current index.
+		joyinfo->oldjoy = I_GetJoystickDeviceIndex(joyinfo->dev) + 1;
+		return 1;
+	}
+	else
+	{
+		(*index) = 0;
+		return 0;
+	}
+
+	return -1;
+}
 
 /**	\brief	The JoyReset function
 
@@ -248,16 +371,12 @@ static char returnWadPath[256];
 static void JoyReset(SDLJoyInfo_t *JoySet)
 {
 	if (JoySet->dev)
-	{
 		SDL_JoystickClose(JoySet->dev);
-	}
 	JoySet->dev = NULL;
 	JoySet->oldjoy = -1;
 	JoySet->axises = JoySet->buttons = JoySet->hats = JoySet->balls = 0;
-	//JoySet->scale
 }
 
-#endif
 /**	\brief First joystick up and running
 */
 static INT32 joystick_started  = 0;
@@ -433,19 +552,8 @@ static void I_ReportSignal(int num, int coredumped)
 		signame = ttl;
 	}
 
-	sprintf(ttl, "Process killed by signal: %s", sigttl);
-
-
-
-/*
-
-	if (!M_CheckParm("-dedicated"))
-		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
-			"Process killed by signal",
-			sigmsg, NULL);
 	strcat(sigttl, signame);
 	I_OutputMsg("%s\n", sigttl);
-*/
 
 	if (M_CheckParm("-dedicated"))
 		return;
@@ -454,6 +562,7 @@ static void I_ReportSignal(int num, int coredumped)
 		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 0,		"OK" },
 		{ 										0, 1,  "Discord" },
 	};
+
 	const SDL_MessageBoxData messageboxdata = {
 		SDL_MESSAGEBOX_ERROR, /* .flags */
 		NULL, /* .window */
@@ -483,7 +592,7 @@ FUNCNORETURN static ATTRNORETURN void signal_handler(INT32 num)
 	write_backtrace(num);
 #endif
 #if defined(__ANDROID__)
-	NDKCrashHandler_ReportSignal("SRB2 was terminated by an abort signal");
+	NDKCrashHandler_ReportSignal("SRB2 was terminated by an abort signal", num);
 #endif
 	I_ReportSignal(num, 0);
 	I_ShutdownSystem();
@@ -863,6 +972,9 @@ static inline void I_StartupConsole(void)
 static inline void I_ShutdownConsole(void){}
 #endif
 
+//
+// StartupKeyboard
+//
 static void I_RegisterSignals (void)
 {
 #ifdef SIGINT
@@ -891,7 +1003,6 @@ static void signal_handler_child(INT32 num)
 #ifdef UNIXBACKTRACE
 	write_backtrace(num);
 #endif
-
 	signal(num, SIG_DFL);               //default signal action
 	raise(num);
 }
@@ -1071,146 +1182,6 @@ INT32 I_GetKey (void)
 	return rc;
 }
 
-/**	\brief	Open joystick handle
-*/
-static boolean JoyOpenDevice(SDLJoyInfo_t *joy, int joyindex, INT32 player)
-{
-	SDL_Joystick *newdev = NULL;
-	int num_joy = 0;
-
-	if (SDL_WasInit(SDL_INIT_JOYSTICK) == 0)
-	{
-		CONS_Printf(M_GetText("Joystick subsystem not started\n"));
-		return false;
-	}
-
-	if (joyindex <= 0)
-		return false;
-
-	num_joy = SDL_NumJoysticks();
-
-	if (num_joy == 0)
-	{
-		CONS_Printf(M_GetText("Found no joysticks on this system\n"));
-		return false;
-	}
-
-	newdev = SDL_JoystickOpen(joyindex-1);
-
-	// Handle the edge case where the device <-> joystick index assignment can change due to hotplugging
-	// This indexing is SDL's responsibility and there's not much we can do about it.
-	//
-	// Example:
-	// 1. Plug Controller A   -> Index 0 opened
-	// 2. Plug Controller B   -> Index 1 opened
-	// 3. Unplug Controller A -> Index 0 closed, Index 1 active
-	// 4. Unplug Controller B -> Index 0 inactive, Index 1 closed
-	// 5. Plug Controller B   -> Index 0 opened
-	// 6. Plug Controller A   -> Index 0 REPLACED, opened as Controller A; Index 1 is now Controller B
-	if (joy->dev)
-	{
-		if (joy->dev == newdev // same device, nothing to do
-			|| (newdev == NULL && SDL_JoystickGetAttached(joy->dev))) // we failed, but already have a working device
-			return true;
-		// Else, we're changing devices, so send neutral joy events
-		CONS_Debug(DBG_GAMELOGIC, "Joystick%d device is changing; resetting events...\n", player);
-		I_ShutdownJoystick();
-	}
-
-	joy->dev = newdev;
-	joy->index = joyindex;
-
-	if (joy->dev == NULL)
-	{
-		CONS_Debug(DBG_GAMELOGIC, M_GetText("Joystick%d: Couldn't open device - %s\n"), player, SDL_GetError());
-		return false;
-	}
-	else
-	{
-		CONS_Debug(DBG_GAMELOGIC, M_GetText("Joystick%d: %s\n"), player, SDL_JoystickName(joy->dev));
-
-		joy->axises = SDL_JoystickNumAxes(joy->dev);
-		if (joy->axises > JOYAXISSET*2)
-			joy->axises = JOYAXISSET*2;
-
-		joy->buttons = SDL_JoystickNumButtons(joy->dev);
-		if (joy->buttons > JOYBUTTONS)
-			joy->buttons = JOYBUTTONS;
-
-		joy->hats = SDL_JoystickNumHats(joy->dev);
-		if (joy->hats > JOYHATS)
-			joy->hats = JOYHATS;
-
-		joy->balls = SDL_JoystickNumBalls(joy->dev);
-	}
-
-	return true;
-}
-
-/**	\brief	Returns an appropriate joystick device index
-*/
-static INT32 JoyIndex(INT32 index)
-{
-#ifdef ACCELEROMETER
-	if (I_JoystickIsAccelerometer(index))
-	{
-		// Nope, that's the accelerometer. Don't use it.
-		index++;
-	}
-#endif
-
-	// Don't select TV remotes either.
-	if (I_JoystickIsTVRemote(index))
-		index++;
-
-	return index;
-}
-
-/**	\brief	Initializes a joystick
-*/
-static INT32 JoyInit(SDL_Joystick **newjoy, SDLJoyInfo_t *joyinfo, INT32 *index, INT32 player)
-{
-	SDL_Joystick *joy = NULL;
-	INT32 device = JoyIndex(*index);
-
-	if (*index)
-		joy = SDL_JoystickOpen(device-1);
-	if (newjoy)
-		(*newjoy) = joy;
-
-	if (joy && joyinfo->dev == joy) // don't override an active device
-		(*index) = I_GetJoystickDeviceIndex(joyinfo->dev) + 1;
-	else if (joy && JoyOpenDevice(joyinfo, device, player))
-	{
-		// SDL's device indexes are unstable, so cv_usejoystick may not match
-		// the actual device index. So let's cheat a bit and find the device's current index.
-		joyinfo->oldjoy = I_GetJoystickDeviceIndex(joyinfo->dev) + 1;
-		return 1;
-	}
-	else
-	{
-		(*index) = 0;
-		return 0;
-	}
-
-	return -1;
-}
-
-/**	\brief	The JoyReset function
-
-	\param	JoySet	Joystick info to reset
-
-	\return	void
-*/
-static void JoyReset(SDLJoyInfo_t *JoySet)
-{
-	if (JoySet->dev)
-		SDL_JoystickClose(JoySet->dev);
-	JoySet->dev = NULL;
-	JoySet->oldjoy = -1;
-	JoySet->axises = JoySet->buttons = JoySet->hats = JoySet->balls = 0;
-}
-
 //
 // I_JoyScale
 //
@@ -1252,35 +1223,39 @@ static UINT64 lastjoybuttons = 0;
 static UINT64 lastjoyhats = 0;
 
 /**	\brief	Shuts down joystick 1
+
+
+	\return void
+
+
 */
 void I_ShutdownJoystick(void)
 {
 	INT32 i;
 	event_t event;
-	event.type = ev_keyup;
-
+	event.type=ev_keyup;
 	event.x = 0;
 	event.y = 0;
 
 	lastjoybuttons = lastjoyhats = 0;
 
 	// emulate the up of all joystick buttons
-	for (i = 0; i < JOYBUTTONS; i++)
+	for (i=0;i<JOYBUTTONS;i++)
 	{
-		event.key = KEY_JOY1 + i;
+		event.key=KEY_JOY1+i;
 		D_PostEvent(&event);
 	}
 
 	// emulate the up of all joystick hats
-	for (i = 0; i < JOYHATS*4; i++)
+	for (i=0;i<JOYHATS*4;i++)
 	{
-		event.key = KEY_HAT1 + i;
+		event.key=KEY_HAT1+i;
 		D_PostEvent(&event);
 	}
 
 	// reset joystick position
 	event.type = ev_joystick;
-	for (i = 0; i < JOYAXISSET; i++)
+	for (i=0;i<JOYAXISSET; i++)
 	{
 		event.key = i;
 		D_PostEvent(&event);
@@ -1294,13 +1269,49 @@ void I_ShutdownJoystick(void)
 
 void I_GetJoystickEvents(void)
 {
-	static event_t event;
-
+	static event_t event = {0,0,0,0,false};
 	INT32 i = 0;
 	UINT64 joyhats = 0;
+#if 0
+	UINT64 joybuttons = 0;
+	Sint16 axisx, axisy;
+#endif
 
-	if (!joystick_started || !JoyInfo.dev)
+	if (!joystick_started) return;
+
+	if (!JoyInfo.dev) //I_ShutdownJoystick();
 		return;
+
+#if 0
+	//faB: look for as much buttons as g_input code supports,
+	//  we don't use the others
+	for (i = JoyInfo.buttons - 1; i >= 0; i--)
+	{
+		joybuttons <<= 1;
+		if (SDL_JoystickGetButton(JoyInfo.dev,i))
+			joybuttons |= 1;
+	}
+
+	if (joybuttons != lastjoybuttons)
+	{
+		INT64 j = 1; // keep only bits that changed since last time
+		INT64 newbuttons = joybuttons ^ lastjoybuttons;
+		lastjoybuttons = joybuttons;
+
+		for (i = 0; i < JOYBUTTONS; i++, j <<= 1)
+		{
+			if (newbuttons & j) // button changed state?
+			{
+				if (joybuttons & j)
+					event.type = ev_keydown;
+				else
+					event.type = ev_keyup;
+				event.key = KEY_JOY1 + i;
+				D_PostEvent(&event);
+			}
+		}
+	}
+#endif
 
 	for (i = JoyInfo.hats - 1; i >= 0; i--)
 	{
@@ -1342,6 +1353,9 @@ static UINT64 lastjoy2buttons = 0;
 static UINT64 lastjoy2hats = 0;
 
 /**	\brief	Shuts down joystick 2
+
+
+	\return	void
 */
 void I_ShutdownJoystick2(void)
 {
@@ -1383,13 +1397,51 @@ void I_ShutdownJoystick2(void)
 
 void I_GetJoystick2Events(void)
 {
-	static event_t event;
-
+	static event_t event = {0,0,0,0,false};
 	INT32 i = 0;
 	UINT64 joyhats = 0;
+#if 0
+	INT64 joybuttons = 0;
+	INT32 axisx, axisy;
+#endif
 
-	if (!JoyInfo2.dev)
+	if (!joystick2_started)
 		return;
+
+	if (!JoyInfo2.dev) //I_ShutdownJoystick2();
+		return;
+
+
+#if 0
+	//faB: look for as much buttons as g_input code supports,
+	//  we don't use the others
+	for (i = JoyInfo2.buttons - 1; i >= 0; i--)
+	{
+		joybuttons <<= 1;
+		if (SDL_JoystickGetButton(JoyInfo2.dev,i))
+			joybuttons |= 1;
+	}
+
+	if (joybuttons != lastjoy2buttons)
+	{
+		INT64 j = 1; // keep only bits that changed since last time
+		INT64 newbuttons = joybuttons ^ lastjoy2buttons;
+		lastjoy2buttons = joybuttons;
+
+		for (i = 0; i < JOYBUTTONS; i++, j <<= 1)
+		{
+			if (newbuttons & j) // button changed state?
+			{
+				if (joybuttons & j)
+					event.type = ev_keydown;
+				else
+					event.type = ev_keyup;
+				event.key = KEY_2JOY1 + i;
+				D_PostEvent(&event);
+			}
+		}
+	}
+#endif
 
 	for (i = JoyInfo2.hats - 1; i >= 0; i--)
 	{
@@ -1551,7 +1603,7 @@ const char *I_GetJoyName(INT32 joyindex)
 {
 	const char *tempname = NULL;
 	joyname[0] = 0;
-	joyindex--; // SDL's Joystick System starts at 0, not 1
+	joyindex--; //SDL's Joystick System starts at 0, not 1
 	if (SDL_WasInit(SDL_INIT_JOYSTICK) == SDL_INIT_JOYSTICK)
 	{
 		tempname = SDL_JoystickNameForIndex(joyindex);
@@ -2281,14 +2333,16 @@ static void I_Fork(void)
 			I_RegisterChildSignals();
 			break;
 		default:
-#ifdef LOGMESSAGES
 			if (logstream)
 				fclose(logstream);/* the child has this */
 
 			c = wait(&status);
 
+#ifdef LOGMESSAGES
 			/* By the way, exit closes files. */
 			logstream = fopen(logfilename, "at");
+#else
+			logstream = 0;
 #endif
 
 			if (c == -1)
@@ -2320,14 +2374,6 @@ static void I_Fork(void)
 }
 #endif/*NEWSIGNALHANDLER*/
 
-void I_SetupSignalHandler(void)
-{
-#ifdef NEWSIGNALHANDLER
-	I_Fork();
-#endif
-	I_RegisterSignals();
-}
-
 INT32 I_StartupSystem(void)
 {
 	SDL_version SDLcompiled;
@@ -2339,7 +2385,6 @@ INT32 I_StartupSystem(void)
 	I_AddExitFunc(I_stop_threads);
 #endif
 	I_StartupConsole();
-	//I_SetupSignalHandler();
 #ifdef NEWSIGNALHANDLER
 	// This is useful when debugging. It lets GDB attach to
 	// the correct process easily.
@@ -2364,17 +2409,14 @@ INT32 I_StartupSystem(void)
 //
 void I_Quit(void)
 {
-	static SDL_bool quitting = SDL_FALSE;
+	static SDL_bool quiting = SDL_FALSE;
 
 	/* prevent recursive I_Quit() */
-	if (quitting) goto death;
+	if (quiting) goto death;
 	SDLforceUngrabMouse();
-	quitting = SDL_TRUE;
-	//quiting = SDL_FALSE;
-
+	quiting = SDL_FALSE;
 	if (I_StoragePermission())
 		M_SaveConfig(NULL); //save game config, cvars..
-
 	D_SaveBan(); // save the ban list
 	G_SaveGameData(clientGamedata); // Tails 12-08-2002
 	//added:16-02-98: when recording a demo, should exit using 'q' key,
@@ -2577,104 +2619,6 @@ void I_RemoveExitFunc(void (*func)())
 		}
 	}
 }
-
-#ifdef LOGMESSAGES
-void I_InitLogging(void)
-{
-	const char *logdir = NULL;
-	time_t my_time;
-	struct tm * timeinfo;
-	const char *format;
-	const char *reldir;
-	int left;
-	boolean fileabs;
-#ifdef LOGSYMLINK
-	const char *link;
-#endif
-
-	logdir = D_Home();
-
-	my_time = time(NULL);
-	timeinfo = localtime(&my_time);
-
-	if (M_CheckParm("-logfile") && M_IsNextParm())
-	{
-		format = M_GetNextParm();
-		fileabs = M_IsPathAbsolute(format);
-	}
-	else
-	{
-		format = "log-%Y-%m-%d_%H-%M-%S.txt";
-		fileabs = false;
-	}
-
-	if (fileabs)
-	{
-		strftime(logfilename, sizeof logfilename, format, timeinfo);
-	}
-	else
-	{
-		if (M_CheckParm("-logdir") && M_IsNextParm())
-			reldir = M_GetNextParm();
-		else
-			reldir = "logs";
-
-		if (M_IsPathAbsolute(reldir))
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP, reldir);
-		}
-		else
-#if defined(__ANDROID__)
-		if (logdir)
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP "%s"PATHSEP, logdir, reldir);
-		}
-		else
-#elif defined(DEFAULTDIR)
-		if (logdir)
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"%s"PATHSEP DEFAULTDIR PATHSEP"%s"PATHSEP, logdir, reldir);
-		}
-		else
-#endif
-		{
-			left = snprintf(logfilename, sizeof logfilename,
-					"."PATHSEP"%s"PATHSEP, reldir);
-		}
-
-		strftime(&logfilename[left], sizeof logfilename - left,
-				format, timeinfo);
-	}
-
-	M_MkdirEachUntil(logfilename,
-			M_PathParts(logdir) - 1,
-			M_PathParts(logfilename) - 1, 0755);
-
-#ifdef LOGSYMLINK
-	logstream = fopen(logfilename, "w");
-#ifdef DEFAULTDIR
-	if (logdir)
-		link = va("%s/"DEFAULTDIR"/latest-log.txt", logdir);
-	else
-#endif/*DEFAULTDIR*/
-		link = "latest-log.txt";
-	unlink(link);
-	if (symlink(logfilename, link) == -1)
-	{
-		I_OutputMsg("Error symlinking latest-log.txt: %s\n", strerror(errno));
-	}
-#elif defined(__ANDROID__)
-	logstream = fopen(va("%s/latest-log.txt", I_SharedStorageLocation()), "wt+");
-#else/*LOGSYMLINK*/
-	logstream = fopen("latest-log.txt", "wt+");
-#endif
-}
-#else
-void I_InitLogging(void) {}
-#endif
 
 #ifndef LOGSYMLINK
 static void Shittycopyerror(const char *name)
@@ -3024,7 +2968,7 @@ static const char *locateWad(void)
 	WadPath = I_SharedStorageLocation();
 	if (WadPath)
 	{
-		I_OutputMsg("Shared storage: %s", WadPath);
+		I_OutputMsg("\n\tShared storage: %s", WadPath);
 		strcpy(returnWadPath, WadPath);
 		if (isWadPathOk(returnWadPath))
 			return returnWadPath;
@@ -3034,7 +2978,7 @@ static const char *locateWad(void)
 	WadPath = JNI_RemovableStoragePath();
 	if (WadPath)
 	{
-		I_OutputMsg("Removable storage: %s", WadPath);
+		I_OutputMsg("\n\tRemovable storage: %s", WadPath);
 		strcpy(returnWadPath, WadPath);
 		if (isWadPathOk(returnWadPath))
 			return returnWadPath;
@@ -3045,7 +2989,7 @@ static const char *locateWad(void)
 	WadPath = I_AppStorageLocation();
 	if (WadPath)
 	{
-		I_OutputMsg("App-specific storage: %s", WadPath);
+		I_OutputMsg("\n\tApp-specific storage: %s", WadPath);
 		return WadPath;
 	}
 #endif
@@ -3100,14 +3044,14 @@ static const char *locateWad(void)
 	return NULL;
 }
 
-static const char *initialwaddir = NULL;
+static const char *apk_initialwaddir = NULL;
 
 const char *I_LocateWad(void)
 {
 	const char *waddir;
 
 	I_OutputMsg("Looking for WADs in: ");
-	waddir = initialwaddir = locateWad();
+	waddir = apk_initialwaddir = locateWad();
 	I_OutputMsg("\n");
 
 	if (waddir)
@@ -3122,21 +3066,20 @@ const char *I_LocateWad(void)
 			I_OutputMsg("Couldn't change working directory\n");
 #endif
 	}
-
 	return waddir;
 }
 
 const char *I_InitialLocateWad(void)
 {
-	return initialwaddir;
+	return apk_initialwaddir;
 }
 
 const char *I_SystemLocateWad(void)
 {
 	static char curpath[256];
 
-	if (initialwaddir)
-		return initialwaddir;
+	if (apk_initialwaddir)
+		return apk_initialwaddir;
 	else if (getcwd(curpath, 256) != NULL)
 		return curpath;
 	else
@@ -3315,32 +3258,27 @@ size_t I_GetFreeMem(size_t *total)
 INT32 I_CheckSystemPermission(const char *permission)
 {
 #if defined(__ANDROID__)
-	if (JNI_CheckPermission(permission))
-		return 1;
+	return (INT32)JNI_CheckPermission(permission);
 #else
 	(void)permission;
-#endif
 	return 0;
+#endif
 }
 
 INT32 I_RequestSystemPermission(const char *permission)
 {
 #if defined(__ANDROID__)
-	if (SDL_AndroidRequestPermission(permission))
-		return 1;
+	return (INT32)SDL_AndroidRequestPermission(permission);
 #else
 	(void)permission;
-#endif
 	return 0;
+#endif
 }
 
 INT32 I_StoragePermission(void)
 {
 #if defined(__ANDROID__)
-	if (JNI_StoragePermissionGranted())
-		return 1;
-	else
-		return 0;
+	return (INT32)JNI_StoragePermissionGranted();
 #else
 	return 1;
 #endif
@@ -3349,10 +3287,7 @@ INT32 I_StoragePermission(void)
 INT32 I_SystemStoragePermission(void)
 {
 #if defined(__ANDROID__)
-	if (JNI_CheckStoragePermission())
-		return 1;
-	else
-		return 0;
+	return (INT32)JNI_CheckStoragePermission();
 #else
 	return 1;
 #endif

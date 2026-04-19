@@ -225,7 +225,7 @@ static char **startupunpack;
 static UINT16 numstartupunpack = 0;
 static UINT16 startupfiles = 0;
 
-static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash);
+static boolean W_CheckUnpacking(addfilelist_t *list);
 static void W_UnpackAlert(alerttype_t level, const char *fmt, ...);
 
 #define UnpackError(err) CONS_Alert(CONS_ERROR, err, __FUNCTION__, filename)
@@ -325,7 +325,7 @@ boolean W_UnpackFile(const char *filename, void *handle)
 
 static const char *baseunpacklist[] = {
 	"srb2.pk3",
-	"player.dta",
+	"characters.pk3",
 #ifdef USE_PATCH_DTA
 	"patch.pk3",
 #endif
@@ -345,9 +345,9 @@ static boolean W_CheckInBaseUnpackList(char *filename)
 	return false;
 }
 
-void W_UnpackMultipleFiles(addfilelist_t *list, boolean checkhash)
+void W_UnpackMultipleFiles(addfilelist_t *list)
 {
-	W_CheckUnpacking(list, checkhash);
+	W_CheckUnpacking(list);
 
 	if (numstartupunpack)
 	{
@@ -477,7 +477,7 @@ boolean W_CanUnpackFile(const char *filename, const char *hash, size_t *filesize
 #endif
 }
 
-static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash)
+static boolean W_CheckUnpacking(addfilelist_t *list)
 {
 	size_t totalsize = 0;
 
@@ -501,8 +501,9 @@ static boolean W_CheckUnpacking(addfilelist_t *list, boolean checkhash)
 		filenamebuf[MAX_WADPATH - 1] = '\0';
 		nameonly(filenamebuf);
 
-		if (checkhash)
-			hash = list->hashes[fnum];
+#ifndef DEVELOP
+		hash = list->hashes[fnum];
+#endif
 
 		if (!W_CheckInBaseUnpackList(filenamebuf) || !W_CanUnpackFile(list->files[fnum], hash, &size))
 			startupunpack[fnum] = NULL;
@@ -623,8 +624,8 @@ void Command_Unpacktest_f(void)
 
 	UnpackFile_Debug("srb2.pk3", "srb2-unpacked.pk3");
 	UnpackFile_Debug("zones.pk3", "zones-unpacked.pk3");
-	UnpackFile_Debug("player.dta", "player-unpacked.dta");
-	UnpackFile_Debug("music.dta", "music-unpacked.dta");
+	UnpackFile_Debug("characters.pk3", "player-unpacked.pk3");
+	UnpackFile_Debug("music.pk3", "music-unpacked.pk3");
 }
 #endif // UNPACK_FILES_DEBUG
 
@@ -3332,7 +3333,7 @@ static int W_VerifyFile(const char *filename, lumpchecklist_t *checklist,
 
 
 /** Checks a wad for lumps other than music and sound.
-  * Used during game load to verify music.dta is a good file and during a
+  * Used during game load to verify music.pk3 is a good file and during a
   * netgame join (on the server side) to see if a wad is important enough to
   * be sent.
   *

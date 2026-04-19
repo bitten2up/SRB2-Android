@@ -1,26 +1,25 @@
-def buildAsLibrary = project.hasProperty('BUILD_AS_LIBRARY');
-def buildAsApplication = !buildAsLibrary
-if (buildAsApplication) {
-    apply plugin: 'com.android.application'
-}
-else {
-    apply plugin: 'com.android.library'
+plugins {
+    id 'com.android.application'
 }
 
+def buildAsLibrary = project.hasProperty('BUILD_AS_LIBRARY');
+def buildAsApplication = !buildAsLibrary
+
 android {
-    compileSdkVersion 29
+    namespace "org.stjr.srb2"
+    compileSdkVersion 36
     defaultConfig {
         if (buildAsApplication) {
             applicationId "org.stjr.srb2"
         }
 
-        minSdkVersion 14
+        minSdkVersion 21
         targetSdkVersion 26
         versionCode 22150
         versionName "2.2.15"
         externalNativeBuild {
             ndkBuild {
-                arguments "APP_PLATFORM=android-16"
+//                arguments "APP_PLATFORM=android-16"
                 abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'
             }
         }
@@ -42,9 +41,9 @@ android {
                         includes: [
                             'srb2.pk3',
                             'zones.pk3',
-                            'player.dta',
+                            'characters.pk3',
                             'patch.pk3',
-                            'music.dta']
+                            'music.pk3']
                     ))
                 }
             }
@@ -63,7 +62,7 @@ android {
         if (defaultConfig.ext.useBuildDate)
             srb2PackageName += "-" + (new Date()).format('yyyyMMdd')
 
-        setProperty("archivesBaseName", srb2PackageName)
+        base.archivesName.set(srb2PackageName)
     }
     buildTypes {
         release {

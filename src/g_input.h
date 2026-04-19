@@ -15,7 +15,6 @@
 #define __G_INPUT__
 
 #include "d_event.h"
-#include "d_player.h"
 #include "keys.h"
 #include "command.h"
 
@@ -48,30 +47,28 @@ extern INT32 inputmethod, controlmethod;
 #endif
 
 //
-// Mouse, joystick, and TV remote buttons are handled as 'virtual' keys
+// mouse and joystick buttons are handled as 'virtual' keys
+// Lactozilla: TV Remotes included.
 //
-
-#define NUMJOYHATS (JOYHATS*4)
-
 typedef enum
 {
 	KEY_MOUSE1 = NUMKEYS,
 	KEY_JOY1 = KEY_MOUSE1 + MOUSEBUTTONS,
 	KEY_HAT1 = KEY_JOY1 + JOYBUTTONS,
 
-	KEY_DBLMOUSE1 = KEY_HAT1 + NUMJOYHATS, // double clicks
+	KEY_DBLMOUSE1 = KEY_HAT1 + JOYHATS*4, // double clicks
 	KEY_DBLJOY1 = KEY_DBLMOUSE1 + MOUSEBUTTONS,
 	KEY_DBLHAT1 = KEY_DBLJOY1 + JOYBUTTONS,
 
-	KEY_2MOUSE1 = KEY_DBLHAT1 + NUMJOYHATS,
+	KEY_2MOUSE1 = KEY_DBLHAT1 + JOYHATS*4,
 	KEY_2JOY1 = KEY_2MOUSE1 + MOUSEBUTTONS,
 	KEY_2HAT1 = KEY_2JOY1 + JOYBUTTONS,
 
-	KEY_DBL2MOUSE1 = KEY_2HAT1 + NUMJOYHATS,
+	KEY_DBL2MOUSE1 = KEY_2HAT1 + JOYHATS*4,
 	KEY_DBL2JOY1 = KEY_DBL2MOUSE1 + MOUSEBUTTONS,
 	KEY_DBL2HAT1 = KEY_DBL2JOY1 + JOYBUTTONS,
 
-	KEY_MOUSEWHEELUP = KEY_DBL2HAT1 + NUMJOYHATS,
+	KEY_MOUSEWHEELUP = KEY_DBL2HAT1 + JOYHATS*4,
 	KEY_MOUSEWHEELDOWN = KEY_MOUSEWHEELUP + 1,
 	KEY_2MOUSEWHEELUP = KEY_MOUSEWHEELDOWN + 1,
 	KEY_2MOUSEWHEELDOWN = KEY_2MOUSEWHEELUP + 1,
@@ -108,8 +105,8 @@ typedef enum
 #define G_KeyIsJoystick2(key) ((key) >= KEY_2JOY1 && (key) < KEY_2JOY1 + JOYBUTTONS)
 #define G_KeyIsAnyJoystickButton(key) (G_KeyIsJoystick1(key) || G_KeyIsJoystick2(key))
 
-#define G_KeyIsJoystickHat1(key) ((key) >= KEY_HAT1 && (key) < KEY_HAT1 + NUMJOYHATS)
-#define G_KeyIsJoystickHat2(key) ((key) >= KEY_2HAT1 && (key) < KEY_2HAT1 + NUMJOYHATS)
+#define G_KeyIsJoystickHat1(key) ((key) >= KEY_HAT1 && (key) < KEY_HAT1 + JOYHATS*4)
+#define G_KeyIsJoystickHat2(key) ((key) >= KEY_2HAT1 && (key) < KEY_2HAT1 + JOYHATS*4)
 #define G_KeyIsAnyJoystickHat(key) (G_KeyIsJoystickHat1(key) || G_KeyIsJoystickHat2(key))
 
 #define G_KeyIsJoystick(key) (G_KeyIsAnyJoystickButton(key) || G_KeyIsAnyJoystickHat(key))
@@ -229,8 +226,6 @@ extern INT32 joyxmove[JOYAXISSET], joyymove[JOYAXISSET], joy2xmove[JOYAXISSET], 
 extern INT32 accelxmove, accelymove, acceltilt;
 #endif
 
-extern CV_PossibleValue_t zerotoone_cons_t[];
-
 typedef enum
 {
 	AXISNONE = 0,
@@ -253,14 +248,6 @@ typedef struct joystickvector2_s
 	INT32 yaxis;
 } joystickvector2_t;
 
-#ifdef TOUCHINPUTS
-extern joystickvector2_t touchmovevector;
-#endif
-
-#ifdef ACCELEROMETER
-extern joystickvector2_t accelmovevector;
-#endif
-
 // current state of the keys: true if pushed
 extern UINT8 gamekeydown[NUMINPUTS];
 
@@ -278,8 +265,6 @@ void G_ResetMice(void);
 boolean G_HandlePauseKey(boolean ispausebreak);
 boolean G_CanRetryModeAttack(void);
 boolean G_DoViewpointSwitch(INT32 direction);
-boolean G_ToggleChaseCam(void);
-boolean G_ToggleChaseCam2(void);
 
 boolean G_CanUseAccelerometer(void);
 
@@ -354,12 +339,9 @@ INT32 G_KeyNameToNum(const char *keystr);
 // detach any keys associated to the given game control
 void G_ClearControlKeys(INT32 (*setupcontrols)[2], INT32 control);
 void G_ClearAllControlKeys(void);
-
 void Command_Setcontrol_f(void);
 void Command_Setcontrol2_f(void);
-
 void G_DefineDefaultControls(void);
-
 INT32 G_GetControlScheme(INT32 (*fromcontrols)[2], const INT32 *gclist, INT32 gclen);
 void G_CopyControls(INT32 (*setupcontrols)[2], INT32 (*fromcontrols)[2], const INT32 *gclist, INT32 gclen);
 void G_SaveKeySetting(FILE *f, INT32 (*fromcontrols)[2], INT32 (*fromcontrolsbis)[2]);

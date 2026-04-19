@@ -4,7 +4,7 @@ This folder contains the files that will be packaged with the built APK.
 
     * srb2.pk3
     * zones.pk3
-    * player.dta
+    * characters.pk3
     * patch.pk3
 
   NOTE: If they are missing, the app will look for them inside the following
@@ -20,5 +20,5 @@ This folder contains the files that will be packaged with the built APK.
   These files are completely optional, regardless of being inside the built
   package or not, and the app may launch without their presence:
 
-    * music.dta
+    * music.pk3
     * patch_music.pk3

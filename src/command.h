@@ -125,7 +125,8 @@ typedef enum
                    // used on menus
 	CV_CHEAT = 2048, // Don't let this be used in multiplayer unless cheats are on.
 	CV_ALLOWLUA = 4096,/* Let this be called from Lua */
-	CV_SLIDER_SAFE = 8192, // This CVar is safe to use with a slider being changed by a touch screen.
+	// ANDROID
+	APK_CV_SLIDER_SAFE = 8192, // This CVar is safe to use with a slider being changed by a touch screen.
 } cvflags_t;
 
 typedef struct CV_PossibleValue_s
@@ -218,9 +219,6 @@ void CV_StealthSet(consvar_t *var, const char *value);
 
 // it a setvalue but with a modulo at the maximum
 void CV_AddValue(consvar_t *var, INT32 increment);
-
-// Returns the longest PossibleValue string for this CVar
-const char *CV_LongestPossibleValue(consvar_t *var);
 
 // write all CV_SAVE variables to config file
 void CV_SaveVariables(FILE *f);

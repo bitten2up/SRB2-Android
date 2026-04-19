@@ -187,7 +187,7 @@ boolean W_UnpackFile(const char *filename, void *handle);
 boolean W_CanUnpackFile(const char *filename, const char *hash, size_t *filesize);
 
 // Unpack the main files needed at startup.
-void W_UnpackMultipleFiles(addfilelist_t *list, boolean checkhash);
+void W_UnpackMultipleFiles(addfilelist_t *list);
 void W_UnpackBaseFiles(void);
 
 #define UNPACK_BUFFER_SIZE 4096
