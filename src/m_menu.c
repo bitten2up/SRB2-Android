@@ -889,16 +889,16 @@ gtdesc_t gametypedesc[NUMGAMETYPES] =
 
 static menuitem_t MISC_ChangeLevelMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
 };
 
 static menuitem_t MISC_HelpMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "HELPN01", M_HandleImageDef, 0},
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "HELPN02", M_HandleImageDef, 0},
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "HELPN03", M_HandleImageDef, 0},
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "HELPM01", M_HandleImageDef, 0},
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "HELPM02", M_HandleImageDef, 0},
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "HELPN01", M_HandleImageDef, 0},
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "HELPN02", M_HandleImageDef, 0},
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "HELPN03", M_HandleImageDef, 0},
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "HELPM01", M_HandleImageDef, 0},
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "HELPM02", M_HandleImageDef, 0},
 };
 
 // --------------------------------
@@ -934,17 +934,17 @@ static menuitem_t SR_MainMenu[MAXUNLOCKABLES+1] =
 
 static menuitem_t SR_LevelSelectMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
 };
 
 static menuitem_t SR_UnlockChecklistMenu[] =
 {
-	{IT_KEYHANDLER | IT_STRING, NULL, "", M_HandleChecklist, 0},
+	{IT_KEYHANDLER_NOKB | IT_STRING, NULL, "", M_HandleChecklist, 0},
 };
 
 static menuitem_t SR_SoundTestMenu[] =
 {
-	{IT_KEYHANDLER | IT_STRING, NULL, "", M_HandleSoundTest, 0},
+	{IT_KEYHANDLER_NOKB | IT_STRING, NULL, "", M_HandleSoundTest, 0},
 };
 
 static menuitem_t SR_EmblemHintMenu[] =
@@ -984,25 +984,25 @@ enum
 // Single Player Load Game
 static menuitem_t SP_LoadGameMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLoadSave, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLoadSave, 0},     // dummy menuitem for the control func
 };
 
 // Single Player Level Select
 static menuitem_t SP_LevelSelectMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
 };
 
 // Single Player Time Attack Level Select
 static menuitem_t SP_TimeAttackLevelSelectMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
 };
 
 // Single Player Time Attack
 static menuitem_t SP_TimeAttackMenu[] =
 {
-	{IT_STRING|IT_KEYHANDLER,  NULL, "Level Select...", M_HandleTimeAttackLevelSelect,   62},
+	{IT_STRING|IT_KEYHANDLER_NOKB,  NULL, "Level Select...", M_HandleTimeAttackLevelSelect,   62},
 	{IT_STRING|IT_CVAR,        NULL, "Character",       &cv_chooseskin,             72},
 
 	{IT_DISABLED,              NULL, "Guest Option...", &SP_GuestReplayDef, 100},
@@ -1094,13 +1094,13 @@ static menuitem_t SP_NightsGhostMenu[] =
 // Single Player Nights Attack Level Select
 static menuitem_t SP_NightsAttackLevelSelectMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelPlatter, 0},     // dummy menuitem for the control func
 };
 
 // Single Player Nights Attack
 static menuitem_t SP_NightsAttackMenu[] =
 {
-	{IT_STRING|IT_KEYHANDLER,        NULL, "Level Select...",  &M_HandleTimeAttackLevelSelect,  52},
+	{IT_STRING|IT_KEYHANDLER_NOKB,        NULL, "Level Select...",  &M_HandleTimeAttackLevelSelect,  52},
 	{IT_STRING|IT_CVAR,        NULL, "Character",       &cv_chooseskin,             62},
 	{IT_STRING|IT_CVAR,        NULL, "Show Records For", &cv_dummymares,              72},
 
@@ -1144,13 +1144,13 @@ enum
 // Statistics
 static menuitem_t SP_LevelStatsMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleLevelStats, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleLevelStats, 0},     // dummy menuitem for the control func
 };
 
 // Player menu dummy
 static menuitem_t SP_PlayerMenu[] =
 {
-	{IT_NOTHING | IT_KEYHANDLER, NULL, "", M_HandleChoosePlayerMenu, 0},     // dummy menuitem for the control func
+	{IT_NOTHING | IT_KEYHANDLER_NOKB, NULL, "", M_HandleChoosePlayerMenu, 0},     // dummy menuitem for the control func
 };
 
 // -----------------------------------
@@ -1205,7 +1205,7 @@ static menuitem_t MP_ConnectMenu[] =
 {
 	{IT_STRING | IT_CALL,       NULL, "Room...",  M_RoomMenu,         4},
 	{IT_STRING | IT_CVAR,       NULL, "Sort By",  &cv_serversort,     12},
-	{IT_STRING | IT_KEYHANDLER, NULL, "Page",     M_HandleServerPage, 20},
+	{IT_STRING | IT_KEYHANDLER_NOKB, NULL, "Page",     M_HandleServerPage, 20},
 	{IT_STRING | IT_CALL,       NULL, "Refresh",  M_Refresh,          28},
 
 	{IT_STRING | IT_SPACE, NULL, "",              M_Connect,          48-4},
@@ -1255,9 +1255,9 @@ menuitem_t MP_RoomMenu[] =
 static menuitem_t MP_PlayerSetupMenu[] =
 {
 	{IT_KEYHANDLER, NULL, "", M_HandleSetupMultiPlayer, 0}, // name
-	{IT_KEYHANDLER, NULL, "", M_HandleSetupMultiPlayer, 0}, // skin
-	{IT_KEYHANDLER, NULL, "", M_HandleSetupMultiPlayer, 0}, // colour
-	{IT_KEYHANDLER, NULL, "", M_HandleSetupMultiPlayer, 0}, // default
+	{IT_KEYHANDLER_NOKB, NULL, "", M_HandleSetupMultiPlayer, 0}, // skin
+	{IT_KEYHANDLER_NOKB, NULL, "", M_HandleSetupMultiPlayer, 0}, // colour
+	{IT_KEYHANDLER_NOKB, NULL, "", M_HandleSetupMultiPlayer, 0}, // default
 };
 
 // ------------------------------------
@@ -1690,7 +1690,7 @@ static menuitem_t OP_ResolutionMenu[] =
 
 static menuitem_t OP_VideoModeMenu[] =
 {
-	{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandleVideoMode, 0},     // dummy menuitem for the control func
+	{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandleVideoMode, 0},     // dummy menuitem for the control func
 };
 
 static menuitem_t OP_ColorOptionsMenu[] =
@@ -2458,7 +2458,7 @@ menu_t OP_Camera2OptionsDef = {
 	NULL, M_CameraOptionsTicker
 };
 
-static menuitem_t OP_PlaystyleMenu[] = {{IT_KEYHANDLER | IT_NOTHING, NULL, "", M_HandlePlaystyleMenu, 0}};
+static menuitem_t OP_PlaystyleMenu[] = {{IT_KEYHANDLER_NOKB | IT_NOTHING, NULL, "", M_HandlePlaystyleMenu, 0}};
 
 menu_t OP_PlaystyleDef = {
 	MTREE3(MN_OP_MAIN, MN_OP_P1CONTROLS, MN_OP_PLAYSTYLE), ///@TODO the second level should be set in runtime
@@ -5240,7 +5240,9 @@ boolean M_Responder(event_t *ev)
 	routine = currentMenu->menuitems[itemOn].itemaction;
 
 	// Handle menuitems which need a specific key handling
-	if (routine && (currentMenu->menuitems[itemOn].status & IT_TYPE) == IT_KEYHANDLER)
+	if (routine
+    && ((currentMenu->menuitems[itemOn].status & IT_TYPE) == IT_KEYHANDLER
+    || (currentMenu->menuitems[itemOn].status & IT_TYPE) == IT_KEYHANDLER_NOKB))
 	{
 		// block text input if ctrl is held, to allow using ctrl+c ctrl+v and ctrl+x
 		if (ctrldown)

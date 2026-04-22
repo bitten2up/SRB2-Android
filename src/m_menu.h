@@ -275,6 +275,7 @@ boolean M_CanShowLevelInList(INT32 mapnum, INT32 gt);
 #define IT_KEYHANDLER        4     // call with the key in param
 #define IT_SUBMENU           6     // go to sub menu
 #define IT_CVAR              8     // handle as a cvar
+#define IT_KEYHANDLER_NOKB  10     // call with the key in param (used for menus that don't need onscreen keyboard)
 #define IT_PAIR             11     // no handling, define both sides of text
 #define IT_MSGHANDLER       12     // same as key but with event and sometime can handle y/n key (special for message)
 
