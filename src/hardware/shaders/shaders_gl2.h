@@ -1,7 +1,8 @@
 // SONIC ROBO BLAST 2
 //-----------------------------------------------------------------------------
-// Copyright (C) 2020-2021 by Jaime Ita Passos.
 // Copyright (C) 1998-2020 by Sonic Team Junior.
+// Copyright (C) 2020-2021 by Jaime Ita Passos.
+// Copyright (C) 2025 by Bitten2Up & StarManiaKG.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -29,6 +30,25 @@
 		"gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n" \
 	"}\0"
 
+//
+// Model lighting fragment shader
+//
+// replicates the way fixed function lighting is used by the model lighting option,
+// stores the lighting result to gl_Color
+// (ambient lighting of 0.75 and diffuse lighting from above)
+//
+
+#define GLSL_MODEL_LIGHTING_VERTEX_SHADER \
+	"void main()\n" \
+	"{\n" \
+		"float nDotVP = dot(gl_Normal, vec3(0.0, 1.0, 0.0));\n" \
+		"float light = 0.75 + max(nDotVP, 0.0);\n" \
+		"gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;\n" \
+		"gl_FrontColor = vec4(light, light, light, 1.0);\n" \
+		"gl_TexCoord[0].xy = gl_MultiTexCoord0.xy;\n" \
+		"gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n" \
+	"}\0"
+
 // ==================
 //  Fragment shaders
 // ==================
@@ -44,18 +64,27 @@
 		"gl_FragColor = texture2D(tex, gl_TexCoord[0].st) * poly_color;\n" \
 	"}\0"
 
-// replicates the way fixed function lighting is used by the model lighting option,
-// stores the lighting result to gl_Color
-// (ambient lighting of 0.75 and diffuse lighting from above)
-#define GLSL_MODEL_LIGHTING_VERTEX_SHADER \
-	"void main()\n" \
-	"{\n" \
-		"float nDotVP = dot(gl_Normal, vec3(0.0, 1.0, 0.0));\n" \
-		"float light = 0.75 + max(nDotVP, 0.0);\n" \
-		"gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * gl_Vertex;\n" \
-		"gl_FrontColor = vec4(light, light, light, 1.0);\n" \
-		"gl_TexCoord[0].xy = gl_MultiTexCoord0.xy;\n" \
-		"gl_ClipVertex = gl_ModelViewMatrix * gl_Vertex;\n" \
+//
+// Model lighting fragment shader
+//
+// multiplies results with the lighting value from the
+// accompanying vertex shader (stored in gl_Color)
+//
+
+#define GLSL_MODEL_LIGHTING_FRAGMENT_SHADER \
+	"uniform sampler2D tex;\n" \
+	GLSL_DOOM_UNIFORMS \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 Texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"vec4 BaseColor = Texel * poly_color;\n" \
+		"vec4 FinalColor = BaseColor;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"FinalColor *= gl_Color;\n" \
+		"FinalColor.a = Texel.a * poly_color.a;\n" \
+		"gl_FragColor = FinalColor;\n" \
 	"}\0"
 
 //
@@ -75,24 +104,6 @@
 		"vec4 FinalColor = BaseColor;\n" \
 		GLSL_SOFTWARE_TINT_EQUATION \
 		GLSL_SOFTWARE_FADE_EQUATION \
-		"FinalColor.a = Texel.a * poly_color.a;\n" \
-		"gl_FragColor = FinalColor;\n" \
-	"}\0"
-
-// same as above but multiplies results with the lighting value from the
-// accompanying vertex shader (stored in gl_Color)
-#define GLSL_MODEL_LIGHTING_FRAGMENT_SHADER \
-	"uniform sampler2D tex;\n" \
-	GLSL_DOOM_UNIFORMS \
-	GLSL_DOOM_COLORMAP \
-	GLSL_DOOM_LIGHT_EQUATION \
-	"void main(void) {\n" \
-		"vec4 Texel = texture2D(tex, gl_TexCoord[0].st);\n" \
-		"vec4 BaseColor = Texel * poly_color;\n" \
-		"vec4 FinalColor = BaseColor;\n" \
-		GLSL_SOFTWARE_TINT_EQUATION \
-		GLSL_SOFTWARE_FADE_EQUATION \
-		"FinalColor *= gl_Color;\n" \
 		"FinalColor.a = Texel.a * poly_color.a;\n" \
 		"gl_FragColor = FinalColor;\n" \
 	"}\0"

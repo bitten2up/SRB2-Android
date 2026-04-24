@@ -1383,9 +1383,11 @@ void CL_ConnectToServer(void)
 	SL_ClearServerList(servernode);
 
 #ifdef TOUCHINPUTS
+#ifdef VIRTUAL_KEYBOARD
 	// Close the on-screen keyboard, if it's still open
 	if (I_KeyboardOnScreen())
 		I_CloseScreenKeyboard();
+#endif
 
 	M_TSNav_SetBackVisible(true);
 	TS_DefineNavigationButtons();
@@ -1397,7 +1399,7 @@ void CL_ConnectToServer(void)
 	do
 	{
 		// If the connection was aborted for some reason, leave
-			if (!CL_ServerConnectionTicker(tmpsave, &oldtic, &asksent))
+		if (!CL_ServerConnectionTicker(tmpsave, &oldtic, &asksent))
 			return;
 
 		if (server)

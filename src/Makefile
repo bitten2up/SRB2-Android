@@ -309,9 +309,14 @@ windres=$(WINDRES) $(WINDRESFLAGS)\
 unexport UPX
 
 # executable stripped of debugging symbols
+ifndef KEEP_DEBUG_SYMBOLS
 $(exe) : $(dbg) | $$(@D)/
 	$(.)$(OBJCOPY) --strip-debug $< $@
 	$(.)-$(OBJCOPY) --add-gnu-debuglink=$< $@
+else
+$(exe) : $(objects)
+	$(.)$(LD) -o $@ $^ $(libs)
+endif
 ifdef UPX
 	$(call Echo,Compressing final executable...)
 	$(.)-$(upx) $@

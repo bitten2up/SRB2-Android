@@ -121,6 +121,7 @@ boolean APK_Resource_LumpExists(wadfile_t *wad, const char *name);
 size_t APK_Resource_LumpLength(wadfile_t *wad, UINT16 lump);
 size_t APK_Resource_ReadLumpHeader(wadfile_t *wad, UINT16 lump, void *dest, size_t size, size_t offset);
 
+#ifdef SPLASH_SCREEN
 /**	\brief Show the splash screen
 */
 void APK_I_ShowSplashScreen(void);
@@ -128,5 +129,6 @@ void APK_I_ShowSplashScreen(void);
 /**	\brief Hide the splash screen
 */
 void APK_I_HideSplashScreen(void);
+#endif
 
 #endif // __APK_MAIN__

@@ -100,7 +100,10 @@ typedef enum
 
 	MN_OP_VIDEO,
 	MN_OP_VIDEOMODE,
-	MN_OP_RESOLUTIONDEF, // SRB2Android
+
+	// SRB2Android
+	MN_OP_RESOLUTIONDEF,
+
 	MN_OP_COLOR,
 	MN_OP_OPENGL,
 	MN_OP_OPENGL_LIGHTING,
@@ -491,9 +494,8 @@ extern gtdesc_t gametypedesc[NUMGAMETYPES];
 // mode descriptions for video mode menu
 typedef struct
 {
-	INT32 modenum; // video mode number in the vidmodes list
-	const char *desc;  // XXXxYYY
-	UINT8 goodratio; // aspect correct if 1
+	INT32 width, height;
+	char desc[12]; // XXXXXxYYYYY
 } modedesc_t;
 
 // savegame struct for save game menu

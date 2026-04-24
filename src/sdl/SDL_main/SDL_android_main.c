@@ -28,7 +28,7 @@
 
 #ifdef SPLASH_SCREEN
 #include "../../i_video.h"
-#include "../ogl_es_sdl.h"
+#include "../ogl_sdl.h"
 #endif
 
 #ifdef HAVE_TTF

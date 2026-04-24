@@ -17,7 +17,6 @@
 #include "g_game.h"
 #include "g_input.h"
 #include "r_local.h"
-#include "r_translation.h"
 #include "r_splats.h" // faB(21jan): testing
 #include "r_sky.h"
 #include "hu_stuff.h"
@@ -93,7 +92,7 @@ INT32 viewangletox[FINEANGLES/2];
 // The xtoviewangleangle[] table maps a screen pixel
 // to the lowest viewangle that maps back to x ranges
 // from clipangle to -clipangle.
-angle_t xtoviewangle[MAXVIDWIDTH+1];
+angle_t *xtoviewangle;
 
 lighttable_t *scalelight[LIGHTLEVELS][MAXLIGHTSCALE];
 lighttable_t *scalelightfixed[MAXLIGHTSCALE];
@@ -141,7 +140,6 @@ static CV_PossibleValue_t homremoval_cons_t[] = {{0, "No"}, {1, "Yes"}, {2, "Fla
 
 static void R_SetFov(fixed_t playerfov);
 
-static void Fov_OnChange(void);
 static void ChaseCam_OnChange(void);
 static void ChaseCam2_OnChange(void);
 static void FlipCam_OnChange(void);
@@ -165,7 +163,8 @@ consvar_t cv_translucency = CVAR_INIT ("translucency", "On", CV_SAVE, CV_OnOff, 
 consvar_t cv_drawdist = CVAR_INIT ("drawdist", "Infinite", CV_SAVE, drawdist_cons_t, NULL);
 consvar_t cv_drawdist_nights = CVAR_INIT ("drawdist_nights", "2048", CV_SAVE, drawdist_cons_t, NULL);
 consvar_t cv_drawdist_precip = CVAR_INIT ("drawdist_precip", "1024", CV_SAVE, drawdist_precip_cons_t, NULL);
-consvar_t cv_fov = CVAR_INIT ("fov", "90", CV_SAVE|CV_FLOAT|CV_CALL, fov_cons_t, Fov_OnChange);
+consvar_t cv_fov = CVAR_INIT ("fov", "90", CV_SAVE|CV_FLOAT|CV_CALL, fov_cons_t, R_SetViewSize);
+consvar_t cv_fovadjust = CVAR_INIT ("fovadjust", "On", CV_SAVE|CV_CALL, CV_OnOff, R_SetViewSize);
 consvar_t cv_fovchange = CVAR_INIT ("fovchange", "Off", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_maxportals = CVAR_INIT ("maxportals", "2", CV_SAVE, maxportals_cons_t, NULL);
 
@@ -216,10 +215,6 @@ void SplitScreen_OnChange(void)
 				break;
 			}
 	}
-}
-static void Fov_OnChange(void)
-{
-	R_SetViewSize();
 }
 
 static void ChaseCam_OnChange(void)
@@ -567,30 +562,33 @@ static inline void R_InitLightTables(void)
 
 static struct {
 	angle_t rollangle; // pre-shifted by fineshift
-#ifdef WOUGHMP_WOUGHMP
-	fixed_t fisheye;
-#endif
 
 	fixed_t zoomneeded;
 	INT32 *scrmap;
 	INT32 scrmapsize;
 
 	INT32 x1; // clip rendering horizontally for efficiency
-	INT16 ceilingclip[MAXVIDWIDTH], floorclip[MAXVIDWIDTH];
+	INT16 *ceilingclip, *floorclip;
+
+#ifdef WOUGHMP_WOUGHMP
+	fixed_t fisheye;
+	float *fisheyemap;
+#endif
 
 	boolean use;
 } viewmorph = {
 	0,
-#ifdef WOUGHMP_WOUGHMP
-	0,
-#endif
 
 	FRACUNIT,
 	NULL,
 	0,
 
 	0,
-	{0}, {0},
+	NULL, NULL,
+
+#ifdef WOUGHMP_WOUGHMP
+	0, NULL,
+#endif
 
 	false
 };
@@ -598,7 +596,6 @@ static struct {
 angle_t R_GetLocalViewRollAngle(player_t *player)
 {
 	angle_t ang = player->viewrollangle;
-
 #if defined(ACCELEROMETER) && defined(ACCELEROMETER_TILT_VIEW)
 	if (cv_useaccelerometer.value && gamestate == GS_LEVEL && player == &players[consoleplayer] && !splitscreen)
 	{
@@ -606,7 +603,6 @@ angle_t R_GetLocalViewRollAngle(player_t *player)
 		ang += FixedAngle(FixedMul(accelangle, 90<<FRACBITS));
 	}
 #endif
-
 	return ang;
 }
 
@@ -617,9 +613,6 @@ void R_CheckViewMorph(void)
 	fixed_t temp;
 	INT32 end, vx, vy, pos, usedpos;
 	INT32 usedx, usedy, halfwidth = vid.width/2, halfheight = vid.height/2;
-#ifdef WOUGHMP_WOUGHMP
-	float fisheyemap[MAXVIDWIDTH/2 + 1];
-#endif
 
 	angle_t rollangle = R_GetLocalViewRollAngle(&players[displayplayer]);
 #ifdef WOUGHMP_WOUGHMP
@@ -662,10 +655,13 @@ void R_CheckViewMorph(void)
 
 	if (viewmorph.scrmapsize != vid.width*vid.height)
 	{
-		if (viewmorph.scrmap)
-			free(viewmorph.scrmap);
-		viewmorph.scrmap = malloc(vid.width*vid.height * sizeof(INT32));
 		viewmorph.scrmapsize = vid.width*vid.height;
+		viewmorph.scrmap = realloc(viewmorph.scrmap, vid.width*vid.height * sizeof(INT32));
+		viewmorph.ceilingclip = realloc(viewmorph.ceilingclip, vid.width * sizeof(INT16));
+		viewmorph.floorclip = realloc(viewmorph.floorclip, vid.width * sizeof(INT16));
+#ifdef WOUGHMP_WOUGHMP
+		viewmorph.fisheyemap = realloc(viewmorph.fisheyemap, (vid.width/2 + 1) * sizeof(float));
+#endif
 	}
 
 	temp = FINECOSINE(rollangle);
@@ -874,7 +870,6 @@ void R_ApplyViewMorph(void)
 			vid.width*vid.bpp, vid.height, vid.width*vid.bpp, vid.width);
 }
 
-
 //
 // R_SetViewSize
 // Do not really change anything here,
@@ -906,26 +901,29 @@ void R_ExecuteSetViewSize(void)
 	// status bar overlay
 	st_overlay = cv_showhud.value;
 
-	scaledviewwidth = vid.width;
+	viewwidth = vid.width;
 	viewheight = vid.height;
 
 	if (splitscreen)
 		viewheight >>= 1;
-
-	viewwidth = scaledviewwidth;
 
 	centerx = viewwidth/2;
 	centery = viewheight/2;
 	centerxfrac = centerx<<FRACBITS;
 	centeryfrac = centery<<FRACBITS;
 
-	R_SetFov(cv_fov.value);
+	if (splitscreen == 1) // Splitscreen FOV should be adjusted to maintain expected vertical view
+		fovtan = 17*fovtan/10;
 
-	R_InitViewBuffer(scaledviewwidth, viewheight);
+	R_InitViewBuffer(viewwidth, viewheight);
+	R_SetFov(cv_fov.value);
 
 	// thing clipping
 	for (i = 0; i < viewwidth; i++)
+	{
+		negonearray[i] = -1;
 		screenheightarray[i] = (INT16)viewheight;
+	}
 
 	memset(scalelight, 0xFF, sizeof(scalelight));
 
@@ -959,11 +957,17 @@ void R_ExecuteSetViewSize(void)
 fixed_t R_GetPlayerFov(player_t *player)
 {
 	fixed_t fov = cv_fov.value + player->fovadd;
-#ifdef NATIVESCREENRES
-	// SRB2Android: ok my turn now
-	APK_R_GetNativeResFov(&fov);
-#endif
 	return max(MINFOV*FRACUNIT, min(fov, MAXFOV*FRACUNIT));
+}
+
+fixed_t R_AdjustFOV(fixed_t ftan)
+{
+	fixed_t aspect = FixedDiv(vid.width, vid.height);
+	fixed_t baseaspect = FixedDiv(FRACUNIT, FixedDiv(BASEVIDWIDTH, BASEVIDHEIGHT));
+	fixed_t resmul = FixedMul(aspect, baseaspect); // (vid.width / vid.height) * (1.0 / (BASEVIDWIDTH / BASEVIDHEIGHT))
+	if (resmul > FRACUNIT)
+		return FixedMul(ftan, resmul);
+	return ftan;
 }
 
 static void R_SetFov(fixed_t playerfov)
@@ -973,10 +977,8 @@ static void R_SetFov(fixed_t playerfov)
 	if (splitscreen == 1) // Splitscreen FOV should be adjusted to maintain expected vertical view
 		fovtan = 17*fovtan/10;
 
-#ifdef NATIVESCREENRES
-	// SRB2Android: ok my turn now
-	APK_R_GetNativeResFov(&fov);
-#endif
+	if (cv_fovadjust.value)
+		fovtan = R_AdjustFOV(fovtan);
 
 	// this is only used for planes rendering in software mode
 	INT32 j = viewheight*16;
@@ -1561,13 +1563,14 @@ void R_RenderPlayerView(player_t *player)
 	R_ClearSprites();
 	Portal_InitList();
 
-	// Check for new console commands.
+	// check for new console commands.
 	NetUpdate();
 
 	if (I_AppOnBackground())
 		return;
 
 	// The head node is the last node output.
+
 	Mask_Pre(&masks[nummasks - 1]);
 	curdrawsegs = ds_p;
 	ps_numbspcalls.value.i = ps_numpolyobjects.value.i = ps_numdrawnodes.value.i = 0;
@@ -1673,6 +1676,7 @@ void R_RegisterEngineStuff(void)
 	CV_RegisterVar(&cv_drawdist);
 	CV_RegisterVar(&cv_drawdist_nights);
 	CV_RegisterVar(&cv_drawdist_precip);
+	CV_RegisterVar(&cv_fovadjust);
 	CV_RegisterVar(&cv_fovchange);
 	CV_RegisterVar(&cv_fov);
 

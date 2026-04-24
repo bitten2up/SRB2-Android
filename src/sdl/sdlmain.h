@@ -31,7 +31,10 @@ int Android_EventFilter(void *userdata, SDL_Event *event);
 #endif
 
 void Impl_InitVideoSubSystem(void);
+#if 0
+// STAR NOTE: no more
 void Impl_HandleVideoEvent(SDL_Event *evt);
+#endif
 
 // So m_menu knows whether to store cv_usejoystick value or string
 #define JOYSTICK_HOTPLUG

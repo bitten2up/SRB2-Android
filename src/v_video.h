@@ -19,6 +19,19 @@
 #include "r_defs.h"
 #include "hu_stuff.h" //font arrays
 
+#if defined(__SSE__)
+#ifdef _WIN32
+#include <malloc.h>
+#define aligned_alloc(align, size) _aligned_malloc(size, align)
+#define aligned_free(ptr) _aligned_free(ptr)
+#else
+#define aligned_alloc(align, size) malloc(size)
+#define aligned_free(ptr) free(ptr)
+#endif
+
+#include <immintrin.h>
+#endif
+
 //
 // VIDEO
 //
@@ -37,6 +50,9 @@ cv_rsaturation, cv_ysaturation, cv_gsaturation, cv_csaturation, cv_bsaturation, 
 // Allocates buffer screens, call before R_Init.
 void V_Init(void);
 
+// Reallocates the screen buffers.
+void V_Resize(void);
+
 // Recalculates the viddef (dup, fdup, etc.) according to the current screen resolution.
 void V_Recalc(void);
 
@@ -47,7 +63,7 @@ typedef struct
 {
 	boolean init;
 	RGBA_t palette[256];
-	UINT16 table[0xFFFF];
+	UINT16 table[0x10000];
 } colorlookup_t;
 
 void InitColorLUT(colorlookup_t *lut, RGBA_t *palette, boolean makecolors);

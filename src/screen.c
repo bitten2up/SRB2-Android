@@ -67,8 +67,29 @@ void (*spanfuncs_npo2[SPANDRAWFUNC_MAX])(void);
 // global video state
 // ------------------
 viddef_t vid;
-INT32 setmodeneeded; //video mode change needed if > 0 (the mode number to set + 1)
-UINT8 setrenderneeded = 0;
+
+// windowed video modes from which to choose from.
+INT32 windowedModes[MAXWINMODES][2] =
+{
+	{1920,1200}, // 1.60,6.00
+	{1920,1080}, // 1.66
+	{1680,1050}, // 1.60,5.25
+	{1600,1200}, // 1.33
+	{1600, 900}, // 1.66
+	{1366, 768}, // 1.66
+	{1440, 900}, // 1.60,4.50
+	{1280,1024}, // 1.33?
+	{1280, 960}, // 1.33,4.00
+	{1280, 800}, // 1.60,4.00
+	{1280, 720}, // 1.66
+	{1152, 864}, // 1.33,3.60
+	{1024, 768}, // 1.33,3.20
+	{ 800, 600}, // 1.33,2.50
+	{ 640, 480}, // 1.33,2.00
+	{ 640, 400}, // 1.60,2.00
+	{ 320, 240}, // 1.33,1.00
+	{ 320, 200}, // 1.60,1.00
+};
 
 static CV_PossibleValue_t scr_depth_cons_t[] = {{8, "8 bits"}, {16, "16 bits"}, {24, "24 bits"}, {32, "32 bits"}, {0, NULL}};
 
@@ -87,7 +108,7 @@ CV_PossibleValue_t cv_renderer_t[] = {
 	{0, NULL}
 };
 
-consvar_t cv_renderer = CVAR_INIT ("renderer", "Software", CV_SAVE|CV_CALL, cv_renderer_t, SCR_ChangeRenderer);
+consvar_t cv_renderer = CVAR_INIT ("renderer", "Software", CV_SAVE|CV_CALL|CV_NOINIT, cv_renderer_t, SCR_ChangeRenderer);
 
 static void SCR_ChangeFullscreen(void);
 
@@ -171,35 +192,26 @@ void SCR_SetMode(void)
 	if (dedicated)
 		return;
 
-	if (!(setmodeneeded || setrenderneeded) || WipeInAction)
+	if (!vid.change.set || WipeInAction)
 		return; // should never happen and don't change it during a wipe, BAD!
 
-	// Lactozilla: Renderer switching
-	if (setrenderneeded)
+	if (vid.change.renderer != -1)
 	{
-		// stop recording movies (APNG only)
-		if (setrenderneeded && (moviemode == MM_APNG))
+		if (moviemode == MM_APNG)
 			M_StopMovie();
-
-		// VID_SetMode will call VID_CheckRenderer itself,
-		// so no need to do this in here.
-		if (!setmodeneeded)
-			VID_CheckRenderer();
-
-		vid.recalc = 1;
 	}
 
-	// Set the video mode in the video interface.
-	if (setmodeneeded)
-		VID_SetMode(setmodeneeded - 1);
+	if (vid.change.set)
+		VID_SetSize(vid.change.width, vid.change.height);
 
 	V_SetPalette(0);
 
 	SCR_SetDrawFuncs();
 
-	// set the apprpriate drawer for the sky (tall or INT16)
-	setmodeneeded = 0;
-	setrenderneeded = 0;
+	vid.change.set = VID_RESOLUTION_UNCHANGED;
+	vid.change.width = -1;
+	vid.change.height = -1;
+	vid.change.renderer = -1;
 }
 
 // do some initial settings for the game loading screen
@@ -212,8 +224,6 @@ void SCR_Startup(void)
 		V_SetPalette(0);
 		return;
 	}
-
-	vid.modenum = 0;
 
 	V_Init();
 	V_Recalc();
@@ -262,11 +272,51 @@ void SCR_Recalc(void)
 #endif
 }
 
+boolean SCR_IsValidResolution(INT32 width, INT32 height)
+{
+	if (width < BASEVIDWIDTH || width > MAXVIDWIDTH)
+		return false;
+	if (height < BASEVIDHEIGHT || height > MAXVIDHEIGHT)
+		return false;
+	return true;
+}
+
+static boolean SCR_SetSize(INT32 width, INT32 height)
+{
+	if (SCR_IsValidResolution(width, height))
+	{
+		vid.change.width = width;
+		vid.change.height = height;
+		vid.change.renderer = -1;
+		return true;
+	}
+	return false;
+}
+
+void SCR_ChangeResolution(INT32 width, INT32 height, boolean restore)
+{
+	if (SCR_SetSize(width, height))
+	{
+		if (restore && VID_IsMaximized())
+			VID_RestoreWindow();
+		vid.change.set = VID_RESOLUTION_CHANGED;
+	}
+}
+
+void SCR_SetWindowSize(INT32 width, INT32 height, boolean restore)
+{
+	if (SCR_SetSize(width, height))
+	{
+		if (restore && VID_IsMaximized())
+			VID_RestoreWindow();
+		vid.change.set = VID_RESOLUTION_RESIZED_WINDOW;
+	}
+}
+
 // Check for screen cmd-line parms: to force a resolution.
 //
-// Set the video mode to set at the 1st display loop (setmodeneeded)
+// Set the video mode to set at the 1st display loop
 //
-
 void SCR_CheckDefaultMode(void)
 {
 	INT32 scr_forcex, scr_forcey; // resolution asked from the cmd-line
@@ -289,28 +339,44 @@ void SCR_CheckDefaultMode(void)
 		scr_forcey = atoi(M_GetNextParm());
 
 #ifdef NATIVESCREENRES
-	if (cv_nativeres.value)
-		SCR_CheckNativeMode();
+	// Android
+	android_data.scr_startupmodeset = true;
+	//if (cv_nativeres.value)
+		SCR_NativeRes_CheckMode();
 #endif
 
 	if (scr_forcex && scr_forcey)
 	{
 		CONS_Printf(M_GetText("Using resolution: %d x %d\n"), scr_forcex, scr_forcey);
-		// returns -1 if not found, thus will be 0 (no mode change) if not found
-		setmodeneeded = VID_GetModeForSize(scr_forcex, scr_forcey) + 1;
+		SCR_ChangeResolution(scr_forcex, scr_forcey, true);
 	}
 	else
 	{
 		CONS_Printf(M_GetText("Default resolution: %d x %d\n"), cv_scr_width.value, cv_scr_height.value);
 		CONS_Printf(M_GetText("Windowed resolution: %d x %d\n"), cv_scr_width_w.value, cv_scr_height_w.value);
 		CONS_Printf(M_GetText("Default bit depth: %d bits\n"), cv_scr_depth.value);
-		if (cv_fullscreen.value)
-			setmodeneeded = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value) + 1; // see note above
-		else
-			setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value) + 1; // see note above
 
-		if (setmodeneeded <= 0)
+		INT32 width, height;
+
+		if (cv_fullscreen.value)
+		{
+			width = cv_scr_width.value;
+			height = cv_scr_height.value;
+		}
+		else
+		{
+			width = cv_scr_width_w.value;
+			height = cv_scr_height_w.value;
+		}
+
+		if (!SCR_IsValidResolution(width, height))
+		{
 			CONS_Alert(CONS_WARNING, "Invalid resolution given, defaulting to base resolution\n");
+			width = BASEVIDWIDTH;
+			height = BASEVIDHEIGHT;
+		}
+
+		SCR_ChangeResolution(width, height, true);
 	}
 
 	if (cv_renderer.value != (signed)rendermode)
@@ -325,11 +391,11 @@ void SCR_CheckDefaultMode(void)
 	}
 }
 
-// sets the modenum as the new default video mode to be saved in the config file
-void SCR_SetDefaultMode(void)
+// sets the resolution as the new default to be saved in the config file
+void SCR_SetDefaultMode(INT32 width, INT32 height)
 {
-	CV_SetValue(cv_fullscreen.value ? &cv_scr_width : &cv_scr_width_w, vid.width);
-	CV_SetValue(cv_fullscreen.value ? &cv_scr_height : &cv_scr_height_w, vid.height);
+	CV_SetValue(cv_fullscreen.value ? &cv_scr_width : &cv_scr_width_w, width);
+	CV_SetValue(cv_fullscreen.value ? &cv_scr_height : &cv_scr_height_w, height);
 }
 
 // Change fullscreen on/off according to cv_fullscreen
@@ -343,39 +409,39 @@ void SCR_ChangeFullscreen(void)
 
 	if (graphics_started)
 	{
-		VID_PrepareModeList();
-		if (cv_fullscreen.value)
-			setmodeneeded = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value) + 1;
-		else
-			setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value) + 1;
+		INT32 width, height;
 
-#ifdef NATIVESCREENRES
-		if (!cv_nativeres.value)
+		if (cv_fullscreen.value)
 		{
-#endif
-		if (setmodeneeded <= 0) // hacky safeguard
+			width = cv_scr_width.value;
+			height = cv_scr_height.value;
+		}
+		else
 		{
-			CONS_Alert(CONS_WARNING, "Invalid resolution given, defaulting to base resolution.\n");
-			setmodeneeded = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT) + 1;
+			width = cv_scr_width_w.value;
+			height = cv_scr_height_w.value;
 		}
-#ifdef NATIVESCREENRES
+
+		if (!SCR_IsValidResolution(width, height))
+		{
+			CONS_Alert(CONS_WARNING, "Invalid resolution given, defaulting to base resolution\n");
+			width = BASEVIDWIDTH;
+			height = BASEVIDHEIGHT;
 		}
-#endif
+
+		SCR_ChangeResolution(width, height, true);
 	}
-	return;
 #endif
 }
 
 void SCR_ChangeRenderer(void)
 {
-	if (chosenrendermode != render_none
-	|| (signed)rendermode == cv_renderer.value)
+	if (chosenrendermode != render_none || (signed)rendermode == cv_renderer.value)
 		return;
 
 #ifdef HWRENDER
 	// Check if OpenGL loaded successfully (or wasn't disabled) before switching to it.
-	if ((vid.glstate == VID_GL_LIBRARY_ERROR)
-	&& (cv_renderer.value == render_opengl))
+	if (vid.glstate == VID_GL_LIBRARY_ERROR && cv_renderer.value == render_opengl)
 	{
 		if (M_CheckParm("-nogl"))
 			CONS_Alert(CONS_ERROR, "OpenGL rendering was disabled!\n");
@@ -385,13 +451,17 @@ void SCR_ChangeRenderer(void)
 		return;
 	}
 
-	if (rendermode == render_opengl && (vid.glstate == VID_GL_LIBRARY_LOADED)) // Clear these out before switching to software
+	// Clear these out before switching to software
+	if (rendermode == render_opengl && vid.glstate == VID_GL_LIBRARY_LOADED)
 		HWR_ClearAllTextures();
-
 #endif
 
 	// Set the new render mode
-	setrenderneeded = cv_renderer.value;
+	vid.change.renderer = cv_renderer.value;
+
+	// Don't reposition the window
+	if (vid.change.set == VID_RESOLUTION_UNCHANGED)
+		vid.change.set = VID_RESOLUTION_RESIZED_WINDOW;
 }
 
 boolean SCR_IsAspectCorrect(INT32 width, INT32 height)
@@ -401,6 +471,33 @@ boolean SCR_IsAspectCorrect(INT32 width, INT32 height)
 	 && height % BASEVIDHEIGHT == 0
 	 && width / BASEVIDWIDTH == height / BASEVIDHEIGHT
 	 );
+}
+
+const char *SCR_GetModeName(INT32 modeNum)
+{
+	static char vidModeName[MAXWINMODES][32];
+
+	if (modeNum == -1)
+		return "Fallback";
+	else if (modeNum > MAXWINMODES)
+		return NULL;
+
+	snprintf(&vidModeName[modeNum][0], 32, "%dx%d", windowedModes[modeNum][0], windowedModes[modeNum][1]);
+
+	return &vidModeName[modeNum][0];
+}
+
+INT32 SCR_GetModeForSize(INT32 w, INT32 h)
+{
+	int i;
+	for (i = 0; i < MAXWINMODES; i++)
+	{
+		if (windowedModes[i][0] == w && windowedModes[i][1] == h)
+		{
+			return i;
+		}
+	}
+	return -1;
 }
 
 double averageFPS = 0.0f;

@@ -12,8 +12,6 @@ consvar_t cv_vidwait = CVAR_INIT ("vid_wait", "On", CV_SAVE, CV_OnOff, NULL);
 void I_StartupGraphics(void){}
 void I_ShutdownGraphics(void){}
 
-void VID_StartupOpenGL(void){}
-
 void I_SetPalette(RGBA_t *palette)
 {
 	(void)palette;
@@ -43,8 +41,6 @@ INT32 VID_CheckRenderer(void)
 {
 	return 0;
 }
-
-void VID_DisplayGLError(void) {}
 
 void VID_CheckGLLoaded(rendermode_t oldrender)
 {

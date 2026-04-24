@@ -15,15 +15,6 @@
 #ifndef __DOOMDEF__
 #define __DOOMDEF__
 
-#ifdef NEWSIGNALHANDLER
-#undef NEWSIGNALHANDLER
-#endif
-
-#if 0
-// STAR NOTE: testing //
-#define NEWSIGNALHANDLER
-#endif
-
 // Sound system select
 // This should actually be in the makefile,
 // but I can't stand that gibberish. D:
@@ -165,10 +156,6 @@ extern char logfilename[1024];
 #define TV_PLATFORM
 #endif
 
-#if defined(HAVE_GLES2) || !defined(HAVE_GLES)
-#define HAVE_GL_FRAMEBUFFER
-#endif
-
 //#define DEVELOP // Disable this for release builds to remove excessive cheat commands and enable MD5 checking and stuff, all in one go. :3
 #ifdef DEVELOP
 #define VERSIONSTRING "Development EXE"
@@ -211,6 +198,15 @@ extern char logfilename[1024];
 #if defined(MOBILE_PLATFORM) && defined(TOUCHINPUTS)
 #define VIRTUAL_KEYBOARD
 #endif
+
+/// Splash screen
+#ifdef MOBILE_PLATFORM
+#define SPLASH_SCREEN
+#endif
+
+/// Breadcrumb navigation
+/// https://developer.android.com/training/tv/start/controllers#back-button
+#define BREADCRUMB
 
 // Enforce a limit of loaded WAD files.
 //#define ENFORCE_WAD_LIMIT
@@ -764,15 +760,6 @@ extern int
 ///	\note	XMOD port.
 //#define WEIGHTEDRECYCLER
 
-/// Splash screen
-#ifdef MOBILE_PLATFORM
-#define SPLASH_SCREEN
-#endif
-
-/// Breadcrumb navigation
-/// https://developer.android.com/training/tv/start/controllers#back-button
-#define BREADCRUMB
-
 ///	Allow the use of the SOC RESETINFO command.
 ///	\note	Builds that are tight on memory should disable this.
 ///	    	This stops the game from storing backups of the states, sprites, and mobjinfo tables.
@@ -789,8 +776,9 @@ extern int
 /// OpenGL shaders
 #define GL_SHADERS
 
-#if defined(HAVE_GLES2) && !defined(GL_SHADERS)
-#define GL_SHADERS
+/// OpenGL Framebuffer
+#if defined(HAVE_GLES2) || !defined(HAVE_GLES)
+#define HAVE_GL_FRAMEBUFFER
 #endif
 
 /// Handle touching sector specials in P_PlayerAfterThink instead of P_PlayerThink.

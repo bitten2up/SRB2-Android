@@ -46,7 +46,7 @@ boolean nodrawers; // for comparative timing purposes
 boolean noblit; // for comparative timing purposes
 tic_t demostarttime; // for comparative timing purposes
 
-static char demoname[64];
+static char demoname[512];
 boolean demorecording;
 boolean demoplayback;
 boolean titledemo; // Title Screen demo can be cancelled by any key
@@ -1413,15 +1413,12 @@ void G_WriteMetalTic(mobj_t *metal)
 //
 void G_RecordDemo(const char *name)
 {
-	INT32 maxsize;
+	INT32 maxsize = 1024*1024;
 
-	strcpy(demoname, name);
-	strcat(demoname, ".lmp");
-	maxsize = 1024*1024;
+	strlcpy(demoname, name, sizeof(demoname));
+	FIL_ForceExtension(demoname, ".lmp");
 	if (M_CheckParm("-maxdemo") && M_IsNextParm())
 		maxsize = atoi(M_GetNextParm()) * 1024;
-//	if (demobuffer)
-//		free(demobuffer);
 	demo_p = NULL;
 	demobuffer = malloc(maxsize);
 	demoend = demobuffer + maxsize;
@@ -2838,7 +2835,7 @@ static void G_StopTimingDemo(void)
 	{
 		FILE *f;
 		const char *csvpath = va("%s"PATHSEP"%s", srb2home, "timedemo.csv");
-		const char *header = "id,demoname,seconds,avgfps,leveltime,demotime,framecount,ticrate,rendermode,vidmode,vidwidth,vidheight,procbits\n";
+		const char *header = "id,demoname,seconds,avgfps,leveltime,demotime,framecount,ticrate,rendermode,vidwidth,vidheight,procbits\n";
 		const char *rowformat = "\"%s\",\"%s\",%f,%f,%u,%d,%u,%u,%u,%u,%u,%u,%u\n";
 		boolean headerrow = !FIL_FileExists(csvpath);
 		UINT8 procbits = 0;
@@ -2856,7 +2853,7 @@ static void G_StopTimingDemo(void)
 			if (headerrow)
 				fputs(header, f);
 			fprintf(f, rowformat,
-				timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.modenum,vid.width,vid.height,procbits);
+				timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.width,vid.height,procbits);
 			fclose(f);
 			CONS_Printf("Timedemo results saved to '%s'\n", csvpath);
 		}
@@ -2865,7 +2862,7 @@ static void G_StopTimingDemo(void)
 			// Just print the CSV output to console
 			CON_LogMessage(header);
 			CONS_Printf(rowformat,
-				timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.modenum,vid.width,vid.height,procbits);
+				timedemo_csv_id,timedemo_name,f1/TICRATE,f2/f1,leveltime,demotime,(UINT32)framecount,TICRATE,rendermode,vid.width,vid.height,procbits);
 		}
 	}
 

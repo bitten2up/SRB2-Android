@@ -157,6 +157,12 @@ typedef LPVOID (WINAPI *p_MapViewOfFile) (HANDLE, DWORD, DWORD, DWORD, SIZE_T);
 #define UNIXBACKTRACE
 #endif
 
+#if defined(__ANDROID__)
+#undef NEWSIGNALHANDLER
+#undef UNIXBACKTRACE
+#endif
+//#define NEWSIGNALHANDLER
+
 // Locations to directly check for srb2.pk3 in
 const char *wadDefaultPaths[] = {
 #if defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)
@@ -3099,7 +3105,6 @@ const char *I_SharedStorageLocation(void)
 {
 #if defined(__ANDROID__)
 	static char *sharedStorage = NULL;
-
 	if (sharedStorage == NULL)
 	{
 		char *dir = JNI_GetStorageDirectory();
@@ -3111,7 +3116,6 @@ const char *I_SharedStorageLocation(void)
 			snprintf(sharedStorage, size, "%s" PATHSEP "%s", dir, gamePath);
 		}
 	}
-
 	return sharedStorage;
 #else
 	return NULL;

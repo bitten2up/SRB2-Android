@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2024 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -64,8 +64,8 @@ typedef struct
 static lighttable_t **spritelights;
 
 // constant arrays used for psprite clipping and initializing clipping
-INT16 negonearray[MAXVIDWIDTH];
-INT16 screenheightarray[MAXVIDWIDTH];
+INT16 *negonearray;
+INT16 *screenheightarray;
 
 spriteinfo_t spriteinfo[NUMSPRITES];
 
@@ -279,14 +279,6 @@ static boolean GetFramesAndRotationsFromShortLumpName(
 		*ret_rotation2 = R_Char2Rotation(name[7]);
 		if (*ret_frame2 >= 64 || *ret_rotation2 == 255)
 			return false;
-
-		// TRNSLATE is a valid but extremely unlikely sprite name:
-		// * The sprite name is "TRNS"
-		// * The frame is L, rotation A; mirrored to frame T, rotation E
-		// In the very unfortunate event that TRNSLATE is found between sprite lumps,
-		// this name check prevents it from being added as a sprite, when it actually isn't.
-		if (memcmp(name, "TRNSLATE", 8) == 0)
-			return false;
 	}
 	else
 	{
@@ -495,6 +487,15 @@ boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16
 			INT16 topoffset, leftoffset;
 			INT32 frame, frame2;
 			UINT8 rotation, rotation2;
+
+			char *lumpname = longname ? lumpinfo[l].longname : lumpinfo[l].name;
+			// TRNSLATE is a valid but extremely unlikely sprite name:
+			// * The sprite name is "TRNS"
+			// * The frame is L, rotation A; mirrored to frame T, rotation E
+			// In the very unfortunate event that TRNSLATE is found between sprite lumps,
+			// this name check prevents it from being added as a sprite, when it actually isn't.
+			if (strcmp(lumpname, "TRNSLATE") == 0)
+				continue;
 
 			boolean good = longname ?
 				GetFramesAndRotationsFromLongLumpName(lumpinfo[l].longname, &frame, &rotation, &frame2, &rotation2) :
@@ -739,6 +740,13 @@ UINT32 visspritecount, numvisiblesprites;
 static UINT32 clippedvissprites;
 static vissprite_t *visspritechunks[MAXVISSPRITES >> VISSPRITECHUNKBITS] = {NULL};
 
+void R_ResizeSprites(void)
+{
+	sprites = Z_Realloc(sprites, NUMSPRITES * sizeof(*sprites), PU_STATIC, NULL);
+	memset(&sprites[numsprites], 0, (NUMSPRITES - numsprites) * sizeof(*sprites));
+	numsprites = NUMSPRITES;
+}
+
 //
 // R_InitSprites
 // Called at program start.
@@ -746,18 +754,11 @@ static vissprite_t *visspritechunks[MAXVISSPRITES >> VISSPRITECHUNKBITS] = {NULL
 void R_InitSprites(void)
 {
 	size_t i;
-#ifdef ROTSPRITE
-	INT32 angle;
-	float fa;
-#endif
-
-	for (i = 0; i < MAXVIDWIDTH; i++)
-		negonearray[i] = -1;
 
 #ifdef ROTSPRITE
-	for (angle = 1; angle < ROTANGLES; angle++)
+	for (INT32 angle = 1; angle < ROTANGLES; angle++)
 	{
-		fa = ANG2RAD(FixedAngle((ROTANGDIFF * angle)<<FRACBITS));
+		float fa = ANG2RAD(FixedAngle((ROTANGDIFF * angle)<<FRACBITS));
 		rollcosang[angle] = FLOAT_TO_FIXED(cos(-fa));
 		rollsinang[angle] = FLOAT_TO_FIXED(sin(-fa));
 	}
@@ -766,14 +767,7 @@ void R_InitSprites(void)
 	//
 	// count the number of sprite names, and allocate sprites table
 	//
-	numsprites = 0;
-	for (i = 0; i < NUMSPRITES + 1; i++)
-		if (sprnames[i][0] != '\0') numsprites++;
-
-	if (!numsprites)
-		I_Error("R_AddSpriteDefs: no sprites in namelist\n");
-
-	sprites = Z_Calloc(numsprites * sizeof (*sprites), PU_STATIC, NULL);
+	R_ResizeSprites();
 
 	// find sprites in each -file added pwad
 	for (i = 0; i < numwadfiles; i++)
@@ -797,7 +791,7 @@ void R_InitSprites(void)
 #if 0
 	// STAR NOTE: yeah i had to just... remove it.... right quick :p
 	if (rendermode == render_opengl)
-		HWR_LoadModels();
+		HWR_ReadModels();
 #endif
 #endif
 }
@@ -811,6 +805,34 @@ void R_ClearSprites(void)
 	visspritecount = numvisiblesprites = clippedvissprites = 0;
 }
 
+static INT16 *vissprite_clipbot[MAXVISSPRITES >> VISSPRITECHUNKBITS];
+static INT16 *vissprite_cliptop[MAXVISSPRITES >> VISSPRITECHUNKBITS];
+
+static void R_AllocVisSpriteChunkMemory(UINT32 chunk)
+{
+	vissprite_clipbot[chunk] = Z_Realloc(vissprite_clipbot[chunk], sizeof(INT16) * (VISSPRITESPERCHUNK * viewwidth), PU_STATIC, NULL);
+	vissprite_cliptop[chunk] = Z_Realloc(vissprite_cliptop[chunk], sizeof(INT16) * (VISSPRITESPERCHUNK * viewwidth), PU_STATIC, NULL);
+
+	for (unsigned i = 0; i < VISSPRITESPERCHUNK; i++)
+	{
+		vissprite_t *sprite = visspritechunks[chunk] + i;
+
+		sprite->clipbot = vissprite_clipbot[chunk] + (viewwidth * i);
+		sprite->cliptop = vissprite_cliptop[chunk] + (viewwidth * i);
+	}
+}
+
+void R_AllocVisSpriteMemory(void)
+{
+	unsigned numchunks = MAXVISSPRITES >> VISSPRITECHUNKBITS;
+
+	for (unsigned i = 0; i < numchunks; i++)
+	{
+		if (visspritechunks[i])
+			R_AllocVisSpriteChunkMemory(i);
+	}
+}
+
 //
 // R_NewVisSprite
 //
@@ -818,13 +840,16 @@ static vissprite_t overflowsprite;
 
 static vissprite_t *R_GetVisSprite(UINT32 num)
 {
-		UINT32 chunk = num >> VISSPRITECHUNKBITS;
+	UINT32 chunk = num >> VISSPRITECHUNKBITS;
 
-		// Allocate chunk if necessary
-		if (!visspritechunks[chunk])
-			Z_Malloc(sizeof(vissprite_t) * VISSPRITESPERCHUNK, PU_LEVEL, &visspritechunks[chunk]);
+	// Allocate chunk if necessary
+	if (!visspritechunks[chunk])
+	{
+		Z_Malloc(sizeof(vissprite_t) * VISSPRITESPERCHUNK, PU_LEVEL, &visspritechunks[chunk]);
+		R_AllocVisSpriteChunkMemory(chunk);
+	}
 
-		return visspritechunks[chunk] + (num & VISSPRITEINDEXMASK);
+	return visspritechunks[chunk] + (num & VISSPRITEINDEXMASK);
 }
 
 static vissprite_t *R_NewVisSprite(void)
@@ -887,6 +912,7 @@ void R_DrawMaskedColumn(column_t *column, unsigned lengthcol)
 			dc_source = column->pixels + post->data_offset;
 			dc_texturemid = basetexturemid - (post->topdelta<<FRACBITS);
 
+			// Drawn by R_DrawColumn.
 			colfunc();
 		}
 	}
@@ -967,12 +993,21 @@ void R_DrawFlippedMaskedColumn(column_t *column, unsigned lengthcol)
 	dc_texturemid = basetexturemid;
 }
 
-UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 translation)
+INT32 R_GetTranslationIndexForThing(mobj_t *mobj, skincolornum_t color)
 {
 	INT32 skinnum = TC_DEFAULT;
 
-	boolean is_player = mobj->skin && mobj->sprite == SPR_PLAY;
-	if (is_player) // This thing is a player!
+	if (R_ThingIsFlashing(mobj)) // Bosses "flash"
+	{
+		if (mobj->type == MT_CYBRAKDEMON || mobj->colorized)
+			return TC_ALLWHITE;
+		else if (mobj->type == MT_METALSONIC_BATTLE)
+			return TC_METALSONIC;
+		else
+			return TC_BOSS;
+	}
+
+	if (mobj->skin && mobj->sprite == SPR_PLAY) // This thing is a player!
 		skinnum = ((skin_t*)mobj->skin)->skinnum;
 
 	if (color != SKINCOLOR_NONE)
@@ -993,25 +1028,42 @@ UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 trans
 		}
 	}
 
-	if (R_ThingIsFlashing(mobj)) // Bosses "flash"
+	return skinnum;
+}
+
+UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 translation)
+{
+	INT32 skinnum = R_GetTranslationIndexForThing(mobj, color);
+
+	boolean use_translation_colormap = color != SKINCOLOR_NONE;
+
+	if (skinnum == TC_ALLWHITE || skinnum == TC_METALSONIC || skinnum == TC_DASHMODE)
 	{
-		if (mobj->type == MT_CYBRAKDEMON || mobj->colorized)
-			return R_GetTranslationColormap(TC_ALLWHITE, 0, GTC_CACHE);
-		else if (mobj->type == MT_METALSONIC_BATTLE)
-			return R_GetTranslationColormap(TC_METALSONIC, 0, GTC_CACHE);
-		else
-			return R_GetTranslationColormap(TC_BOSS, color, GTC_CACHE);
+		use_translation_colormap = true;
+
+		// Those translations don't support color remapping, so they
+		// will use SKINCOLOR_NONE always and reduce memory usage.
+		color = SKINCOLOR_NONE;
 	}
-	else if (translation != 0)
+	else if (skinnum == TC_BOSS)
 	{
-		UINT8 *tr = R_GetTranslationRemap(translation, color, skinnum);
-		if (tr != NULL)
-			return tr;
+		use_translation_colormap = true;
 	}
-	else if (color != SKINCOLOR_NONE)
+
+	if (translation != 0)
+	{
+		return R_GetTranslationRemap(translation, color, skinnum);
+	}
+	else if (use_translation_colormap)
+	{
 		return R_GetTranslationColormap(skinnum, color, GTC_CACHE);
-	else if (mobj->sprite == SPR_PLAY) // Looks like a player, but doesn't have a color? Get rid of green sonic syndrome.
-		return R_GetTranslationColormap(TC_DEFAULT, SKINCOLOR_BLUE, GTC_CACHE);
+	}
+	else if (mobj->sprite == SPR_PLAY && (skinnum >= 0 && skinnum < numskins))
+	{
+		// Looks like a player, but doesn't have a color?
+		// Use the skin's prefcolor.
+		return R_GetTranslationColormap(TC_DEFAULT, skins[skinnum]->prefcolor, GTC_CACHE);
+	}
 
 	return NULL;
 }
@@ -1192,7 +1244,7 @@ static void R_DrawVisSprite(vissprite_t *vis)
 #endif
 
 		// Non-paper drawing loop
-		for (dc_x = vis->x1; dc_x <= vis->x2; dc_x++, frac += vis->xiscale, sprtopscreen += vis->shear.tan)
+		for (dc_x = vis->x1; dc_x <= vis->x2 && (frac>>FRACBITS) < patch->width; dc_x++, frac += vis->xiscale, sprtopscreen += vis->shear.tan)
 		{
 			column = &patch->columns[frac>>FRACBITS];
 			localcolfunc (column, lengthcol);
@@ -1248,17 +1300,13 @@ static void R_DrawPrecipitationVisSprite(vissprite_t *vis)
 
 //
 // R_SplitSprite
-// runs through a sector's lightlist and Knuckles
+// runs through a sector's lightlist and splits the sprite according to the heights
+//
 static void R_SplitSprite(vissprite_t *sprite)
 {
-	INT32 i, lightnum, lindex;
-	INT16 cutfrac;
-	sector_t *sector;
-	vissprite_t *newsprite;
+	sector_t *sector = sprite->sector;
 
-	sector = sprite->sector;
-
-	for (i = 1; i < sector->numlights; i++)
+	for (INT32 i = 1; i < sector->numlights; i++)
 	{
 		fixed_t testheight;
 
@@ -1272,7 +1320,7 @@ static void R_SplitSprite(vissprite_t *sprite)
 		if (testheight <= sprite->gz)
 			return;
 
-		cutfrac = (INT16)((centeryfrac - FixedMul(testheight - viewz, sprite->linkscale))>>FRACBITS);
+		INT16 cutfrac = (INT16)((centeryfrac - FixedMul(testheight - viewz, sprite->linkscale))>>FRACBITS);
 		if (cutfrac < 0)
 			continue;
 		if (cutfrac > viewheight)
@@ -1280,7 +1328,16 @@ static void R_SplitSprite(vissprite_t *sprite)
 
 		// Found a split! Make a new sprite, copy the old sprite to it, and
 		// adjust the heights.
-		newsprite = M_Memcpy(R_NewVisSprite(), sprite, sizeof (vissprite_t));
+		vissprite_t *newsprite = R_NewVisSprite();
+
+		// Needs to keep the new sprite's clipping tables
+		INT16 *cliptop = newsprite->cliptop;
+		INT16 *clipbot = newsprite->clipbot;
+
+		M_Memcpy(newsprite, sprite, sizeof (vissprite_t));
+
+		newsprite->cliptop = cliptop;
+		newsprite->clipbot = clipbot;
 
 		newsprite->cut |= (sprite->cut & SC_FLAGMASK);
 
@@ -1305,7 +1362,7 @@ static void R_SplitSprite(vissprite_t *sprite)
 		newsprite->cut |= SC_TOP;
 		if (!(sector->lightlist[i].caster->fofflags & FOF_NOSHADE))
 		{
-			lightnum = (*sector->lightlist[i].lightlevel >> LIGHTSEGSHIFT);
+			INT32 lightnum = (*sector->lightlist[i].lightlevel >> LIGHTSEGSHIFT);
 
 			if (lightnum < 0)
 				spritelights = scalelight[0];
@@ -1319,7 +1376,7 @@ static void R_SplitSprite(vissprite_t *sprite)
 			if (!(newsprite->cut & SC_FULLBRIGHT)
 				|| (newsprite->extra_colormap && (newsprite->extra_colormap->flags & CMF_FADEFULLBRIGHTSPRITES)))
 			{
-				lindex = FixedMul(sprite->xscale, LIGHTRESOLUTIONFIX)>>(LIGHTSCALESHIFT);
+				INT32 lindex = FixedMul(sprite->xscale, LIGHTRESOLUTIONFIX)>>(LIGHTSCALESHIFT);
 
 				if (lindex >= MAXLIGHTSCALE)
 					lindex = MAXLIGHTSCALE-1;
@@ -2239,18 +2296,18 @@ static void R_ProjectSprite(mobj_t *thing)
 			mobj_t *caster = thing->target;
 			interpmobjstate_t casterinterp = { 0 }; // MSVC compatibility - SSNTails
 
-			if (R_UsingFrameInterpolation() && !paused)
-			{
-				R_InterpolateMobjState(caster, rendertimefrac, &casterinterp);
-			}
-			else
-			{
-				R_InterpolateMobjState(caster, FRACUNIT, &casterinterp);
-			}
-
 			if (caster && !P_MobjWasRemoved(caster))
 			{
 				fixed_t floordiff;
+
+				if (R_UsingFrameInterpolation() && !paused)
+				{
+					R_InterpolateMobjState(caster, rendertimefrac, &casterinterp);
+				}
+				else
+				{
+					R_InterpolateMobjState(caster, FRACUNIT, &casterinterp);
+				}
 
 				if (abs(groundz-viewz)/tz > 4)
 					return; // Prevent stretchy shadows and possible crashes

@@ -31,33 +31,26 @@
 #endif
 
 // used now as a maximum video mode size for extra vesa modes.
+// NEVER CHANGE THIS! This is the original resolution of the graphics.
+#define BASEVIDWIDTH 320
+#define BASEVIDHEIGHT 200
 
-// we try to re-allocate a minimum of buffers for stability of the memory,
-// so all the small-enough tables based on screen size, are allocated once
-// and for all at the maximum size.
-#define MAXVIDWIDTH 1920 // don't set this too high because actually
-#define MAXVIDHEIGHT 1200 // lots of tables are allocated with the MAX size.
-#define BASEVIDWIDTH 320 // NEVER CHANGE THIS! This is the original
-#define BASEVIDHEIGHT 200 // resolution of the graphics.
+// Max screen size
+#define MAXVIDWIDTH 8192
+#define MAXVIDHEIGHT 4608
 
 // global video state
 typedef struct viddef_s
 {
-	INT32 modenum; // vidmode num indexes videomodes list
-
 	UINT8 *buffer; // invisible screens buffer
 	size_t rowbytes; // bytes per scanline of the VIDEO mode
 	INT32 width; // PIXELS per scanline
 	INT32 height;
-	union { // don't need numpages for OpenGL, so we can use it for fullscreen/windowed mode
-		INT32 numpages; // always 1, page flipping todo
-		INT32 windowed; // windowed or fullscren mode?
-	} u;
 	INT32 recalc; // if true, recalc vid-based stuff
-	UINT8 *direct; // linear frame buffer, or vga base mem.
+
 	INT32 dup; // scale 1, 2, 3 value for menus & overlays
 	INT32/*fixed_t*/ fdup; // same as dup, but exact value when aspect ratio isn't 320/200
-	INT32 bpp; // BYTES per pixel: 1 = 256color
+	INT32 bpp; // BYTES per pixel: 1 = 256color, 2 = highcolor
 
 	INT32 baseratio; // Used to get the correct value for lighting walls
 
@@ -65,19 +58,36 @@ typedef struct viddef_s
 	DNWH WndParent; // handle of the application's window
 	UINT8 smalldup; // factor for a little bit of scaling
 	UINT8 meddup; // factor for moderate, but not full, scaling
+
+	struct {
+		INT32 width;
+		INT32 height;
+		INT32 renderer;
+		UINT8 set;
+	} change;
+
 #ifdef HWRENDER
-	INT32/*fixed_t*/ fsmalldup;
-	INT32/*fixed_t*/ fmeddup;
-	INT32 glstate;
+	UINT8 glstate;
 #endif
 } viddef_t;
 
 enum
 {
-	VID_GL_LIBRARY_NOTLOADED  = 0,
-	VID_GL_LIBRARY_LOADED     = 1,
-	VID_GL_LIBRARY_ERROR      = -1,
+	VID_RESOLUTION_UNCHANGED,
+	VID_RESOLUTION_CHANGED,
+	VID_RESOLUTION_RESIZED_WINDOW
 };
+
+enum
+{
+	VID_GL_LIBRARY_NOTLOADED,
+	VID_GL_LIBRARY_LOADED,
+	VID_GL_LIBRARY_ERROR
+};
+
+#define MAXWINMODES 18
+
+extern INT32 windowedModes[MAXWINMODES][2];
 
 // ---------------------------------------------
 // color mode dependent drawer function pointers
@@ -146,12 +156,17 @@ extern void (*spanfuncs_npo2[SPANDRAWFUNC_MAX])(void);
 // screen variables
 // ----------------
 extern viddef_t vid;
-extern INT32 setmodeneeded; // mode number to set if needed, or 0
-extern UINT8 setrenderneeded;
 
 extern double averageFPS;
 
+void SCR_ChangeResolution(INT32 width, INT32 height, boolean restore);
+void SCR_SetWindowSize(INT32 width, INT32 height, boolean restore);
 void SCR_ChangeRenderer(void);
+
+const char *SCR_GetModeName(INT32 modeNum);
+INT32 SCR_GetModeForSize(INT32 w, INT32 h);
+
+boolean SCR_IsValidResolution(INT32 width, INT32 height);
 
 extern CV_PossibleValue_t cv_renderer_t[];
 
@@ -178,8 +193,8 @@ void SCR_Recalc(void);
 // Check parms once at startup
 void SCR_CheckDefaultMode(void);
 
-// Set the mode number which is saved in the config
-void SCR_SetDefaultMode(void);
+// Set the resolution which is saved in the config
+void SCR_SetDefaultMode(INT32 width, INT32 height);
 
 void SCR_CalculateFPS(void);
 

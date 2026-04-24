@@ -7,15 +7,10 @@ CURRENT_OPTS:=
 CURRENT_SOURCES:=
 
 ifndef ANDROID
-  opts+=-DTOUCHINPUTS -DNATIVESCREENRES # -DHAVE_WHANDLE
-  ifneq ($(findstring -DHWRENDER, $(opts)),)
-    opts+=-DHAVE_GLES -DHAVE_GLES2
+  CURRENT_OPTS+=-DTOUCHINPUTS -DNATIVESCREENRES # -DHAVE_WHANDLE
+  ifndef NO_GLES2
+    HAVE_GLES2:=1
   endif
-  CURRENT_OPTS+=$(opts)
-  #CURRENT_SOURCES:=$(sources)
-else
-  CURRENT_OPTS+=$(LOCAL_CFLAGS)
-  #CURRENT_SOURCES:=$(LOCAL_SRC_FILES)
 endif
 
 ifndef ANDROID
@@ -27,9 +22,8 @@ SRC_APK:=android
 SRC_XTRA:=xtra
 endif
 
-CURRENT_SOURCES+=$(SRC_MAIN)/w_handle.c
+CURRENT_SOURCES:=$(SRC_MAIN)/w_handle.c
 ifndef ANDROID
-
 CURRENT_SOURCES+=\
   $(call List,$(LOCAL_PATH)/$(SRC_APK)/Sourcefile)\
   $(call List,$(LOCAL_PATH)/$(SRC_XTRA)/Sourcefile)\
@@ -37,14 +31,10 @@ CURRENT_SOURCES+=\
 endif
 
 ifndef NOHW
-  #ifeq (, $(findstring -DHWRENDER, $(CURRENT_OPTS)))
-  #ifdef HAVE_GLES2
-  ifneq ($(findstring -DHAVE_GLES2, $(CURRENT_OPTS)),)
+  ifdef HAVE_GLES2
     CURRENT_OPTS+=-DHAVE_GLES2
     CURRENT_SOURCES+=$(SRC_HWR)/r_gles/r_gles2.c $(SRC_SDL)/ogl_es_sdl.c
-  #else ifdef HAVE_GLES
-  #else ifeq (, $(findstring -DHAVE_GLES,$(CURRENT_OPTS)))
-  else ifneq ($(findstring -DHAVE_GLES, $(CURRENT_OPTS)),)
+  else ifdef HAVE_GLES
     CURRENT_OPTS+=-DHAVE_GLES
     CURRENT_SOURCES+=$(SRC_HWR)/r_gles/r_gles1.c $(SRC_SDL)/ogl_es_sdl.c
   else

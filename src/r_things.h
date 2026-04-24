@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2024 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -58,13 +58,14 @@ void R_DrawFlippedPost(UINT8 *source, unsigned length, void (*drawcolfunc)(void)
 
 // Constant arrays used for psprite clipping
 //  and initializing clipping.
-extern INT16 negonearray[MAXVIDWIDTH];
-extern INT16 screenheightarray[MAXVIDWIDTH];
+extern INT16 *negonearray;
+extern INT16 *screenheightarray;
 
 fixed_t R_GetShadowZ(mobj_t *thing, pslope_t **shadowslope);
 
 //SoM: 6/5/2000: Light sprites correctly!
 void R_AddSprites(sector_t *sec, INT32 lightlevel);
+void R_ResizeSprites(void);
 void R_InitSprites(void);
 void R_ClearSprites(void);
 
@@ -92,6 +93,7 @@ boolean R_ThingIsFullDark (mobj_t *thing);
 
 boolean R_ThingIsFlashing (mobj_t *thing);
 
+INT32 R_GetTranslationIndexForThing(mobj_t *mobj, skincolornum_t color);
 UINT8 *R_GetTranslationForThing(mobj_t *mobj, skincolornum_t color, UINT16 translation);
 transnum_t R_GetThingTransTable(fixed_t alpha, transnum_t transmap);
 
@@ -225,7 +227,7 @@ typedef struct vissprite_s
 	skincolornum_t color;
 	UINT16 translation;
 
-	INT16 clipbot[MAXVIDWIDTH], cliptop[MAXVIDWIDTH];
+	INT16 *clipbot, *cliptop;
 
 	INT32 dispoffset; // copy of mobj->dispoffset, affects ordering but not drawing
 } vissprite_t;
@@ -233,6 +235,10 @@ typedef struct vissprite_s
 extern UINT32 visspritecount, numvisiblesprites;
 
 void R_ClipSprites(drawseg_t* dsstart, portal_t* portal);
+
+void R_AllocVisSpriteMemory(void);
+
+boolean R_SpriteIsFlashing(vissprite_t *vis);
 
 void R_DrawThingBoundingBox(vissprite_t *spr);
 

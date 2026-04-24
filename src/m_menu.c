@@ -131,6 +131,10 @@ typedef enum
 	QUIT3MSG4,
 	QUIT3MSG5,
 	QUIT3MSG6,
+
+	QUIT4MSG,
+	QUIT4MSG2,
+
 	NUM_QUITMESSAGES
 } text_enum;
 
@@ -182,7 +186,8 @@ static  INT32   (*setupcontrols)[2];  // pointer to the gamecontrols of the play
 
 // shhh... what am I doing... nooooo!
 static INT32 vidm_testingmode = 0;
-static INT32 vidm_previousmode;
+static INT32 vidm_previouswidth;
+static INT32 vidm_previousheight;
 static INT32 vidm_selected = 0;
 static INT32 vidm_nummodes;
 static INT32 vidm_column_size;
@@ -1294,8 +1299,8 @@ static menuitem_t OP_P1ControlsMenu[] =
 	{IT_STRING  | IT_CVAR,   NULL, "Automatic braking", &cv_autobrake, 80},
 	{IT_CALL    | IT_STRING, NULL, "Play Style...", M_Setup1PPlaystyleMenu, 90},
 
-	// Accelerometer settings
 #ifdef ACCELEROMETER
+	// Accelerometer settings
 	{IT_STRING | IT_CVAR, NULL,                "Use accelerometer", &cv_useaccelerometer, 110},
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "Accel. scale",      &cv_accelscale, 120},
 	{IT_STRING | IT_CVAR | IT_CV_SLIDER, NULL, "Accel. tilt",       &cv_acceltilt, 130},
@@ -1684,7 +1689,7 @@ static menuitem_t OP_ResolutionMenu[] =
 	                | IT_CV_FLOATSLIDER, NULL, "Scale Divider",              &cv_nativeresdiv,      60},
 
 	{IT_STRING | IT_CVAR,                NULL, "GUI Scale Comparison",       &cv_nativerescompare,  80},
-	{IT_STRING | IT_CVAR,                NULL, "Adjust Field Of View",       &cv_nativeresfov,      90},
+	{IT_STRING | IT_CVAR,                NULL, "Adjust Field Of View",       &cv_fovadjust,         90},
 };
 #endif
 
@@ -1744,27 +1749,27 @@ static menuitem_t OP_OpenGLOptionsMenu[] =
 
 	{IT_HEADER, NULL, "General", NULL, 25},
 	{IT_STRING|IT_CVAR,         NULL, "Shaders",              &cv_glshaders,            31},
-	{IT_STRING|IT_CVAR,         NULL, "Palette rendering",   &cv_glpaletterendering,   36},
+	{IT_STRING|IT_CVAR,         NULL, "Palette rendering",    &cv_glpaletterendering,   36},
 	{IT_STRING|IT_CVAR,         NULL, "Lack of perspective",  &cv_glshearing,           41},
 	{IT_STRING|IT_CVAR,         NULL, "Field of view",        &cv_fov,                  46},
 
-	{IT_HEADER, NULL, "Miscellaneous", NULL, 51},
-	{IT_STRING|IT_CVAR,         NULL, "Texture filter",       &cv_glfiltermode,         57},
-	{IT_STRING|IT_CVAR,         NULL, "Anisotropic",          &cv_glanisotropicmode,    62},
-	{IT_STRING|IT_CVAR,         NULL, "Bit depth",            &cv_scr_depth,            67},
+	{IT_HEADER, NULL, "Miscellaneous", NULL, 55},
+	{IT_STRING|IT_CVAR,         NULL, "Texture filter",       &cv_glfiltermode,         61},
+	{IT_STRING|IT_CVAR,         NULL, "Anisotropic",          &cv_glanisotropicmode,    66},
+	{IT_STRING|IT_CVAR,         NULL, "Bit depth",            &cv_scr_depth,            71},
 
 #ifdef HAVE_GL_FRAMEBUFFER
-	{IT_HEADER, NULL, "Framebuffer", NULL, 77},
-	{IT_STRING|IT_CVAR,         NULL, "Framebuffer objects",  &cv_glframebuffer,        83},
-	{IT_STRING|IT_CVAR,         NULL, "Depth buffer quality", &cv_glrenderbufferdepth,  88},
+	{IT_HEADER, NULL, "Framebuffer", NULL, 80},
+	{IT_STRING|IT_CVAR,         NULL, "Framebuffer objects",  &cv_glframebuffer,        86},
+	{IT_STRING|IT_CVAR,         NULL, "Depth buffer quality", &cv_glrenderbufferdepth,  91},
 #endif
 
 #ifdef ALAM_LIGHTING
-	{IT_SUBMENU|IT_STRING,      NULL, "Lighting...",          &OP_OpenGLLightingDef,    92},
+	{IT_SUBMENU|IT_STRING,      NULL, "Lighting...",         &OP_OpenGLLightingDef,    100},
 #endif
 
 #if defined (_WINDOWS) && (!(defined (__unix__) || defined (UNIXCOMMON) || defined (HAVE_SDL)))
-	{IT_STRING|IT_CVAR,         NULL, "Fullscreen",          &cv_fullscreen,          104},
+	{IT_STRING|IT_CVAR,         NULL, "Fullscreen",          &cv_fullscreen,           105},
 #endif
 };
 
@@ -3885,7 +3890,6 @@ static INT32 M_TSHandleTextField(char *buffer, size_t length)
 		M_CloseVirtualKeyboard();
 		return -1;
 	}
-
 	return 0;
 }
 
@@ -3903,7 +3907,6 @@ static INT32 M_TSHandleTextFieldCVar(consvar_t *cvar)
 		M_CloseVirtualKeyboard();
 		return -1;
 	}
-
 	return 0;
 }
 #endif
@@ -4874,8 +4877,10 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 
 		if (selection == M_IsTouchingMenuSelection(x, y, &slkey, &cv))
 		{
+#ifdef VIRTUAL_KEYBOARD
 			if (I_KeyboardOnScreen() && !M_TSNav_OnTextField())
 				M_CloseVirtualKeyboard();
+#endif
 
 			switch (currentMenu->menustyle)
 			{
@@ -4909,9 +4914,14 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 				default:
 					if (itemOn == selection)
 					{
+#ifdef VIRTUAL_KEYBOARD
 						if (I_KeyboardOnScreen() && M_TSNav_OnTextField())
+						{
 							M_CloseVirtualKeyboard();
-						else if (cv_touchnavmethod.value == 0 && !((currentMenu->menuitems[itemOn].status & IT_TYPE) == IT_CVAR && !cv))
+							break;
+						}
+#endif
+						if (cv_touchnavmethod.value == 0 && !((currentMenu->menuitems[itemOn].status & IT_TYPE) == IT_CVAR && !cv))
 							(*ch) = KEY_ENTER;
 					}
 					else if (!((currentMenu->menuitems[selection].status & IT_TYPE) & IT_SPACE))
@@ -4928,8 +4938,10 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 				(*ch) = slkey;
 		}
 	}
+#ifdef VIRTUAL_KEYBOARD
 	else if (I_KeyboardOnScreen())
 		M_CloseVirtualKeyboard();
+#endif
 
 done:
 	finger->type.menu = false;
@@ -5883,7 +5895,7 @@ void M_Ticker(void)
 	{
 		// restore the previous video mode
 		if (--vidm_testingmode == 0)
-			setmodeneeded = vidm_previousmode + 1;
+			SCR_ChangeResolution(vidm_previouswidth, vidm_previousheight, true);
 	}
 
 	if (menuactive)
@@ -5944,30 +5956,33 @@ void M_Init(void)
 	CV_RegisterVar(&cv_dummyloadless);
 	CV_RegisterVar(&cv_dummycutscenes);
 
-	quitmsg[QUITMSG] = M_GetText("Eggman's tied explosives\nto your girlfriend, and\nwill activate them if\nyou press the 'Y' key!\nPress 'N' to save her!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG1] = M_GetText("What would Tails say if\nhe saw you quitting the game?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG2] = M_GetText("Hey!\nWhere do ya think you're goin'?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG3] = M_GetText("Forget your studies!\nPlay some more!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG4] = M_GetText("You're trying to say you\nlike Sonic 2K6 better than\nthis, right?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG5] = M_GetText("Don't leave yet -- there's a\nsuper emerald around that corner!\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG6] = M_GetText("You'd rather work than play?\n\n(Press 'Y' to quit)");
-	quitmsg[QUITMSG7] = M_GetText("Go ahead and leave. See if I care...\n*sniffle*\n\n(Press 'Y' to quit)");
+	quitmsg[QUITMSG] = M_GetText("Eggman's tied explosives\nto your girlfriend, and\nwill activate them if\nyou press the 'Y' key!\nPress 'N' to save her!\n");
+	quitmsg[QUITMSG1] = M_GetText("What would Tails say if\nhe saw you quitting the game?\n");
+	quitmsg[QUITMSG2] = M_GetText("Hey!\nWhere do ya think you're goin'?\n");
+	quitmsg[QUITMSG3] = M_GetText("Forget your studies!\nPlay some more!\n");
+	quitmsg[QUITMSG4] = M_GetText("You're trying to say you\nlike Sonic 2K6 better than\nthis, right?\n");
+	quitmsg[QUITMSG5] = M_GetText("Don't leave yet -- there's a\nsuper emerald around that corner!\n");
+	quitmsg[QUITMSG6] = M_GetText("You'd rather work than play?\n");
+	quitmsg[QUITMSG7] = M_GetText("Go ahead and leave. See if I care...\n*sniffle*\n");
 
-	quitmsg[QUIT2MSG] = M_GetText("If you leave now,\nEggman will take over the world!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG1] = M_GetText("Don't quit!\nThere are animals\nto save!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG2] = M_GetText("Aw c'mon, just bop\na few more robots!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG3] = M_GetText("Did you get all those Chaos Emeralds?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG4] = M_GetText("If you leave, I'll use\nmy spin attack on you!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG5] = M_GetText("Don't go!\nYou might find the hidden\nlevels!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT2MSG6] = M_GetText("Hit the 'N' key, Sonic!\nThe 'N' key!\n\n(Press 'Y' to quit)");
+	quitmsg[QUIT2MSG] = M_GetText("If you leave now,\nEggman will take over the world!\n");
+	quitmsg[QUIT2MSG1] = M_GetText("Don't quit!\nThere are animals\nto save!\n");
+	quitmsg[QUIT2MSG2] = M_GetText("Aw c'mon, just bop\na few more robots!\n");
+	quitmsg[QUIT2MSG3] = M_GetText("Did you get all those Chaos Emeralds?\n");
+	quitmsg[QUIT2MSG4] = M_GetText("If you leave, I'll use\nmy spin attack on you!\n");
+	quitmsg[QUIT2MSG5] = M_GetText("Don't go!\nYou might find the hidden\nlevels!\n");
+	quitmsg[QUIT2MSG6] = M_GetText("Hit the 'N' key, Sonic!\nThe 'N' key!\n");
 
-	quitmsg[QUIT3MSG] = M_GetText("Are you really going to give up?\nWe certainly would never give you up.\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG1] = M_GetText("Come on, just ONE more netgame!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG2] = M_GetText("Press 'N' to unlock\nthe Ultimate Cheat!\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG3] = M_GetText("Why don't you go back and try\njumping on that house to\nsee what happens?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG4] = M_GetText("Every time you press 'Y', an\nSRB2 Developer cries...\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG5] = M_GetText("You'll be back to play soon, though...\n......right?\n\n(Press 'Y' to quit)");
-	quitmsg[QUIT3MSG6] = M_GetText("Aww, is Egg Rock Zone too\ndifficult for you?\n\n(Press 'Y' to quit)");
+	quitmsg[QUIT3MSG] = M_GetText("Are you really going to give up?\nWe certainly would never give you up.\n");
+	quitmsg[QUIT3MSG1] = M_GetText("Come on, just ONE more netgame!\n");
+	quitmsg[QUIT3MSG2] = M_GetText("Press 'N' to unlock\nthe Ultimate Cheat!\n");
+	quitmsg[QUIT3MSG3] = M_GetText("Why don't you go back and try\njumping on that house to\nsee what happens?\n");
+	quitmsg[QUIT3MSG4] = M_GetText("Every time you press 'Y', an\nSRB2 Developer cries...\n");
+	quitmsg[QUIT3MSG5] = M_GetText("You'll be back to play soon, though...\n......right?\n");
+	quitmsg[QUIT3MSG6] = M_GetText("Aww, is Egg Rock Zone too\ndifficult for you?\n");
+
+	quitmsg[QUIT4MSG] = M_GetText("You're trying to say you\nlike Sonic Dash better than\nthis, right?\n");
+	quitmsg[QUIT4MSG2] = M_GetText("You'd rather chat than play?\n");
 
 	/*
 	Well the menu sucks for forcing us to have an item set
@@ -9013,8 +9028,13 @@ static void M_HandleAddons(INT32 choice)
 {
 	boolean exitmenu = false; // exit to previous menu
 
+#ifdef VIRTUAL_KEYBOARD
+	if (!I_KeyboardOnScreen())
+		M_HandleAddonsTextInput(choice);
+	else
+#endif
 #ifdef TOUCHINPUTS
-	if (choice == KEY_DEL || choice == KEY_BACKSPACE || !I_KeyboardOnScreen())
+	if (choice == KEY_DEL || choice == KEY_BACKSPACE)
 #endif
 		M_HandleAddonsTextInput(choice);
 
@@ -9281,7 +9301,9 @@ loop_done:
 			break;
 	}
 
+#ifdef VIRTUAL_KEYBOARD
 	if (!I_KeyboardOnScreen())
+#endif
 	{
 		sx = x - (21 + 5 + 16);
 		sy = BASEVIDHEIGHT - currentMenu->y + 1;
@@ -9313,8 +9335,10 @@ loop_done:
 	}
 
 done:
+#ifdef VIRTUAL_KEYBOARD
 	if (I_KeyboardOnScreen())
 		M_CloseVirtualKeyboard();
+#endif
 	return true;
 }
 #endif
@@ -11893,7 +11917,9 @@ static void M_GetSaveSelectSlotPosition(INT32 i, INT32 *retx, INT32 *rety)
 
 static void M_ResetSaveSelectFX(fixed_t new_scroll, fixed_t new_offset)
 {
+#ifdef TOUCHINPUTS
 	M_ResetMenuTouchFX(&saveselectfx);
+#endif
 	loadgamescroll = ((new_scroll != -1) ? new_scroll : loadgamescroll);
 	loadgameoffset = ((new_offset != -1) ? new_offset : loadgameoffset);
 }
@@ -16748,8 +16774,10 @@ TSNAVHANDLER(PlayerSetup)
 	}
 
 done:
+#ifdef VIRTUAL_KEYBOARD
 	if (I_KeyboardOnScreen())
 		M_CloseVirtualKeyboard();
+#endif
 	return true;
 }
 #endif
@@ -17865,6 +17893,12 @@ static void M_DrawTouchControlsMenu(void)
 // VIDEO MODE MENU
 // ===============
 
+//added : 30-01-98:
+#define MAXCOLUMNMODES   12     //max modes displayed in one column
+#define MAXMODEDESCS     (MAXCOLUMNMODES*3)
+
+static modedesc_t modedescs[MAXMODEDESCS];
+
 static void M_ResolutionMenu(INT32 choice)
 {
 #ifdef NATIVESCREENRES
@@ -17877,71 +17911,42 @@ static void M_ResolutionMenu(INT32 choice)
 
 static void M_VideoModeMenu(INT32 choice)
 {
-	INT32 i, j, vdup, nummodes, width, height;
-	const char *desc;
-
 	(void)choice;
 
 	memset(modedescs, 0, sizeof(modedescs));
 
-	VID_PrepareModeList(); // FIXME: hack
-
 	vidm_nummodes = 0;
-	vidm_selected = 0;
-	nummodes = VID_NumModes();
+	vidm_selected = -1;
 
-	i = 0;
-
-	for (; i < nummodes && vidm_nummodes < MAXMODEDESCS; i++)
+	for (INT32 i = 0; i < MAXWINMODES && vidm_nummodes < MAXMODEDESCS; i++)
 	{
-		desc = VID_GetModeName(i);
-		if (desc)
+		modedesc_t *desc = &modedescs[vidm_nummodes];
+
+		INT32 width = windowedModes[i][0];
+		INT32 height = windowedModes[i][1];
+
+		desc->width = width;
+		desc->height = height;
+
+		snprintf(desc->desc, sizeof desc->desc, "%dx%d", width, height);
+
+		if (width == vid.width && height == vid.height)
+			vidm_selected = vidm_nummodes;
+
+		vidm_nummodes++;
+	}
+
+	// Find closest resolution in the list that matches the current one
+	if (vidm_selected < 0)
+	{
+		for (INT32 i = 0; i < vidm_nummodes; i++)
 		{
-			vdup = 0;
-
-			// when a resolution exists both under VGA and VESA, keep the
-			// VESA mode, which is always a higher modenum
-			for (j = 0; j < vidm_nummodes; j++)
-			{
-				if (!strcmp(modedescs[j].desc, desc))
-				{
-					// mode(0): 320x200 is always standard VGA, not vesa
-					if (modedescs[j].modenum)
-					{
-						modedescs[j].modenum = i;
-						vdup = 1;
-
-						if (i == vid.modenum)
-							vidm_selected = j;
-					}
-					else
-						vdup = 1;
-
-					break;
-				}
-			}
-
-			if (!vdup)
-			{
-				modedescs[vidm_nummodes].modenum = i;
-				modedescs[vidm_nummodes].desc = desc;
-
-				if (i == vid.modenum)
-					vidm_selected = vidm_nummodes;
-
-				// Pull out the width and height
-				sscanf(desc, "%u%*c%u", &width, &height);
-
-				// Show multiples of 320x200 as green.
-				if (SCR_IsAspectCorrect(width, height))
-					modedescs[vidm_nummodes].goodratio = 1;
-
-				vidm_nummodes++;
-			}
+			if (modedescs[i].width >= vid.width && modedescs[i].height >= vid.height)
+				vidm_selected = i;
 		}
 	}
 
-	vidm_column_size = (vidm_nummodes+2) / 3;
+	vidm_column_size = (vidm_nummodes + 2) / 3;
 
 	M_SetupNextMenu(&OP_VideoModeDef);
 }
@@ -17990,9 +17995,8 @@ static void M_DrawVideoMode(void)
 	{
 		if (i == vidm_selected)
 			V_DrawString(row, col, V_YELLOWMAP, modedescs[i].desc);
-		// Show multiples of 320x200 as green.
 		else
-			V_DrawString(row, col, (modedescs[i].goodratio) ? V_GREENMAP : 0, modedescs[i].desc);
+			V_DrawString(row, col, 0, modedescs[i].desc);
 
 		col += 8;
 		if ((i % vidm_column_size) == (vidm_column_size-1))
@@ -18007,11 +18011,9 @@ static void M_DrawVideoMode(void)
 		INT32 testtime = (vidm_testingmode/TICRATE) + 1;
 
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 116, 0,
-			va("Previewing mode %c%dx%d",
-				(SCR_IsAspectCorrect(vid.width, vid.height)) ? 0x83 : 0x80,
-				vid.width, vid.height));
+			va("Previewing resolution %dx%d", vid.width, vid.height));
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 138, 0,
-			"Press ENTER again to keep this mode");
+			"Press ENTER again to keep this resolution");
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 150, 0,
 			va("Wait %d second%s", testtime, (testtime > 1) ? "s" : ""));
 		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 158, 0,
@@ -18019,28 +18021,24 @@ static void M_DrawVideoMode(void)
 	}
 	else
 	{
-		V_DrawFill(60, OP_VideoModeDef.y + 98, 200, 12, 159);
-		V_DrawFill(60, OP_VideoModeDef.y + 114, 200, 20, 159);
+		INT32 y1 = OP_VideoModeDef.y + 120;
+		INT32 y2 = y1 + 12 + 4;
 
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 100, 0,
-			va("Current mode is %c%dx%d",
-				(SCR_IsAspectCorrect(vid.width, vid.height)) ? 0x83 : 0x80,
-				vid.width, vid.height));
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 116, (cv_fullscreen.value ? 0 : V_TRANSLUCENT),
-			va("Default mode is %c%dx%d",
-				(SCR_IsAspectCorrect(cv_scr_width.value, cv_scr_height.value)) ? 0x83 : (!(VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value)+1) ? 0x85 : 0x80),
+		INT32 width = 256;
+
+		V_DrawFill(BASEVIDWIDTH/2 - (width / 2), y1, width, 12, 159);
+		V_DrawFill(BASEVIDWIDTH/2 - (width / 2), y2, width, 20, 159);
+
+		V_DrawCenteredString(BASEVIDWIDTH/2, y1 + 2, 0,
+			va("Current resolution is %dx%d", vid.width, vid.height));
+		V_DrawCenteredString(BASEVIDWIDTH/2, y2 + 2, (cv_fullscreen.value ? 0 : V_TRANSLUCENT),
+			va("Default resolution is %c%dx%d",
+				!SCR_IsValidResolution(cv_scr_width.value, cv_scr_height.value) ? 0x85 : 0x80,
 				cv_scr_width.value, cv_scr_height.value));
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 124, (cv_fullscreen.value ? V_TRANSLUCENT : 0),
-			va("Windowed mode is %c%dx%d",
-				(SCR_IsAspectCorrect(cv_scr_width_w.value, cv_scr_height_w.value)) ? 0x83 : (!(VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value)+1) ? 0x85 : 0x80),
+		V_DrawCenteredString(BASEVIDWIDTH/2, y2 + 2 + 8, (cv_fullscreen.value ? V_TRANSLUCENT : 0),
+			va("Windowed resolution is %c%dx%d",
+				!SCR_IsValidResolution(cv_scr_width_w.value, cv_scr_height_w.value) ? 0x85 : 0x80,
 				cv_scr_width_w.value, cv_scr_height_w.value));
-
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 138,
-			V_GREENMAP, "Green modes are recommended.");
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 146,
-			V_YELLOWMAP, "Other modes may have visual errors.");
-		V_DrawCenteredString(BASEVIDWIDTH/2, OP_VideoModeDef.y + 158,
-			V_YELLOWMAP, "Larger modes may have performance issues.");
 	}
 
 	// Draw the cursor for the VidMode menu
@@ -18186,7 +18184,7 @@ static void M_HandleVideoMode(INT32 ch)
 	{
 		// change back to the previous mode quickly
 		case KEY_ESCAPE:
-			setmodeneeded = vidm_previousmode + 1;
+			SCR_ChangeResolution(vidm_previouswidth, vidm_previousheight, true);
 			vidm_testingmode = 0;
 			break;
 
@@ -18228,23 +18226,26 @@ static void M_HandleVideoMode(INT32 ch)
 			break;
 
 		case KEY_ENTER:
-			if (vid.modenum == modedescs[vidm_selected].modenum)
+			if (vid.width == modedescs[vidm_selected].width && vid.height == modedescs[vidm_selected].height)
 			{
 				S_StartSound(NULL, sfx_strpst);
-				SCR_SetDefaultMode();
+				SCR_SetDefaultMode(vid.width, vid.height);
 			}
 			else
 			{
 				S_StartSound(NULL, sfx_menu1);
 				vidm_testingmode = 15*TICRATE;
-				vidm_previousmode = vid.modenum;
-				if (!setmodeneeded) // in case the previous setmode was not finished
+				vidm_previouswidth = vid.width;
+				vidm_previousheight = vid.height;
+
+				if (!vid.change.set) // in case the previous setmode was not finished
 				{
 #ifdef NATIVESCREENRES
 					CV_StealthSetValue(&cv_nativeres, false);
 #endif
-					setmodeneeded = modedescs[vidm_selected].modenum + 1;
+					SCR_ChangeResolution(modedescs[vidm_selected].width, modedescs[vidm_selected].height, true);
 				}
+			
 			}
 			break;
 
@@ -18262,9 +18263,9 @@ static void M_HandleVideoMode(INT32 ch)
 			CV_Set(&cv_scr_width_w, cv_scr_width_w.defaultvalue);
 			CV_Set(&cv_scr_height_w, cv_scr_height_w.defaultvalue);
 			if (cv_fullscreen.value)
-				setmodeneeded = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value)+1;
+				SCR_ChangeResolution(cv_scr_width.value, cv_scr_height.value, true);
 			else
-				setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value)+1;
+				SCR_ChangeResolution(cv_scr_width_w.value, cv_scr_height_w.value, true);
 			break;
 
 		case KEY_F10: // Renderer toggle, also processed inside menus
@@ -18390,9 +18391,8 @@ void M_QuitResponse(INT32 ch)
 {
 	tic_t ptime;
 	INT32 mrand;
-
-	// SRB2Android
 	boolean declined = false;
+
 	if (inputmethod != INPUTMETHOD_TVREMOTE)
 	{
 		// Normal
@@ -18435,24 +18435,14 @@ void M_QuitResponse(INT32 ch)
 	I_Quit();
 }
 
-#ifdef BREADCRUMB
-static void M_BreadcrumbQuitResponse(INT32 ch)
-{
-	M_QuitResponse(ch);
-}
-#endif
-
 static void M_AskQuitSRB2(void *routine, INT32 uatype)
 {
 	const char *rnd_quit_message = quitmsg[M_RandomKey(NUM_QUITMESSAGES)];
-	static char *message = NULL;
+	char *message = V_WordWrap(0, 21*8, V_ALLOWLOWERCASE, rnd_quit_message);
 
-	Z_Free(message);
-	message = V_WordWrap(0, 21*8, V_ALLOWLOWERCASE, rnd_quit_message);
-
-	strcpy(message, rnd_quit_message);
-	message[strlen(message) - 20 - 1] = '\0'; // (20 - 1) removes the control prompt
+	//strcpy(message, rnd_quit_message);
 	M_StartMessage(M_GetText(message), routine, MM_YESNO);
+	Z_Free(message);
 
 	android_data.prompt_leavegame = uatype;
 }
@@ -18464,6 +18454,11 @@ static void M_QuitSRB2(INT32 choice)
 }
 
 #ifdef BREADCRUMB
+static void M_BreadcrumbQuitResponse(INT32 ch)
+{
+	M_QuitResponse(ch);
+}
+
 static void M_BreadcrumbQuitSRB2(INT32 choice)
 {
 	(void)choice;

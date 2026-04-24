@@ -2,7 +2,9 @@
 //-----------------------------------------------------------------------------
 //
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 2014-2021 by Sonic Team Junior.
+// Copyright (C) 2014-2023 by Sonic Team Junior.
+// Copyright (C) 2023-2025 by Bitten2Up.
+// Copyright (C) 2025 by StarManiaKG.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,28 +17,27 @@
 // GNU General Public License for more details.
 //
 //-----------------------------------------------------------------------------
-/// \file
-/// \brief SDL specific part of the OpenGL ES API for SRB2
+/// \file sdl/ogl_es_sdl.c
+/// \brief SDL specific part of the OpenGL-ES API for SRB2
 
-#ifdef HAVE_SDL
-#define _MATH_DEFINES_DEFINED
+#if defined (HAVE_SDL) && defined (HWRENDER)
 
-#include "SDL.h"
-
-#include "sdlmain.h"
-
-#include "../doomdef.h"
-
-#ifdef HWRENDER
-#include "../hardware/r_gles/r_gles.h"
-#include "ogl_es_sdl.h"
-#include "../i_system.h"
+#include "ogl_sdl.h"
 #include "hwsym_sdl.h"
+
+#include "../hardware/r_gles/r_gles.h"
+#include "../i_system.h"
 #include "../m_argv.h"
+
+void *GLUhandle = NULL;
+SDL_GLContext sdlglcontext = 0;
+
+#ifdef HAVE_GL_FRAMEBUFFER
+static boolean firstFramebuffer = false;
+#endif
 
 /**	\brief SDL video display surface
 */
-SDL_GLContext sdlglcontext = 0;
 
 void *GLBackend_GetFunction(const char *proc)
 {
@@ -45,35 +46,27 @@ void *GLBackend_GetFunction(const char *proc)
 
 boolean GLBackend_Init(void)
 {
-	if (SDL_GL_LoadLibrary(NULL) != 0)
+#ifndef STATIC_OPENGL
+	const char *OGLLibname = NULL;
+
+	if (M_CheckParm("-OGLlib") && M_IsNextParm())
+		OGLLibname = M_GetNextParm();
+
+	if (SDL_GL_LoadLibrary(OGLLibname) != 0)
 	{
-		CONS_Alert(CONS_ERROR, "Could not load OpenGL Library: %s\nFalling back to Software mode.\n", SDL_GetError());
-		return 0;
+		CONS_Alert(CONS_ERROR, "Could not load OpenGL Library: %s\n" "Falling back to Software mode.\n", SDL_GetError());
+		if (!M_CheckParm("-OGLlib"))
+			CONS_Printf("If you know what is the OpenGL library's name, use -OGLlib\n");
+		return false;
 	}
+#endif
 
 	if (!GLBackend_InitContext())
 		return false;
-
+	if (!GLBackend_LoadCommonFunctions())
+		return false;
 	return GLBackend_LoadFunctions();
 }
-
-/**	\brief	The OglSdlSurface function
-
-	\param	w	width
-	\param	h	height
-	\param	isFullscreen	if true, go fullscreen
-
-	\return	if true, changed video mode
-*/
-boolean OglSdlSurface(INT32 w, INT32 h)
-{
-	GLBackend_SetSurface(w, h);
-	return true;
-}
-
-#ifdef HAVE_GL_FRAMEBUFFER
-static boolean firstFramebuffer = false;
-#endif
 
 /**	\brief	The OglSdlFinishUpdate function
 
@@ -84,20 +77,26 @@ static boolean firstFramebuffer = false;
 void OglSdlFinishUpdate(boolean waitvbl)
 {
 	int sdlw, sdlh;
-
 	static boolean oldwaitvbl = false;
-	if (oldwaitvbl != waitvbl)
-		SDL_GL_SetSwapInterval(waitvbl ? 1 : 0);
 
+	if (oldwaitvbl != waitvbl)
+	{
+		SDL_GL_SetSwapInterval(waitvbl ? 1 : 0);
+	}
 	oldwaitvbl = waitvbl;
 
 	SDL_GetWindowSize(window, &sdlw, &sdlh);
 
-#if 1
 #ifdef HAVE_GL_FRAMEBUFFER
 	GLFramebuffer_Disable();
 	RenderToFramebuffer = FramebufferEnabled;
+#endif
 
+	HWR_MakeScreenFinalTexture();
+	HWR_DrawScreenFinalTexture(sdlw, sdlh);
+	SDL_GL_SwapWindow(window);
+
+#ifdef HAVE_GL_FRAMEBUFFER
 	if (RenderToFramebuffer)
 	{
 		// I have no idea why I have to do this.
@@ -110,36 +109,14 @@ void OglSdlFinishUpdate(boolean waitvbl)
 		GLFramebuffer_Enable();
 	}
 #endif
-#else
-	// STAR NOTE: hi opengles
-	HWR_MakeScreenFinalTexture();
-	HWR_DrawScreenFinalTexture(sdlw, sdlh);
-	SDL_GL_SwapWindow(window);
-#endif
 
-	SDL_GL_SwapWindow(window);
 	GClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
 
 	// Sryder:	We need to draw the final screen texture again into the other buffer in the original position so that
 	//			effects that want to take the old screen can do so after this
-#if 1
+	// Generic2 has the screen image without palette rendering brightness adjustments.
+	// Using that here will prevent brightness adjustments being applied twice.
 	DrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
-#else
-	// STAR NOTE: hi opengles fixes
-	HWR_DrawScreenFinalTexture(realwidth, realheight);
-#endif
 }
 
-EXPORT void HWRAPI(OglSdlSetPalette) (RGBA_t *palette)
-{
-	size_t palsize = (sizeof(RGBA_t) * 256);
-	// on a palette change, you have to reload all of the textures
-	if (memcmp(&myPaletteData, palette, palsize))
-	{
-		memcpy(&myPaletteData, palette, palsize);
-		GLTexture_Flush();
-	}
-}
-
-#endif //HWRENDER
-#endif //SDL
+#endif // defined (HAVE_SDL) && defined (HWRENDER)

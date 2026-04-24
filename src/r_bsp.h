@@ -38,9 +38,12 @@ extern boolean horizonline;
 
 extern INT32 doorclosed;
 
+extern UINT8 *solidcol;
+
 // BSP?
 void R_ClearClipSegs(void);
 void R_PortalClearClipSegs(INT32 start, INT32 end);
+void R_AllocClipSegMemory(void);
 void R_ClearDrawSegs(void);
 void R_RenderBSPNode(INT32 bspnum);
 void R_RenderPortalHorizonLine(sector_t *sector);

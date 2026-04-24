@@ -116,6 +116,9 @@ void HU_DrawEmeralds(INT32 x, INT32 y, INT32 pemeralds);
 
 INT32 HU_CreateTeamScoresTbl(playersort_t *tab, UINT32 dmtotals[]);
 
+void HU_OpenChat(boolean allow_teamtalk);
+void HU_CloseChat(boolean scroll_me_down);
+
 // CECHO interface.
 void HU_ClearCEcho(void);
 void HU_SetCEchoDuration(INT32 seconds);

@@ -167,8 +167,10 @@ static void DisplayMessage(const char *message)
 
 static void StopRenamingLayout(touchlayout_t *layout)
 {
+#ifdef VIRTUAL_KEYBOARD
 	if (I_KeyboardOnScreen() && !CON_Ready())
 		I_CloseScreenKeyboard();
+#endif
 
 	if (layout)
 	{
@@ -1953,8 +1955,10 @@ static void OpenSubmenu(touchcust_submenu_e submenu)
 
 static void CloseSubmenu(void)
 {
+#ifdef VIRTUAL_KEYBOARD
 	if (I_KeyboardOnScreen())
 		I_CloseScreenKeyboard();
+#endif
 
 	if (touchcust_submenu == touchcust_submenu_layouts)
 		StopRenamingLayout(touchcust_layoutlist_renaming);
@@ -2914,8 +2918,10 @@ boolean TS_HandleKeyEvent(INT32 key, event_t *event)
 				return true;
 
 			default:
+#ifdef VIRTUAL_KEYBOARD
 				if (I_KeyboardOnScreen())
 					return true;
+#endif
 
 				if (key < 32 || key > 127)
 					return true;

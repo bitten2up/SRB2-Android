@@ -3,6 +3,8 @@
 //
 // Copyright (C) 1998-2000 by DooM Legacy Team.
 // Copyright (C) 2014-2023 by Sonic Team Junior.
+// Copyright (C) 2023-2025 by Bitten2Up.
+// Copyright (C) 2025 by StarManiaKG.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,32 +17,16 @@
 // GNU General Public License for more details.
 //
 //-----------------------------------------------------------------------------
-/// \file
+/// \file sdl/ogl_sdl.c
 /// \brief SDL specific part of the OpenGL API for SRB2
 
-#ifdef _MSC_VER
-#pragma warning(disable : 4214 4244)
-#endif
+#if defined (HAVE_SDL) && defined (HWRENDER)
 
-#ifdef HAVE_SDL
-#define _MATH_DEFINES_DEFINED
-
-#include "SDL.h"
-
-#include "sdlmain.h"
-
-#ifdef _MSC_VER
-#pragma warning(default : 4214 4244)
-#endif
-
-#include "../doomdef.h"
-
-#ifdef HWRENDER
-#include "../hardware/r_opengl/r_opengl.h"
-#include "../hardware/hw_main.h"
 #include "ogl_sdl.h"
-#include "../i_system.h"
 #include "hwsym_sdl.h"
+
+#include "../hardware/r_glcommon/r_glcommon.h"
+#include "../i_system.h"
 #include "../m_argv.h"
 
 #ifdef DEBUG_TO_FILE
@@ -61,20 +47,23 @@ typedef int (*PFNGLXSWAPINTERVALPROC) (int);
 PFNGLXSWAPINTERVALPROC glXSwapIntervalSGIEXT = NULL;
 #endif
 
+void *GLUhandle = NULL;
+SDL_GLContext sdlglcontext = 0;
+
+/** \todo STAR NOTE: maybe get rid of glu?
+ * 			either that or update SDL
+*/
+
 /**	\brief SDL video display surface
 */
-void *GLUhandle = NULL;
-INT32 oglflags = 0;
-SDL_GLContext sdlglcontext = 0;
 
 void *GLBackend_GetFunction(const char *proc)
 {
-	if (strncmp(proc, "glu", 3) == 0)
+	if ((strncmp(proc, "glu", 3) == 0) && GLUhandle)
 	{
-		if (GLUhandle)
-			return hwSym(proc, GLUhandle);
-		else
-			return NULL;
+		void *handle = hwSym(proc, GLUhandle);
+		if (handle != NULL)
+			return handle;
 	}
 	return SDL_GL_GetProcAddress(proc);
 }
@@ -90,8 +79,7 @@ boolean GLBackend_Init(void)
 
 	if (SDL_GL_LoadLibrary(OGLLibname) != 0)
 	{
-		CONS_Alert(CONS_ERROR, "Could not load OpenGL Library: %s\n"
-					"Falling back to Software mode.\n", SDL_GetError());
+		CONS_Alert(CONS_ERROR, "Could not load OpenGL Library: %s\n" "Falling back to Software mode.\n", SDL_GetError());
 		if (!M_CheckParm("-OGLlib"))
 			CONS_Printf("If you know what is the OpenGL library's name, use -OGLlib\n");
 		return 0;
@@ -113,19 +101,13 @@ boolean GLBackend_Init(void)
 	GLULibname = NULL;
 #endif
 
-#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
-	SetupGLfunc();
-#endif
-
 	if (M_CheckParm("-GLUlib") && M_IsNextParm())
 		GLULibname = M_GetNextParm();
 
 	if (GLULibname)
 	{
 		GLUhandle = hwOpen(GLULibname);
-		if (GLUhandle)
-			return GLBackend_LoadFunctions();
-		else
+		if (GLUhandle == NULL)
 		{
 			CONS_Alert(CONS_ERROR, "Could not load GLU Library: %s\n", GLULibname);
 			if (!M_CheckParm ("-GLUlib"))
@@ -137,69 +119,13 @@ boolean GLBackend_Init(void)
 		CONS_Alert(CONS_ERROR, "Could not load GLU Library\n");
 		CONS_Alert(CONS_ERROR, "If you know what is the GLU library's name, use -GLUlib\n");
 	}
-#endif
-#if 1
+#endif // STATIC_OPENGL
+
 	if (!GLBackend_InitContext())
 		return false;
-#endif
-#if 1
-	if (!GLBackend_LoadExtraFunctions())
+	if (!GLBackend_LoadCommonFunctions())
 		return false;
-#endif
 	return GLBackend_LoadFunctions();
-}
-
-/**	\brief	The OglSdlSurface function
-
-	\param	w	width
-	\param	h	height
-
-	\return	if true, changed video mode
-*/
-boolean OglSdlSurface(INT32 w, INT32 h)
-{
-	INT32 cbpp = cv_scr_depth.value < 16 ? 16 : cv_scr_depth.value;
-#if 1
-	// STAR NOTE: hi
-	static int majorGL = 0, minorGL = 0;
-#endif
-
-#if 0
-	if (!GLBackend_InitContext())
-		return false;
-#endif
-
-#if 0
-	if (!GLBackend_LoadExtraFunctions())
-		return false;
-#endif
-
-	if (GLExtension_Available("GL_EXT_texture_filter_anisotropic"))
-		pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maximumAnisotropy);
-	else
-		maximumAnisotropy = 1;
-
-	if (sscanf((const char*)gl_version, "%d.%d", &majorGL, &minorGL)
-		&& (!(majorGL == 1 && minorGL <= 3)))
-		MipmapSupported = true;
-	else
-		MipmapSupported = false;
-
-#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
-	SetupGLFunc4();
-#endif
-
-	glanisotropicmode_cons_t[1].value = maximumAnisotropy;
-	SDL_GL_SetSwapInterval(cv_vidwait.value ? 1 : 0);
-
-	GLBackend_SetSurface(w, h);
-	GLBackend_SetStates();
-	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-
-	HWR_Startup();
-	textureformatGL = cbpp > 16 ? GL_RGBA : GL_RGB5_A1;
-
-	return true;
 }
 
 /**	\brief	The OglSdlFinishUpdate function
@@ -212,25 +138,28 @@ void OglSdlFinishUpdate(boolean waitvbl)
 {
 	static boolean oldwaitvbl = false;
 	int sdlw, sdlh;
+
 	if (oldwaitvbl != waitvbl)
 	{
 		SDL_GL_SetSwapInterval(waitvbl ? 1 : 0);
 	}
-
 	oldwaitvbl = waitvbl;
 
-	SDL_GetWindowSize(window, &sdlw, &sdlh);
-	HWR_MakeScreenFinalTexture();
 #ifdef HAVE_GL_FRAMEBUFFER
 	GLFramebuffer_Disable();
 	RenderToFramebuffer = FramebufferEnabled;
 #endif
+
+	SDL_GetWindowSize(window, &sdlw, &sdlh);
+
+	HWR_MakeScreenFinalTexture();
 	HWR_DrawScreenFinalTexture(sdlw, sdlh);
+	SDL_GL_SwapWindow(window);
+
 #ifdef HAVE_GL_FRAMEBUFFER
 	if (RenderToFramebuffer)
 		GLFramebuffer_Enable();
 #endif
-	SDL_GL_SwapWindow(window);
 
 	GClipRect(0, 0, realwidth, realheight, NZCLIP_PLANE);
 
@@ -241,16 +170,4 @@ void OglSdlFinishUpdate(boolean waitvbl)
 	DrawScreenTexture(HWD_SCREENTEXTURE_GENERIC2, NULL, 0);
 }
 
-EXPORT void HWRAPI(OglSdlSetPalette) (RGBA_t *palette)
-{
-	size_t palsize = (sizeof(RGBA_t) * 256);
-	// on a palette change, you have to reload all of the textures
-	if (memcmp(&myPaletteData, palette, palsize))
-	{
-		memcpy(&myPaletteData, palette, palsize);
-		GLTexture_Flush();
-	}
-}
-
-#endif //HWRENDER
-#endif //SDL
+#endif // defined (HAVE_SDL) && defined (HWRENDER)

@@ -16,31 +16,12 @@
 #ifndef _R_GLES_H_
 #define _R_GLES_H_
 
-#define GL_GLEXT_PROTOTYPES
-#undef DRIVER_STRING
-
-#ifdef HAVE_GLES2
-    #include <GLES2/gl2.h>
-    #include <GLES2/gl2ext.h>
-    #define DRIVER_STRING "OpenGL ES 2.0"
-#else
-    #include <GLES/gl.h>
-    #include <GLES/glext.h>
-    #define DRIVER_STRING "OpenGL ES 1.1"
-#endif
-
-#define _CREATE_DLL_ // necessary for Unix AND Windows
+#include "../r_glcommon/r_glcommon.h"
 
 // ==========================================================================
 //                                                                DEFINITIONS
 // ==========================================================================
 
-#include "../../doomdef.h"
-#include "../../z_zone.h"
-#include "../hw_drv.h"
-
-#undef DEBUG_TO_FILE
-
-#include "../r_glcommon/r_glcommon.h"
+//#undef DEBUG_TO_FILE
 
 #endif // _R_GLES_H_

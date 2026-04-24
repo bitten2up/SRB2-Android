@@ -43,9 +43,9 @@ typedef struct visplane_s
 	// colormaps per sector
 	extracolormap_t *extra_colormap;
 
-	// leave pads for [minx-1]/[maxx+1]
-	UINT16 padtopstart, top[MAXVIDWIDTH], padtopend;
-	UINT16 padbottomstart, bottom[MAXVIDWIDTH], padbottomend;
+	UINT16 *top, *top_memory;
+	UINT16 *bottom, *bottom_memory;
+
 	INT32 high, low; // R_PlaneBounds should set these.
 
 	INT64 xoffs, yoffs; // Scrolling flats.
@@ -63,12 +63,13 @@ extern visplane_t *floorplane;
 extern visplane_t *ceilingplane;
 
 // Visplane related.
-extern INT16 floorclip[MAXVIDWIDTH], ceilingclip[MAXVIDWIDTH];
-extern fixed_t frontscale[MAXVIDWIDTH], yslopetab[MAXVIDHEIGHT*16];
+extern INT16 *floorclip, *ceilingclip;
+extern fixed_t *frontscale, *yslopetab;
 
 extern fixed_t *yslope;
 extern lighttable_t **planezlight;
 
+void R_AllocPlaneMemory(void);
 void R_ClearPlanes(void);
 void R_ClearFFloorClips (void);
 
@@ -95,8 +96,8 @@ typedef struct planemgr_s
 	fixed_t b_pos; // B for Back sector
 	fixed_t f_frac, f_step;
 	fixed_t b_frac, b_step;
-	INT16 f_clip[MAXVIDWIDTH];
-	INT16 c_clip[MAXVIDWIDTH];
+	INT16 *f_clip;
+	INT16 *c_clip;
 
 	// For slope rendering; the height at the other end
 	fixed_t f_pos_slope;

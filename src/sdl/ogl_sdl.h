@@ -3,7 +3,8 @@
 //
 // Copyright (C) 1998-2000 by DooM Legacy Team.
 // Copyright (C) 2014-2023 by Sonic Team Junior.
-// Copyright (C) 2025 by StarManiaKG and Bitten2Up.
+// Copyright (C) 2023-2025 by Bitten2Up.
+// Copyright (C) 2025 by StarManiaKG.
 //
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
@@ -15,22 +16,15 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //-----------------------------------------------------------------------------
-/// \file
-/// \brief SDL specific part of the OpenGL API for SRB2
+/// \file  sdl/ogl_sdl.h
+/// \brief SDL specific part of the OpenGL/OpenGL-ES API for SRB2
 
 #include "../v_video.h"
 
 extern void *GLUhandle;
 
-boolean OglSdlSurface(INT32 w, INT32 h);
-
 void OglSdlFinishUpdate(boolean vidwait);
 
 extern SDL_Renderer *renderer;
 extern SDL_GLContext sdlglcontext;
-extern Uint16      realwidth;
-extern Uint16      realheight;
-
-#ifdef _CREATE_DLL_
-EXPORT void HWRAPI( OglSdlSetPalette ) (RGBA_t *palette);
-#endif
+extern Uint16 realwidth, realheight;

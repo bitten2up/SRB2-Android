@@ -3,6 +3,11 @@
 //
 // Copyright (C) 1998-2000 by DooM Legacy Team.
 //
+// Copyright (C) 1998-2020 by Sonic Team Junior.
+// Copyright (C) 2020-2023 by SRB2 Mobile Project.
+// Copyright (C) 2023-2025 by Bitten2Up.
+// Copyright (C) 2025 by StarManiaKG.
+//
 // This program is free software; you can redistribute it and/or
 // modify it under the terms of the GNU General Public License
 // as published by the Free Software Foundation; either version 2
@@ -14,51 +19,17 @@
 // GNU General Public License for more details.
 //
 //-----------------------------------------------------------------------------
-/// \file
-/// \brief OpenGL API for Doom Legacy
+/// \file r_opengl.h
+/// \brief OpenGL API for Sonic Robo Blast 2
 
 #ifndef _R_OPENGL_H_
 #define _R_OPENGL_H_
-
-#ifdef HAVE_SDL
-#define _MATH_DEFINES_DEFINED
-
-#ifdef _MSC_VER
-#pragma warning(disable : 4214 4244)
-#endif
-
-#ifndef HAVE_GLES2
-#error HAVE_GLES2 not set for some weird reason
-#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
-#endif
-
-#ifdef _MSC_VER
-#pragma warning(default : 4214 4244)
-#endif
-
-#else
-#include <GL/gl.h>
-#include <GL/glu.h>
-
-#ifdef STATIC_OPENGL // Because of the 1.3 functions, you'll need GLext to compile it if static
-#define GL_GLEXT_PROTOTYPES
-#include <GL/glext.h>
-#endif
-#endif
-
-#define  _CREATE_DLL_  // necessary for Unix AND Windows
-#include "../../doomdef.h"
-#include "../hw_drv.h"
-#include "../../z_zone.h"
 
 #include "../r_glcommon/r_glcommon.h"
 
 // ==========================================================================
 //                                                                DEFINITIONS
 // ==========================================================================
-
-#define MIN(x,y) (((x)<(y)) ? (x) : (y))
-#define MAX(x,y) (((x)>(y)) ? (x) : (y))
 
 #undef DEBUG_TO_FILE            // maybe defined in previous *.h
 #define DEBUG_TO_FILE           // output debugging msgs to ogllog.txt

@@ -36,6 +36,7 @@ typedef struct
 } md2_t;
 
 extern md2_t md2_models[NUMSPRITES];
+//extern md2_t *md2_models;
 extern md2_t *md2_playermodels;
 extern size_t md2_numplayermodels;
 

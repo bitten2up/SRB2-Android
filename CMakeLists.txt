@@ -65,6 +65,8 @@ option(
 	ON
 )
 option(SRB2_CONFIG_HWRENDER "Enable hardware render (OpenGL) support" ON)
+option(SRB2_CONFIG_HAVE_GLES "Enable GLES1 OpenGL renderer" OFF)
+option(SRB2_CONFIG_HAVE_GLES2 "Enable GLES2 OpenGL renderer" ON)
 option(SRB2_CONFIG_USE_GME "Enable GME playback support" OFF)
 option(SRB2_CONFIG_STATIC_OPENGL "Enable static linking GL (do not do this)" OFF)
 option(SRB2_CONFIG_ERRORMODE "Compile C code with warnings treated as errors." OFF)
@@ -72,6 +74,7 @@ option(SRB2_CONFIG_DEBUGMODE "Compile with PARANOIA, ZDEBUG, RANGECHECK and PACK
 option(SRB2_CONFIG_MOBJCONSISTANCY "Compile with MOBJCONSISTANCY defined." OFF)
 option(SRB2_CONFIG_PACKETDROP "Compile with PACKETDROP defined." OFF)
 option(SRB2_CONFIG_EXECINFO "Enable stack trace dump support." ON)
+option(SRB2_CONFIG_DEBUGSYMBOLS_SEPARATE "Strips the main executable of debug symbols and allows a seperate executable to be linked with them instead." OFF)
 option(SRB2_CONFIG_ZDEBUG "Compile with ZDEBUG defined." OFF)
 option(SRB2_CONFIG_FORCE_NO_MS_BITFIELDS "Compile without -mno-ms-bitfields compiler flag" OFF)
 # SRB2_CONFIG_PROFILEMODE is probably superceded by some CMake setting.

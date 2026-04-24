@@ -12,6 +12,7 @@
 
 #ifndef _HWR_DEFS_
 #define _HWR_DEFS_
+
 #include "../doomtype.h"
 #include "../r_defs.h"
 
@@ -164,17 +165,6 @@ enum
 // Must be at least NUMSHADERTARGETS*2 to fit base and custom shaders for each shader target.
 #define HWR_MAXSHADERS NUMSHADERTARGETS*2
 
-#if 0
-// STAR NOTE: maybe see about getting rid of this?
-
-// Shader sources (vertex and fragment)
-typedef struct
-{
-	char *vertex;
-	char *fragment;
-} shadersource_t;
-#endif
-
 // Custom shader reference table
 typedef struct
 {
@@ -182,7 +172,7 @@ typedef struct
 	INT32 id;
 } customshaderxlat_t;
 
-#endif
+#endif // GL_SHADERS
 
 typedef struct vbo_vertex_s
 {
@@ -315,6 +305,7 @@ enum hwdsetspecialstate
 	HWD_SET_WIREFRAME,
 
 	// SRB2ANDROID
+	HWD_SET_MSAA,
 	HWD_SET_DITHER,
 	HWD_SET_FRAMEBUFFER,
 	HWD_SET_RENDERBUFFER_DEPTH,
@@ -363,6 +354,5 @@ enum hwdscreentexture
 };
 
 typedef enum hwdscreentexture hwdscreentexture_t;
-
 
 #endif //_HWR_DEFS_

@@ -60,9 +60,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\android\apk_m_textreader.c">
-      <Filter>Android_APK</Filter>
-    </ClCompile>
     <ClInclude Include="..\p5prof.h">
       <Filter>A_Asm</Filter>
     </ClInclude>
@@ -342,6 +339,9 @@
     <ClInclude Include="..\m_misc.h">
       <Filter>M_Misc</Filter>
     </ClInclude>
+    <ClCompile Include="..\m_textreader.c">
+      <Filter>M_Misc</Filter>
+    </ClCompile>
     <ClInclude Include="..\m_tokenizer.h">
       <Filter>M_Misc</Filter>
     </ClInclude>

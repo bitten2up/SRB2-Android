@@ -989,7 +989,7 @@ boolean CON_Responder(event_t *ev)
 	static INT32 alias_skips;
 
 	const char *cmd = NULL;
-	INT32 key;
+	INT32 key = ev->key;
 
 	if (chat_on)
 		return false;
@@ -1000,16 +1000,17 @@ boolean CON_Responder(event_t *ev)
 		return false;
 	}
 
-	key = ev->key;
-
 	// check for console toggle key
 	if (ev->type == ev_keydown)
 	{
 		if (modeattacking || metalrecording || marathonmode)
 			return false;
 
-		if ((key == gamecontrol[GC_CONSOLE][0] || key == gamecontrol[GC_CONSOLE][1]) && !shiftdown)
+		if (key == gamecontrol[GC_CONSOLE][0] || key == gamecontrol[GC_CONSOLE][1])
 		{
+			if (con_destlines == 0 && I_GetTextInputMode())
+				return false; // some other component is holding keyboard input, don't hijack it!
+
 			I_SetTextInputMode(con_destlines == 0); // inverse, since this is changed next tic.
 			consoletoggle = true;
 			return true;
@@ -1354,9 +1355,11 @@ boolean CON_Responder(event_t *ev)
 	}
 
 #ifdef VIRTUAL_KEYBOARD
-	// Inputs handled elsewhere
 	if (I_KeyboardOnScreen())
+	{
+		// Inputs handled elsewhere
 		return true;
+	}
 #endif
 
 	// allow people to use keypad in console (good for typing IP addresses) - Calum
@@ -1539,6 +1542,7 @@ void CONS_Printf(const char *fmt, ...)
 		txt = malloc(8192);
 
 	va_start(argptr, fmt);
+	//vsprintf(txt, fmt, argptr);
 	M_vsnprintf(txt, 8192, fmt, argptr);
 	va_end(argptr);
 
@@ -1576,6 +1580,7 @@ void CONS_Alert(alerttype_t level, const char *fmt, ...)
 		txt = malloc(8192);
 
 	va_start(argptr, fmt);
+	//vsprintf(txt, fmt, argptr);
 	M_vsnprintf(txt, 8192, fmt, argptr);
 	va_end(argptr);
 
@@ -1612,6 +1617,7 @@ void CONS_Debug(INT32 debugflags, const char *fmt, ...)
 		txt = malloc(8192);
 
 	va_start(argptr, fmt);
+	//vsprintf(txt, fmt, argptr);
 	M_vsnprintf(txt, 8192, fmt, argptr);
 	va_end(argptr);
 

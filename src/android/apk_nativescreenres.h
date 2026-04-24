@@ -20,19 +20,20 @@
 
 extern consvar_t cv_nativeres;
 extern consvar_t cv_nativeresdiv, cv_nativeresauto;
-extern consvar_t cv_nativeresfov, cv_nativerescompare;
+extern consvar_t cv_nativerescompare;
 
-void APK_SCR_SetModeFromConfig(void);
+boolean SCR_NativeRes_IsValidResolution(INT32 width, INT32 height);
+void SCR_NativeRes_SetDefaultMode(INT32 width, INT32 height);
+void SCR_NativeRes_SetModeFromConfig(void);
 
-void SCR_CheckNativeMode(void);
-float SCR_GetNativeResDivider(INT32 width, INT32 height);
+void SCR_NativeRes_CheckMode(void);
+float SCR_NativeRes_GetDivider(INT32 width, INT32 height);
 
-float SCR_GetMaxNativeResDivider(INT32 nw, INT32 nh);
-void SCR_SetMaxNativeResDivider(float max);
+float SCR_NativeRes_GetMaxDivider(INT32 nw, INT32 nh);
+void SCR_NativeRes_SetMaxDivider(float max);
 
-void SCR_ResetNativeResDivider(void);
-
-void APK_R_GetNativeResFov(fixed_t *fov);
+void SCR_NativeRes_SetDivider(float div);
+void SCR_NativeRes_ResetDivider(void);
 
 #endif
 

@@ -44,19 +44,16 @@
 #define  _CREATE_DLL_  // necessary for Unix AND Windows
 
 #ifdef HWRENDER
-#include "../hardware/hw_drv.h"
-#if defined(HAVE_GLES) || defined(HAVE_GLES2)
-	#include "ogl_es_sdl.h"
-	#ifdef STATIC_OPENGL
-		#include "../hardware/r_gles/r_gles.h"
-	#endif
-#else
+	#include "../hardware/hw_drv.h"
 	#include "ogl_sdl.h"
 	#ifdef STATIC_OPENGL
-		#include "../hardware/r_opengl/r_opengl.h"
+		#if defined(HAVE_GLES) || defined(HAVE_GLES2)
+			#include "../hardware/r_gles/r_gles.h"
+		#else
+			#include "../hardware/r_opengl/r_opengl.h"
+		#endif
 	#endif
 #endif
-#endif // HWRENDER
 
 #ifdef HW3SOUND
 #include "../hardware/hw3dsdrv.h"
@@ -65,6 +62,7 @@
 #define GETFUNC(func) \
 	else if (0 == strcmp(#func, funcName)) \
 		funcPointer = &func \
+
 //
 //
 /**	\brief	The *hwSym function
@@ -80,10 +78,12 @@
 void *hwSym(const char *funcName,void *handle)
 {
 	void *funcPointer = NULL;
-#ifdef HWRENDER
-	if (0 == strcmp("SetTexturePalette", funcName))
-		funcPointer = &OglSdlSetPalette;
 
+#ifdef HWRENDER
+	if (false)
+	{
+		;
+	}
 	GETFUNC(Init);
 	GETFUNC(Draw2DLine);
 	GETFUNC(DrawPolygon);
@@ -133,6 +133,7 @@ void *hwSym(const char *funcName,void *handle)
 	if (0 == strcmp("FinishUpdate", funcName))
 		return funcPointer; //&FinishUpdate;
 #endif //!HWRENDER
+
 #ifdef STATIC3DS
 	GETFUNC(Startup);
 	GETFUNC(AddSfx);
@@ -153,6 +154,7 @@ void *hwSym(const char *funcName,void *handle)
 	GETFUNC(Shutdown);
 	GETFUNC(GetHW3DSTitle);
 #endif
+
 #ifdef NOLOADSO
 	else
 		funcPointer = handle;
@@ -160,6 +162,7 @@ void *hwSym(const char *funcName,void *handle)
 	else if (handle)
 		funcPointer = SDL_LoadFunction(handle,funcName);
 #endif
+
 	if (!funcPointer)
 		I_OutputMsg("hwSym for %s: %s\n", funcName, SDL_GetError());
 	return funcPointer;

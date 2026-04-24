@@ -31,17 +31,6 @@
 
 #include "taglist.h"
 
-//
-// ClipWallSegment
-// Clips the given range of columns
-// and includes it in the new clip list.
-//
-typedef struct
-{
-	INT32 first;
-	INT32 last;
-} cliprange_t;
-
 // Silhouette, needed for clipping segs (mainly) and sprites representing things.
 #define SIL_NONE   0
 #define SIL_BOTTOM 1
@@ -855,7 +844,7 @@ typedef struct drawseg_s
 	struct ffloor_s *thicksides[MAXFFLOORS];
 	fixed_t *thicksidecol;
 	INT32 numthicksides;
-	fixed_t frontscale[MAXVIDWIDTH];
+	fixed_t *frontscale;
 
 	UINT8 portalpass; // if > 0 and <= portalrender, do not affect sprite clipping
 

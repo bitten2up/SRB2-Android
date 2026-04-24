@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1993-1996 by id Software, Inc.
 // Copyright (C) 1998-2000 by DooM Legacy Team.
-// Copyright (C) 1999-2024 by Sonic Team Junior.
+// Copyright (C) 1999-2025 by Sonic Team Junior.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
@@ -18,6 +18,7 @@
 #include "doomdef.h"
 #include "doomstat.h"
 #include "r_local.h"
+#include "r_splats.h"
 #include "r_translation.h"
 #include "i_video.h"
 #include "v_video.h"
@@ -102,6 +103,9 @@ float focallengthf;
 
 UINT32 nflatxshift, nflatyshift, nflatshiftup, nflatmask;
 
+// For, uh, tilted lighting, duh.
+static INT32 *tiltlighting;
+
 // =========================================================================
 //                       TRANSLATION COLORMAP CODE
 // =========================================================================
@@ -147,8 +151,7 @@ CV_PossibleValue_t Color_cons_t[MAXSKINCOLORS+1];
 void R_InitTranslucencyTables(void)
 {
 	// Load here the transparency lookup tables 'TRANSx0'
-	transtables = Z_MallocAlign(NUMTRANSTABLES*0x10000, PU_STATIC,
-		NULL, 16);
+	transtables = Z_Malloc(NUMTRANSTABLES*0x10000, PU_STATIC, NULL);
 
 	W_ReadLump(W_GetNumForName("TRANS10"), transtables);
 	W_ReadLump(W_GetNumForName("TRANS20"), transtables+0x10000);
@@ -278,7 +281,7 @@ void R_GenerateBlendTables(void)
 	INT32 i;
 
 	for (i = 0; i < NUMBLENDMAPS; i++)
-		blendtables[i] = Z_MallocAlign(BlendTab_Count[i] * 0x10000, PU_STATIC, NULL, 16);
+		blendtables[i] = Z_Malloc(BlendTab_Count[i] * 0x10000, PU_STATIC, NULL);
 
 	InitColorLUT(&transtab_lut, pMasterPalette, false);
 
@@ -456,7 +459,7 @@ static void R_GenerateTranslationColormap(UINT8 *dest_colormap, INT32 translatio
 		for (i = 0; i < NUM_PALETTE_ENTRIES; i++)
 			dest_colormap[i] = (UINT8)i;
 
-		// White!
+		// Boss flashing inverts the grayscale ramp
 		if (translation == TC_BOSS)
 		{
 			UINT8 *originalColormap = R_GetTranslationColormap(TC_DEFAULT, (skincolornum_t)color, GTC_CACHE);
@@ -468,6 +471,7 @@ static void R_GenerateTranslationColormap(UINT8 *dest_colormap, INT32 translatio
 				dest_colormap[31-i] = i;
 			}
 		}
+		// Metal Sonic flashing
 		else if (translation == TC_METALSONIC)
 		{
 			for (i = 0; i < 6; i++)
@@ -555,7 +559,7 @@ UINT8* R_GetTranslationColormap(INT32 skinnum, skincolornum_t color, UINT8 flags
 		// Rebuild the cache if necessary
 		if (skincolor_modified[color])
 		{
-			// Moved up here so that R_UpdateTranslationRemaps doesn't cause a stack overflow,
+			// Moved up here so that R_UpdateTranslationRemaps doesn't cause infinite recursion,
 			// since in this situation, it will call R_GetTranslationColormap
 			skincolor_modified[color] = false;
 
@@ -632,16 +636,6 @@ UINT16 R_GetSuperColorByName(const char *name)
 	return color;
 }
 
-// ==========================================================================
-//               COMMON DRAWER FOR 8 AND 16 BIT COLOR MODES
-// ==========================================================================
-
-// in a perfect world, all routines would be compatible for either mode,
-// and optimised enough
-//
-// in reality, the few routines that can work for either mode, are
-// put here
-
 /**	\brief	The R_InitViewBuffer function
 
 	Creates lookup tables for getting the framebuffer address
@@ -655,6 +649,27 @@ UINT16 R_GetSuperColorByName(const char *name)
 
 */
 
+static void R_AllocViewMemory(void)
+{
+	negonearray = Z_Realloc(negonearray, sizeof(*negonearray) * viewwidth, PU_STATIC, NULL);
+	screenheightarray = Z_Realloc(screenheightarray, sizeof(*screenheightarray) * viewwidth, PU_STATIC, NULL);
+
+	floorclip = Z_Realloc(floorclip, sizeof(*floorclip) * viewwidth, PU_STATIC, NULL);
+	ceilingclip = Z_Realloc(ceilingclip, sizeof(*ceilingclip) * viewwidth, PU_STATIC, NULL);
+
+	frontscale = Z_Realloc(frontscale, sizeof(*frontscale) * viewwidth, PU_STATIC, NULL);
+
+	xtoviewangle = Z_Realloc(xtoviewangle, sizeof(*xtoviewangle) * (viewwidth + 1), PU_STATIC, NULL);
+
+	tiltlighting = Z_Realloc(tiltlighting, sizeof(*tiltlighting) * viewwidth, PU_STATIC, NULL);
+
+	R_AllocSegMemory();
+	R_AllocClipSegMemory();
+	R_AllocPlaneMemory();
+	R_AllocFloorSpriteTables();
+	R_AllocVisSpriteMemory();
+}
+
 void R_InitViewBuffer(INT32 width, INT32 height)
 {
 	INT32 bytesperpixel = vid.bpp;
@@ -665,6 +680,8 @@ void R_InitViewBuffer(INT32 width, INT32 height)
 		height = MAXVIDHEIGHT;
 	if (bytesperpixel < 1 || bytesperpixel > 4)
 		I_Error("R_InitViewBuffer: wrong bytesperpixel value %d\n", bytesperpixel);
+
+	R_AllocViewMemory();
 
 	// Handle resize, e.g. smaller view windows with border and/or status bar.
 	viewwindowx = (vid.width - width) >> 1;
@@ -699,8 +716,6 @@ void R_VideoErase(size_t ofs, INT32 count)
 
 // R_CalcTiltedLighting
 // Exactly what it says on the tin. I wish I wasn't too lazy to explain things properly.
-static INT32 tiltlighting[MAXVIDWIDTH];
-
 static void R_CalcTiltedLighting(fixed_t start, fixed_t end)
 {
 	// ZDoom uses a different lighting setup to us, and I couldn't figure out how to adapt their version

@@ -360,21 +360,22 @@ void APK_ST_SetInputPosition(INT32 *x, INT32 *y, INT32 *f, hudinfo_t **pos)
 char *APK_M_FindFile(const char *filename)
 {
 	static char filenamebuf[4096];
-	const char *paths[3] = {
-		srb2home,
-		srb2path,
-		"."
-	};
+	const char *paths[3] = { srb2home, srb2path, "." };
 
 	strlcpy(filenamebuf, filename, sizeof filenamebuf);
 
 	// That was easy...
+	CONS_Printf("APK_M_FindFile(): filenamebuf %s\n", filenamebuf);
 	if (FIL_FileExists(filenamebuf))
 		return filenamebuf;
 
 	// Look in for the file the paths specified earlier.
-	for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++)
+	//for (size_t i = 0; i < sizeof(paths) / sizeof(paths[0]); i++)
+	//for (size_t i = 0; i < sizeof(paths) / sizeof(const char *); i++)
+	//for (size_t i = 0; i < sizeof(paths) / sizeof(*paths); i++)
+	for (size_t i = 0; i < 3; i++)
 	{
+		CONS_Printf("APK_M_FindFile(): searching path %s\n" PATHSEP, paths[i]);
 		snprintf(filenamebuf, sizeof filenamebuf, "%s" PATHSEP "%s", paths[i], filename);
 		if (FIL_FileExists(filenamebuf))
 			return filenamebuf;

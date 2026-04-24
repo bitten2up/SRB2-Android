@@ -16,16 +16,9 @@
 #include <math.h>
 
 #include "r_gles.h"
-#include "../r_opengl/r_vbo.h"
-
-#if 0
 #include "../shaders/gl_shaders.h"
-#include "../hw_shaders.h"
 
-#include "lzml.h"
-#endif
-
-#if defined (HWRENDER) && !defined (NOROPENGL)
+#if defined (HWRENDER) && defined (HAVE_GLES) && !defined (NOROPENGL)
 
 boolean GLBackend_LoadFunctions(void)
 {
@@ -50,24 +43,18 @@ boolean GLBackend_LoadFunctions(void)
 
 	GETOPENGLFUNC(TexEnvi)
 
-	if (!GLBackend_LoadLegacyFunctions())
-		return false;
-
-	return true;
+	return GLBackend_LoadLegacyFunctions();
 }
 
 boolean GLBackend_LoadExtraFunctions(void)
 {
 	GETOPENGLFUNCTRY(GenerateMipmap)
-	if (pglGenerateMipmap)
-		MipmapSupported = GL_TRUE;
-
-	GLExtension_LoadFunctions();
-
-	return true;
+	{
+		if (!pglGenerateMipmap)
+			mipmapSupported = GL_FALSE;
+	}
+	return GLExtension_LoadFunctions();
 }
-
-#undef GETOPENGLFUNC
 
 EXPORT void HWRAPI(SetShader) (int type)
 {
@@ -117,7 +104,7 @@ static void GLPerspective(GLfloat fovy, GLfloat aspect)
 		{ 0.0f, 0.0f, 1.0f,-1.0f},
 		{ 0.0f, 0.0f, 0.0f, 0.0f},
 	};
-	const GLfloat zNear = near_clipping_plane;
+	const GLfloat zNear = NEAR_CLIPPING_PLANE;
 	const GLfloat zFar = FAR_CLIPPING_PLANE;
 	const GLfloat radians = (GLfloat)(fovy / 2.0f * M_PIl / 180.0f);
 	const GLfloat sine = (GLfloat)sin(radians);
@@ -176,6 +163,7 @@ void GLBackend_SetStates(void)
 	GLfloat LightDiffuse[] = {1.0f, 1.0f, 1.0f, 1.0f};
 #endif
 
+#if 1
 	pglEnableClientState(GL_VERTEX_ARRAY); // We always use this one
 
 	pglShadeModel(GL_SMOOTH);      // iterate vertice colors
@@ -196,10 +184,10 @@ void GLBackend_SetStates(void)
 
 	// this set CurrentPolyFlags to the acctual configuration
 	CurrentPolyFlags = 0xffffffff;
-	GLBackend_SetBlend(0);
+	//GLBackend_SetBlend(0);
 
 	tex_downloaded = 0;
-	GLBackend_SetNoTexture();
+	//GLBackend_SetNoTexture();
 
 	pglPolygonOffset(-1.0f, -1.0f);
 
@@ -212,6 +200,60 @@ void GLBackend_SetStates(void)
 	// bp : when no t&l :)
 	pglLoadIdentity();
 	pglScalef(1.0f, 1.0f, -1.0f);
+
+#else
+
+	// STAR NOTE: older versoin
+
+	// Hurdler: not necessary, is it?
+	pglShadeModel(GL_SMOOTH);      // iterate vertice colors
+	//pglShadeModel(GL_FLAT);
+
+	pglEnable(GL_TEXTURE_2D);      // two-dimensional texturing
+
+	pglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+	pglEnable(GL_ALPHA_TEST);
+	pglAlphaFunc(GL_NOTEQUAL, 0.0f);
+
+	//pglBlendFunc(GL_ONE, GL_ZERO); // copy pixel to frame buffer (opaque)
+	pglEnable(GL_BLEND);           // enable color blending
+
+	pglColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+	//pglDisable(GL_DITHER);         // faB: ??? (undocumented in OpenGL 1.1)
+	                              // Hurdler: yes, it is!
+	pglEnable(GL_DEPTH_TEST);    // check the depth buffer
+	pglDepthMask(GL_TRUE);             // enable writing to depth buffer
+	pglClearDepth(1.0f);
+	pglDepthRange(0.0f, 1.0f);
+	pglDepthFunc(GL_LEQUAL);
+
+	// this set CurrentPolyFlags to the actual configuration
+	CurrentPolyFlags = 0xffffffff;
+	//GLBackend_SetBlend(0);
+
+	tex_downloaded = 0;
+	//GLBackend_SetNoTexture();
+
+	pglPolygonOffset(-1.0f, -1.0f);
+
+	//pglEnable(GL_CULL_FACE);
+	//pglCullFace(GL_FRONT);
+
+	pglDisable(GL_FOG);
+
+	// Lighting for models
+#ifdef GL_LIGHT_MODEL_AMBIENT
+	pglLightModelfv(GL_LIGHT_MODEL_AMBIENT, LightDiffuse);
+	pglEnable(GL_LIGHT0);
+#endif
+
+	// bp : when no t&l :)
+	pglLoadIdentity();
+	pglScalef(1.0f, 1.0f, -1.0f);
+	pglGetFloatv(GL_MODELVIEW_MATRIX, modelMatrix); // added for new coronas' code (without depth buffer)
+#endif
 }
 
 // -----------------+
@@ -309,7 +351,7 @@ EXPORT void HWRAPI(ReadScreenTexture) (int tex, UINT8 *dst_data)
 EXPORT void HWRAPI(GClipRect) (INT32 minx, INT32 miny, INT32 maxx, INT32 maxy, float nearclip)
 {
 	pglViewport(minx, screen_height-maxy, maxx-minx, maxy-miny);
-	near_clipping_plane = nearclip;
+	NEAR_CLIPPING_PLANE = nearclip;
 
 	pglMatrixMode(GL_PROJECTION);
 	pglLoadIdentity();
@@ -336,7 +378,7 @@ EXPORT void HWRAPI(ClearBuffer) (FBOOLEAN ColorMask, FBOOLEAN DepthMask, FRGBAFl
 	}
 	if (DepthMask)
 	{
-		pglClearDepthf(1.0f);     //Hurdler: all that are permanen states
+		pglClearDepthf(1.0f); //Hurdler: all that are permanen states (DEFAULT)
 		pglDepthRangef(0.0f, 1.0f);
 		pglDepthFunc(GL_LEQUAL);
 		ClearMask |= GL_DEPTH_BUFFER_BIT;
@@ -519,7 +561,7 @@ EXPORT void HWRAPI(UpdateTexture) (GLMipmap_t *pTexInfo)
 	else
 		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, ptex);
 
-	if (MipmapEnabled)
+	if (mipmapEnabled)
 		pglGenerateMipmap(GL_TEXTURE_2D);
 
 	if (pTexInfo->flags & TF_WRAPX)
@@ -885,6 +927,12 @@ EXPORT void HWRAPI(DrawModel) (model_t *model, INT32 frameIndex, float duration,
 	fade.blue  = (Surface->FadeColor.s.blue/255.0f);
 	fade.alpha = (Surface->FadeColor.s.alpha/255.0f);
 
+#if 1
+	// STAR NOTE: maybe not needed?
+	GLBackend_SetBlend(flags);
+	Shader_SetUniforms(Surface, &poly, &tint, &fade);
+#endif
+
 	pglEnable(GL_CULL_FACE);
 	pglEnable(GL_NORMALIZE);
 
@@ -1215,114 +1263,8 @@ EXPORT void HWRAPI(PostImgRedraw) (float points[SCREENVERTS][SCREENVERTS][2])
 	pglEnable(GL_BLEND);
 }
 
-// Create Screen to fade from
-EXPORT void HWRAPI(StartScreenWipe) (void)
-{
-	INT32 texsize = 512;
-	boolean firstTime = (startScreenWipe == 0);
-
-	// look for power of two that is large enough for the screen
-	while (texsize < screen_width || texsize < screen_height)
-		texsize <<= 1;
-
-	// Create screen texture
-	if (firstTime)
-		pglGenTextures(1, &startScreenWipe);
-	pglBindTexture(GL_TEXTURE_2D, startScreenWipe);
-
-	if (firstTime)
-	{
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
-		pglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, texsize, texsize, 0);
-	}
-	else
-		pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texsize, texsize);
-
-	tex_downloaded = startScreenWipe;
-}
-
-// Create Screen to fade to
-EXPORT void HWRAPI(EndScreenWipe) (void)
-{
-	INT32 texsize = 512;
-	boolean firstTime = (endScreenWipe == 0);
-
-	// look for power of two that is large enough for the screen
-	while (texsize < screen_width || texsize < screen_height)
-		texsize <<= 1;
-
-	// Create screen texture
-	if (firstTime)
-		pglGenTextures(1, &endScreenWipe);
-	pglBindTexture(GL_TEXTURE_2D, endScreenWipe);
-
-	if (firstTime)
-	{
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
-		pglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, texsize, texsize, 0);
-	}
-	else
-		pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texsize, texsize);
-
-	tex_downloaded = endScreenWipe;
-}
-
-
-// Draw the last scene under the intermission
-EXPORT void HWRAPI(DrawIntermissionBG) (void)
-{
-	INT32 texsize = 512;
-	float xfix, yfix;
-
-	const float screenVerts[12] =
-	{
-		-1.0f, -1.0f, 1.0f,
-		-1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f
-	};
-
-	float fix[8];
-
-	// look for power of two that is large enough for the screen
-	while (texsize < screen_width || texsize < screen_height)
-		texsize <<= 1;
-
-	xfix = 1/((float)(texsize)/((float)((screen_width))));
-	yfix = 1/((float)(texsize)/((float)((screen_height))));
-
-	// const float screenVerts[12]
-
-	// float fix[8];
-	fix[0] = 0.0f;
-	fix[1] = 0.0f;
-	fix[2] = 0.0f;
-	fix[3] = yfix;
-	fix[4] = xfix;
-	fix[5] = yfix;
-	fix[6] = xfix;
-	fix[7] = 0.0f;
-
-	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-
-	pglBindTexture(GL_TEXTURE_2D, screentexture);
-	pglColor4f(white.red, white.green, white.blue, white.alpha);
-
-	pglTexCoordPointer(2, GL_FLOAT, 0, fix);
-	pglVertexPointer(3, GL_FLOAT, 0, screenVerts);
-	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-
-	tex_downloaded = screentexture;
-}
-
 // Do screen fades!
-static void DoWipe(void)
+EXPORT void HWRAPI(DoScreenWipe) (int wipeStart, int wipeEnd, FSurfaceInfo *surf, FBITFIELD polyFlags)
 {
 	INT32 texsize = 512;
 	float xfix, yfix;
@@ -1347,12 +1289,19 @@ static void DoWipe(void)
 		1.0f, 1.0f
 	};
 
+	int firstScreen;
+
 	if (!GLExtension_multitexture)
 		return;
 
 	// look for power of two that is large enough for the screen
 	while (texsize < screen_width || texsize < screen_height)
 		texsize <<= 1;
+
+	if (surf && surf->PolyColor.s.alpha == 255)
+		firstScreen = wipeEnd; // it's a tinted fade-in, we need wipeEnd
+	else
+		firstScreen = wipeStart;
 
 	xfix = 1/((float)(texsize)/((float)((screen_width))));
 	yfix = 1/((float)(texsize)/((float)((screen_height))));
@@ -1375,7 +1324,7 @@ static void DoWipe(void)
 	pglEnable(GL_TEXTURE_2D);
 
 	// Draw the original screen
-	pglBindTexture(GL_TEXTURE_2D, startScreenWipe);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[firstScreen]);
 	pglColor4f(white.red, white.green, white.blue, white.alpha);
 	pglTexCoordPointer(2, GL_FLOAT, 0, fix);
 	pglVertexPointer(3, GL_FLOAT, 0, screenVerts);
@@ -1386,7 +1335,7 @@ static void DoWipe(void)
 	// Draw the end screen that fades in
 	pglActiveTexture(GL_TEXTURE0);
 	pglEnable(GL_TEXTURE_2D);
-	pglBindTexture(GL_TEXTURE_2D, endScreenWipe);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[wipeEnd]);
 	pglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
 	pglActiveTexture(GL_TEXTURE1);
@@ -1410,31 +1359,14 @@ static void DoWipe(void)
 
 	pglActiveTexture(GL_TEXTURE0);
 	pglClientActiveTexture(GL_TEXTURE0);
-	tex_downloaded = endScreenWipe;
-}
-
-// Do screen fades!
-EXPORT void HWRAPI(DoScreenWipe) (int wipeStart, int wipeEnd, FSurfaceInfo *surf, FBITFIELD polyFlags)
-{
-	(void)wipeStart;
-	(void)wipeEnd;
-	(void)surf;
-	(void)polyFlags;
-	DoWipe();
-}
-
-EXPORT void HWRAPI(DoTintedWipe) (boolean istowhite, boolean isfadingin)
-{
-	(void)istowhite;
-	(void)isfadingin;
-	DoWipe();
+	tex_downloaded = screenTextures[wipeEnd];
 }
 
 // Create a texture from the screen.
 EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 {
 	INT32 texsize = 512;
-	boolean firstTime = (screentexture == 0);
+	boolean firstTime = (screenTextures[tex] == 0);
 
 	// look for power of two that is large enough for the screen
 	while (texsize < screen_width || texsize < screen_height)
@@ -1442,8 +1374,8 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 
 	// Create screen texture
 	if (firstTime)
-		pglGenTextures(1, &screentexture);
-	pglBindTexture(GL_TEXTURE_2D, screentexture);
+		pglGenTextures(1, &screenTextures[tex]);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 
 	if (firstTime)
 	{
@@ -1456,7 +1388,7 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 	else
 		pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texsize, texsize);
 
-	tex_downloaded = screentexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD polyflags)
@@ -1495,7 +1427,7 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 
 	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-	pglBindTexture(GL_TEXTURE_2D, screentexture);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 	PreparePolygon(surf, NULL, surf ? polyflags : (PF_NoDepthTest));
 	if (!surf)
 		pglColor4f(white.red, white.green, white.blue, white.alpha);
@@ -1504,7 +1436,7 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 	pglVertexPointer(3, GL_FLOAT, 0, screenVerts);
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
-	tex_downloaded = screentexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
@@ -1567,7 +1499,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
 	clearColour.red = clearColour.green = clearColour.blue = 0;
 	clearColour.alpha = 1;
 	ClearBuffer(true, false, &clearColour);
-	pglBindTexture(GL_TEXTURE_2D, finalScreenTexture);
+	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 
 	pglColor4f(white.red, white.green, white.blue, white.alpha);
 
@@ -1575,7 +1507,7 @@ EXPORT void HWRAPI(DrawScreenFinalTexture) (int tex, int width, int height)
 	pglVertexPointer(3, GL_FLOAT, 0, off);
 
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-	tex_downloaded = finalScreenTexture;
+	tex_downloaded = screenTextures[tex];
 }
 
 // Handle some rendering of palettes
@@ -1608,4 +1540,4 @@ EXPORT void HWRAPI(SetScreenPalette) (RGBA_t *palette)
 	return;
 }
 
-#endif //HWRENDER
+#endif // defined (HWRENDER) && defined (HAVE_GLES) && !defined (NOROPENGL)
