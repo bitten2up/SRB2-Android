@@ -956,7 +956,14 @@ void G_ResetAccelerometer(void)
 	accelxmove = accelymove = 0;
 #endif
 }
-
+boolean G_CanUseAccelerometer(void)
+{
+#ifdef ACCELEROMETER
+	return (cv_useaccelerometer.value && (!(menuactive || paused || con_destlines || chat_on || gamestate != GS_LEVEL)));
+#else
+	return false;
+#endif
+}
 // clear mice positions
 void G_ResetMice(void)
 {

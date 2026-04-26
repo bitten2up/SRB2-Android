@@ -48,7 +48,6 @@
 // ==========================================================================
 // the hardware driver object
 // ==========================================================================
-
 struct hwdriver_s hwdriver;
 
 // ==========================================================================
@@ -2676,6 +2675,51 @@ static void HWR_Subsector(size_t num)
 // BP: big hack for a test in lighning ref : 1249753487AB
 fixed_t *hwbbox;
 
+#if 0
+static void HWR_RenderBSPNode(INT32 bspnum)
+{
+	node_t *bsp = &nodes[bspnum];
+
+	// Decide which side the view point is on
+	INT32 side;
+
+	ps_numbspcalls.value.i++;
+
+	// Found a subsector?
+	if (bspnum & NF_SUBSECTOR)
+	{
+		if (bspnum == -1)
+		{
+			//*(gl_drawsubsector_p++) = 0;
+			HWR_Subsector(0);
+		}
+		else
+		{
+			//*(gl_drawsubsector_p++) = bspnum&(~NF_SUBSECTOR);
+			HWR_Subsector(bspnum&(~NF_SUBSECTOR));
+		}
+		return;
+	}
+
+	// Decide which side the view point is on.
+	side = R_PointOnSide(viewx, viewy, bsp);
+
+	// BP: big hack for a test in lighning ref : 1249753487AB
+	hwbbox = bsp->bbox[side];
+
+	// Recursively divide front space.
+	HWR_RenderBSPNode(bsp->children[side]);
+
+	// Possibly divide back space.
+	if (HWR_CheckBBox(bsp->bbox[side^1]))
+	{
+		// BP: big hack for a test in lighning ref : 1249753487AB
+		hwbbox = bsp->bbox[side^1];
+		HWR_RenderBSPNode(bsp->children[side^1]);
+	}
+}
+#else
+// BITTEN FIX(?)
 static void HWR_RenderBSPNode(INT32 bspnum)
 {
     node_t *bsp;
@@ -2704,6 +2748,7 @@ static void HWR_RenderBSPNode(INT32 bspnum)
 
     HWR_Subsector(bspnum == -1 ? 0 : bspnum & ~NF_SUBSECTOR);
 }
+#endif
 
 // ==========================================================================
 // gl_things.c
@@ -3175,7 +3220,7 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (h <= temp)
 		{
 			if (!lightset)
-				lightlevel = max(min(*list[i-1].lightlevel, 255), 0);
+				lightlevel = *list[i-1].lightlevel > 255 ? 255 : *list[i-1].lightlevel;
 			if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 				colormap = *list[i-1].extra_colormap;
 			break;
@@ -3194,7 +3239,7 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (!(list[i].flags & FOF_NOSHADE) && (list[i].flags & FOF_CUTSPRITES))
 		{
 			if (!lightset)
-				lightlevel = max(min(*list[i].lightlevel, 255), 0);
+				lightlevel = *list[i].lightlevel > 255 ? 255 : *list[i].lightlevel;
 			if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 				colormap = *list[i].extra_colormap;
 		}
@@ -4034,6 +4079,13 @@ static int CompareDrawNodePlanes(const void *p1, const void *p2)
 	return abs(sortnode[n2].plane->fixedheight - viewz) - abs(sortnode[n1].plane->fixedheight - viewz);
 }
 
+static void HWR_ClearDrawNodes(void)
+{
+	numwalls = 0;
+	numplanes = 0;
+	numpolyplanes = 0;
+}
+
 //
 // HWR_CreateDrawNodes
 // Creates and sorts a list of drawnodes for the scene being rendered.
@@ -4151,9 +4203,7 @@ static void HWR_CreateDrawNodes(void)
 
 	PS_STOP_TIMING(ps_hw_nodedrawtime);
 
-	numwalls = 0;
-	numplanes = 0;
-	numpolyplanes = 0;
+	HWR_ClearDrawNodes();
 
 	// No mem leaks, please.
 	Z_Free(sortnode);
@@ -4232,7 +4282,6 @@ static void HWR_DrawSprites(void)
 	// At the end of sprite drawing, draw shapes of linkdraw sprites to z-buffer, so they
 	// don't get drawn over by transparent surfaces.
 	HWR_LinkDrawHackFinish();
-
 	// Work around a r_opengl.c bug with PF_Invisible by making this SetBlend call
 	// where PF_Invisible is off and PF_Masked is on.
 	// (Other states probably don't matter. Here I left them same as in LinkDrawHackFinish)
@@ -5243,7 +5292,6 @@ static void HWR_DrawSkyBackground(player_t *player)
 #ifdef HAVE_GLES2
 		HWD.pfnSetTransform(NULL);
 #endif
-
 		HWD.pfnUnSetShader();
 		HWD.pfnDrawPolygon(NULL, v, 4, 0);
 	}
@@ -5312,7 +5360,7 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 //
 static void HWR_SetShaderState(void)
 {
-	HWD.pfnSetSpecialState(HWD_SET_SHADERS, HWR_UseShader());
+	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)HWR_UseShader());
 }
 
 static void HWR_SetupView(player_t *player, INT32 viewnumber, float fpov, boolean skybox)
@@ -5346,8 +5394,7 @@ static void HWR_SetupView(player_t *player, INT32 viewnumber, float fpov, boolea
 
 	if (I_AppOnBackground())
 	{
-		// Don't waste resources on setting up the view
-		// if we can't see anything!
+		// Android: please don't eat my resources while i'm gone thanks
 		return;
 	}
 
@@ -5446,31 +5493,36 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 
 	HWR_RenderBSPNode((INT32)numnodes-1);
 
+
 	if (cv_glbatching.value)
 		HWR_RenderBatches();
 
 	// Check for new console commands.
 	NetUpdate();
 
-	if (!I_AppOnBackground())
+	if (I_AppOnBackground())
 	{
-#ifdef ALAM_LIGHTING
-		//14/11/99: Hurdler: moved here because it doesn't work with
-		// subsector, see other comments;
-		HWR_ResetLights();
-#endif
-
-		// Draw MD2 and sprites
-		HWR_SortVisSprites();
-		HWR_DrawSprites();
-
-#ifdef NEWCORONAS
-		//Hurdler: they must be drawn before translucent planes, what about gl fog?
-		HWR_DrawCoronas();
-#endif
+		// Android: please don't eat my resources while i'm gone thanks
+		HWR_ClearDrawNodes();
+		return;
 	}
 
-	if (numplanes || numpolyplanes || numwalls) // Hurdler: render 3D water and transparent walls after everything
+#ifdef ALAM_LIGHTING
+	//14/11/99: Hurdler: moved here because it doesn't work with
+	// subsector, see other comments;
+	HWR_ResetLights();
+#endif
+
+	// Draw MD2 and sprites
+	HWR_SortVisSprites();
+	HWR_DrawSprites();
+
+#ifdef NEWCORONAS
+	//Hurdler: they must be drawn before translucent planes, what about gl fog?
+	HWR_DrawCoronas();
+#endif
+
+	if (numplanes || numpolyplanes || numwalls) //Hurdler: render 3D water and transparent walls after everything
 	{
 		HWR_CreateDrawNodes();
 	}
@@ -5484,6 +5536,12 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 	// Check for new console commands.
 	NetUpdate();
 
+	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
+		return;
+	}
+
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
@@ -5495,10 +5553,12 @@ void HWR_RenderSkyboxView(INT32 viewnumber, player_t *player)
 void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 {
 	const float fpov = FixedToFloat(R_GetPlayerFov(player));
+
 	const boolean skybox = (skyboxmo[0] && cv_skybox.value); // True if there's a skybox object and skyboxes are on
+
 	FRGBAFloat ClearColor;
 
-	ClearColor.red = 0.0f;
+	ClearColor.red = 0.0f; // bitten fucking debugggs shiiiiiiitttttttt
 	ClearColor.green = 0.0f;
 	ClearColor.blue = 0.0f;
 	ClearColor.alpha = 1.0f;
@@ -5514,9 +5574,21 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 		HWR_RenderSkyboxView(viewnumber, player); // This is drawn before everything else so it is placed behind
 	PS_STOP_TIMING(ps_hw_skyboxtime);
 
+	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
+		return;
+	}
+
 	HWR_SetupView(player, viewnumber, fpov, false);
 
 	framecount++; // timedemo
+
+	if (I_AppOnBackground())
+	{
+		// Android: PLEASE don't eat my resources while i'm gone thanks
+		return;
+	}
 
 	// check for new console commands.
 	NetUpdate();
@@ -5572,28 +5644,32 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	// Check for new console commands.
 	NetUpdate();
 
-	if (!I_AppOnBackground())
+	if (I_AppOnBackground())
 	{
+		// Android: please don't eat my resources while i'm gone thanks
+		HWR_ClearDrawNodes();
+		return;
+	}
+
 #ifdef ALAM_LIGHTING
-		//14/11/99: Hurdler: moved here because it doesn't work with
-		// subsector, see other comments;
-		HWR_ResetLights();
+	//14/11/99: Hurdler: moved here because it doesn't work with
+	// subsector, see other comments;
+	HWR_ResetLights();
 #endif
 
-		// Draw MD2 and sprites
-		ps_numsprites.value.i = gl_visspritecount;
-		PS_START_TIMING(ps_hw_spritesorttime);
-		HWR_SortVisSprites();
-		PS_STOP_TIMING(ps_hw_spritesorttime);
-		PS_START_TIMING(ps_hw_spritedrawtime);
-		HWR_DrawSprites();
-		PS_STOP_TIMING(ps_hw_spritedrawtime);
+	// Draw MD2 and sprites
+	ps_numsprites.value.i = gl_visspritecount;
+	PS_START_TIMING(ps_hw_spritesorttime);
+	HWR_SortVisSprites();
+	PS_STOP_TIMING(ps_hw_spritesorttime);
+	PS_START_TIMING(ps_hw_spritedrawtime);
+	HWR_DrawSprites();
+	PS_STOP_TIMING(ps_hw_spritedrawtime);
 
 #ifdef NEWCORONAS
-		//Hurdler: they must be drawn before translucent planes, what about gl fog?
-		HWR_DrawCoronas();
+	//Hurdler: they must be drawn before translucent planes, what about gl fog?
+	HWR_DrawCoronas();
 #endif
-	}
 
 	ps_numdrawnodes.value.i = 0;
 	ps_hw_nodesorttime.value.p = 0;
@@ -5614,10 +5690,15 @@ void HWR_RenderPlayerView(INT32 viewnumber, player_t *player)
 	// Check for new console commands.
 	NetUpdate();
 
+	if (I_AppOnBackground())
+	{
+		// Android: please don't eat my resources while i'm gone thanks
+		return;
+	}
+
 	// added by Hurdler for correct splitscreen
 	// moved here by hurdler so it works with the new near clipping plane
 	HWD.pfnGClipRect(0, 0, vid.width, vid.height, NZCLIP_PLANE);
-
 #ifdef HAVE_GLES2
 	HWD.pfnSetBlend(PF_Modulated|PF_Translucent|PF_NoDepthTest);
 #endif
@@ -5702,8 +5783,10 @@ static CV_PossibleValue_t glfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, 
 static CV_PossibleValue_t glshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
 #ifdef HAVE_GL_FRAMEBUFFER
 CV_PossibleValue_t glrenderbufferdepth_cons_t[] = {{0, "Default"}, {1, "16 bits"}, {2, "24 bits"}, {3, "32 bits"}, {4, "Float"}, {0, NULL}};
-#endif
 
+static void CV_glframebuffer_OnChange(void);
+static void CV_glrenderbufferdepth_OnChange(void);
+#endif
 static void CV_modelpack_OnChange(void);
 static void CV_glfiltermode_OnChange(void);
 static void CV_glanisotropic_OnChange(void);
@@ -5711,10 +5794,6 @@ static void CV_glmodellighting_OnChange(void);
 static void CV_glpaletterendering_OnChange(void);
 static void CV_glpalettedepth_OnChange(void);
 static void CV_glshaders_OnChange(void);
-#ifdef HAVE_GL_FRAMEBUFFER
-static void CV_glframebuffer_OnChange(void);
-static void CV_glrenderbufferdepth_OnChange(void);
-#endif
 
 static CV_PossibleValue_t glfiltermode_cons_t[] = {{HWD_SET_TEXTUREFILTER_POINTSAMPLED, "Nearest"},
 	{HWD_SET_TEXTUREFILTER_BILINEAR, "Bilinear"}, {HWD_SET_TEXTUREFILTER_TRILINEAR, "Trilinear"},
@@ -5828,14 +5907,14 @@ static void CV_glshaders_OnChange(void)
 #ifdef HAVE_GL_FRAMEBUFFER
 static void CV_glframebuffer_OnChange(void)
 {
-	ONLY_IF_GL_LOADED
-	HWD.pfnSetSpecialState(HWD_SET_FRAMEBUFFER, cv_glframebuffer.value);
+	if (rendermode == render_opengl)
+		HWD.pfnSetSpecialState(HWD_SET_FRAMEBUFFER, cv_glframebuffer.value);
 }
 
 static void CV_glrenderbufferdepth_OnChange(void)
 {
-	ONLY_IF_GL_LOADED
-	HWD.pfnSetSpecialState(HWD_SET_RENDERBUFFER_DEPTH, cv_glrenderbufferdepth.value);
+	if (rendermode == render_opengl)
+		HWD.pfnSetSpecialState(HWD_SET_RENDERBUFFER_DEPTH, cv_glrenderbufferdepth.value);
 }
 #endif
 
@@ -5869,7 +5948,6 @@ void HWR_AddCommands(void)
 	CV_RegisterVar(&cv_glsolvetjoin);
 
 	CV_RegisterVar(&cv_glbatching);
-
 #ifdef HAVE_GL_FRAMEBUFFER
 	CV_RegisterVar(&cv_glframebuffer);
 	CV_RegisterVar(&cv_glrenderbufferdepth);
@@ -5893,8 +5971,7 @@ void HWR_Startup(void)
 
 		HWR_InitPolyPool();
 		HWR_InitMapTextures();
-
-#if 1
+#if 0
 		// STAR NOTE: helps you test bitten
 		HWR_InitModels();
 		HWR_ReadModels();
@@ -5904,11 +5981,21 @@ void HWR_Startup(void)
 		HWR_InitLight();
 #endif
 
+		// STAR NOTE: helps you further test bitten
+#if 1
 		gl_shadersavailable = HWR_InitShaders();
+#else
+		gl_shadersavailable = false;
+#endif
 		HWR_SetShaderState();
 		HWR_LoadAllCustomShaders();
 		HWR_TogglePaletteRendering();
 	}
+
+#if 1
+	CONS_Printf("OPENGL init-ed!\n");
+#endif
+
 	gl_init = true;
 }
 
@@ -5918,12 +6005,12 @@ void HWR_Startup(void)
 void HWR_Switch(void)
 {
 	// Set special states from CVARs
-	HWD.pfnSetSpecialState(HWD_SET_TEXTUREFILTERMODE, cv_glfiltermode.value);
-	HWD.pfnSetSpecialState(HWD_SET_TEXTUREANISOTROPICMODE, cv_glanisotropicmode.value);
 #ifdef HAVE_GL_FRAMEBUFFER
-	HWD.pfnSetSpecialState(HWD_SET_FRAMEBUFFER, cv_glframebuffer.value);
-	HWD.pfnSetSpecialState(HWD_SET_RENDERBUFFER_DEPTH, cv_glrenderbufferdepth.value);
+	CV_glframebuffer_OnChange();
+	CV_glrenderbufferdepth_OnChange();
 #endif
+	CV_glfiltermode_OnChange();
+	CV_glanisotropic_OnChange();
 
 	// Load textures
 	if (!gl_maptexturesloaded)
@@ -6195,7 +6282,7 @@ void HWR_DoWipe(UINT8 wipenum, UINT8 scrnnum)
 		return;
 
 	HWR_GetFadeMask(wipelumpnum);
-	if (wipestyle == WIPESTYLE_COLORMAP && HWR_UseShader()) // Tinted wipe!
+	if (wipestyle == WIPESTYLE_COLORMAP && HWR_UseShader())
 	{
 		FSurfaceInfo surf = {0};
 		FBITFIELD polyflags = PF_Modulated|PF_NoDepthTest;

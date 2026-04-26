@@ -14,10 +14,8 @@
 
 #ifdef HWRENDER
 #include "hw_glob.h"
+#include "hw_drv.h"
 #include "hw_batching.h"
-
-#define NO_DRV_DEFINED_HERE
-#include "r_glcommon/r_glcommon.h"
 
 #include "../doomstat.h"    //gamemode
 #include "../i_video.h"     //rendermode
@@ -35,6 +33,34 @@ INT32 patchformat = GL_TEXFMT_AP_88; // use alpha for holes
 INT32 textureformat = GL_TEXFMT_P_8; // use chromakey for hole
 
 RGBA_t mapPalette[256] = {0}; // the palette for the currently loaded level or menu etc.
+
+// Android: Resize blocks for better OpenGL performance
+static INT32 blocksize, blockwidth, blockheight; // Values set after a call to HWR_ResizeBlock()
+static void HWR_ResizeBlock(INT32 originalwidth, INT32 originalheight)
+{
+	if (gl_powersoftwo)
+	{
+		blockwidth = 1;
+		while (blockwidth < originalwidth)
+			blockwidth <<= 1;
+
+		blockheight = 1;
+		while (blockheight < originalheight)
+			blockheight <<= 1;
+	}
+	else
+	{
+		blockwidth = originalwidth;
+		blockheight = originalheight;
+	}
+
+	if (blockwidth > 2048)
+		blockwidth = 2048;
+	if (blockheight > 2048)
+		blockheight = 2048;
+
+	blocksize = blockwidth * blockheight;
+}
 
 // Returns a pointer to the palette which should be used for caching textures.
 RGBA_t *HWR_GetTexturePalette(void)
@@ -292,13 +318,13 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 
 	palette = HWR_GetTexturePalette();
 
-	ncols = pwidth;
+	ncols = (pwidth * pblockwidth) / pwidth;
 
 	// source advance
 	xfrac = 0;
-	xfracstep = FRACUNIT;
-	yfracstep = FRACUNIT;
-	scale_y   = FRACUNIT;
+	xfracstep = (pwidth        << FRACBITS) / pblockwidth;;
+	yfracstep = (pheight       << FRACBITS) / pblockheight;
+	scale_y   = (pblockheight  << FRACBITS) / pheight;
 
 	bpp = format2bpp(mipmap->format);
 
@@ -306,7 +332,7 @@ static void HWR_DrawPatchInCache(GLMipmap_t *mipmap,
 		I_Error("HWR_DrawPatchInCache: no drawer defined for this bpp (%d)\n",bpp);
 
 	// NOTE: should this actually be pblockwidth*bpp?
-	blockmodulo = pblockwidth*bpp;
+	blockmodulo = blockwidth*bpp;
 
 	// Draw each column to the block cache
 	for (; ncols--; block += bpp, xfrac += xfracstep)
@@ -394,7 +420,7 @@ static void HWR_DrawTexturePatchInCache(GLMipmap_t *mipmap,
 		I_Error("HWR_DrawTexturePatchInCache: no drawer defined for this bpp (%d)\n",bpp);
 
 	// NOTE: should this actually be pblockwidth*bpp?
-	blockmodulo = pblockwidth*bpp;
+	blockmodulo = blockwidth*bpp;
 
 	// Draw each column to the block cache
 	for (block += col*bpp; ncols--; block += bpp, xfrac += xfracstep)
@@ -417,7 +443,6 @@ static UINT8 *MakeBlock(GLMipmap_t *grMipmap)
 	UINT8 *block;
 	INT32 bpp, i;
 	UINT16 bu16 = ((0x00 <<8) | HWR_PATCHES_CHROMAKEY_COLORINDEX);
-	INT32 blocksize = (grMipmap->width * grMipmap->height);
 
 	bpp =  format2bpp(grMipmap->format);
 	block = Z_Malloc(blocksize*bpp, PU_HWRCACHE, &(grMipmap->data));
@@ -452,6 +477,14 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex, GLMipmap_t 
 
 	texture = textures[texnum];
 
+	HWR_ResizeBlock(texture->width, texture->height);
+#if 0
+	// STAR NOTE: hi again...
+	mipmap->width = (UINT16)blockwidth;
+	mipmap->height = (UINT16)blockheight;
+  	mipmap->format = textureformat;
+#endif
+
 	blockwidth = texture->width;
 	blockheight = texture->height;
 	blocksize = blockwidth * blockheight;
@@ -485,13 +518,10 @@ static void HWR_GenerateTexture(INT32 texnum, GLMapTexture_t *grtex, GLMipmap_t 
 				realpatch = W_CachePatchNumPwad(wadnum, lumpnum, PU_PATCH);
 		}
 
-		if (realpatch != NULL)
-		{
-			HWR_DrawTexturePatchInCache(mipmap, blockwidth, blockheight, texture, patch, realpatch);
+		HWR_DrawTexturePatchInCache(mipmap, blockwidth, blockheight, texture, patch, realpatch);
 
-			if (free_patch)
-				Patch_Free(realpatch);
-		}
+		if (free_patch)
+			Patch_Free(realpatch);
 	}
 	//Hurdler: not efficient at all but I don't remember exactly how HWR_DrawPatchInCache works :(
 	if (format2bpp(mipmap->format)==4)
@@ -515,9 +545,16 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 {
 	if (grMipmap->width == 0)
 	{
+		HWR_ResizeBlock(patch->width, patch->height);
+#if 1
+		grMipmap->width = (UINT16)blockwidth;
+		grMipmap->height = (UINT16)blockheight;
+#else
+		// STAR NOTE: can't test until OpenGL OpenGL's lol
 		grMipmap->width = grMipmap->height = 1;
-		while (grMipmap->width < patch->width) grMipmap->width <<= 1;
-		while (grMipmap->height < patch->height) grMipmap->height <<= 1;
+		while (grMipmap->width < (UINT16)blockwidth) grMipmap->width <<= 1;
+		while (grMipmap->height < (UINT16)blockheight) grMipmap->height <<= 1;
+#endif
 
 		// no wrap around, no chroma key
 		grMipmap->flags = 0;
@@ -528,6 +565,12 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 		grPatch->max_s = (float)patch->width / (float)grMipmap->width;
 		grPatch->max_t = (float)patch->height / (float)grMipmap->height;
 	}
+	else
+	{
+		blockwidth = grMipmap->width;
+		blockheight = grMipmap->height;
+		blocksize = blockwidth * blockheight;
+	}
 
 	Z_Free(grMipmap->data);
 	grMipmap->data = NULL;
@@ -537,7 +580,7 @@ void HWR_MakePatch (const patch_t *patch, GLPatch_t *grPatch, GLMipmap_t *grMipm
 		MakeBlock(grMipmap);
 
 		HWR_DrawPatchInCache(grMipmap,
-			grMipmap->width, grMipmap->height,
+			min(patch->width, blockwidth), min(patch->height, blockheight),
 			patch->width, patch->height,
 			patch);
 	}
@@ -1054,7 +1097,7 @@ static void HWR_DrawFadeMaskInCache(GLMipmap_t *mipmap, INT32 pblockwidth, INT32
 	for (j = 0; j < pblockheight; j++)
 	{
 		posx = 0;
-		dest = &block[j*(mipmap->width)]; // 1bpp
+		dest = &block[j*blockwidth]; // 1bpp
 		src = &flat[(posy>>FRACBITS)*SHORT(fmwidth)];
 		for (i = 0; i < pblockwidth;i++)
 		{
@@ -1108,12 +1151,13 @@ static void HWR_CacheFadeMask(GLMipmap_t *grMipmap, lumpnum_t fademasklumpnum)
 	}
 
 	// Thankfully, this will still work for this scenario
-	grMipmap->width  = fmwidth;
-	grMipmap->height = fmheight;
+	HWR_ResizeBlock(fmwidth, fmheight);
+	grMipmap->width  = blockwidth;
+	grMipmap->height = blockheight;
 
 	MakeBlock(grMipmap);
 
-	HWR_DrawFadeMaskInCache(grMipmap, fmwidth, fmheight, fademasklumpnum, fmwidth, fmheight);
+	HWR_DrawFadeMaskInCache(grMipmap, blockwidth, blockheight, fademasklumpnum, fmwidth, fmheight);
 
 	// I DO need to convert this because it isn't power of 2 and we need the alpha
 }
@@ -1174,11 +1218,9 @@ void HWR_SetPalette(RGBA_t *palette)
 	else
 	{
 		// set the palette for the textures
-		GLBackend_SetPalette(palette);
-
+		HWD.pfnSetTexturePalette(palette);
 		// reset mapPalette so next call to HWR_SetMapPalette will update everything correctly
 		memset(mapPalette, 0, sizeof(mapPalette));
-
 		// hardware driver will flush there own cache if cache is non paletized
 		// now flush data texture cache so 32 bit texture are recomputed
 		if (patchformat == GL_TEXFMT_RGBA || textureformat == GL_TEXFMT_RGBA)
@@ -1251,11 +1293,10 @@ void HWR_SetMapPalette(void)
 	if (memcmp(mapPalette, palette, sizeof(mapPalette)))
 	{
 		memcpy(mapPalette, palette, sizeof(mapPalette));
-
 		// in palette rendering mode, this means that all rgba textures now have wrong colors
 		// and the lookup table is outdated
 		HWR_SetPaletteLookup(mapPalette);
-		GLBackend_SetPalette(mapPalette);
+		HWD.pfnSetTexturePalette(mapPalette);
 		if (patchformat == GL_TEXFMT_RGBA || textureformat == GL_TEXFMT_RGBA)
 		{
 			Z_FreeTag(PU_HWRCACHE);

@@ -25,7 +25,6 @@
 #include "console.h"
 
 #include "i_video.h" // rendermode
-#include "i_system.h"
 #include "z_zone.h"
 #include "m_misc.h"
 #include "m_random.h"
@@ -467,20 +466,7 @@ void VID_BlitLinearScreen(const UINT8 *srcptr, UINT8 *destptr, INT32 width, INT3
 	size_t destrowbytes)
 {
 	if (srcrowbytes == destrowbytes)
-	{
-		size_t i = srcrowbytes * height;
-#if defined(__SSE__)
-		while (i >= 16)
-		{
-			// TODO: find where the buffer is misaligned at times and align it
-			_mm_storeu_ps((float *)destptr, _mm_loadu_ps((const float *)srcptr));
-			srcptr += 16;
-			destptr += 16;
-			i -= 16;
-		}
-#endif
-		M_Memcpy(destptr, srcptr, i);
-	}
+		M_Memcpy(destptr, srcptr, srcrowbytes * height);
 	else
 	{
 		while (height--)
@@ -499,15 +485,27 @@ static UINT8 hudminusalpha[11] = { 10,  9,  9,  8,  8,  7,  7,  6,  6,  5,  5};
 static const UINT8 *v_colormap = NULL;
 static const UINT8 *v_translevel = NULL;
 
-#define STANDARDDRAW 1
-#define MAPPEDDRAW 2
-#define TRANSLUCENTDRAW 3
-#define TRANSMAPPEDDRAW 4
+static inline UINT8 standardpdraw(const UINT8 *dest, const UINT8 *source, fixed_t ofs)
+{
+	(void)dest; return source[ofs>>FRACBITS];
+}
+static inline UINT8 mappedpdraw(const UINT8 *dest, const UINT8 *source, fixed_t ofs)
+{
+	(void)dest; return *(v_colormap + source[ofs>>FRACBITS]);
+}
+static inline UINT8 translucentpdraw(const UINT8 *dest, const UINT8 *source, fixed_t ofs)
+{
+	return *(v_translevel + ((source[ofs>>FRACBITS]<<8)&0xff00) + (*dest&0xff));
+}
+static inline UINT8 transmappedpdraw(const UINT8 *dest, const UINT8 *source, fixed_t ofs)
+{
+	return *(v_translevel + (((*(v_colormap + source[ofs>>FRACBITS]))<<8)&0xff00) + (*dest&0xff));
+}
 
 // Draws a patch scaled to arbitrary size.
 void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 scrn, patch_t *patch, const UINT8 *colormap)
 {
-	UINT8 patchdrawtype;
+	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
 	UINT32 alphalevel = ((scrn & V_ALPHAMASK) >> V_ALPHASHIFT);
 	UINT32 blendmode = ((scrn & V_BLENDMASK) >> V_BLENDSHIFT);
 
@@ -533,7 +531,7 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 	}
 #endif
 
-	patchdrawtype = STANDARDDRAW;
+	patchdrawfunc = standardpdraw;
 
 	v_translevel = NULL;
 	if (alphalevel || blendmode)
@@ -551,7 +549,7 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 		if (alphalevel || blendmode)
 		{
 			v_translevel = R_GetBlendTable(blendmode+1, alphalevel);
-			patchdrawtype = TRANSLUCENTDRAW;
+			patchdrawfunc = translucentpdraw;
 		}
 	}
 
@@ -559,7 +557,7 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 	if (colormap)
 	{
 		v_colormap = colormap;
-		patchdrawtype = (v_translevel) ? TRANSMAPPEDDRAW : MAPPEDDRAW;
+		patchdrawfunc = (v_translevel) ? transmappedpdraw : mappedpdraw;
 	}
 
 	dup = vid.dup;
@@ -613,7 +611,7 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 #ifdef QUADS
 		if (splitscreen > 1) // 3 or 4 players
 		{
-			fixed_t adjustx = (((scrn & V_NOSCALESTART) ? vid.height : BASEVIDHEIGHT)<<(FRACBITS-1));
+			fixed_t adjustx = ((scrn & V_NOSCALESTART) ? vid.height : BASEVIDHEIGHT)<<(FRACBITS-1);
 			fdup >>= 1;
 			colfrac <<= 1;
 			x >>= 1;
@@ -770,111 +768,21 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 
 		column = &patch->columns[col>>FRACBITS];
 
-		switch (patchdrawtype)
+		for (unsigned i = 0; i < column->num_posts; i++)
 		{
-			case STANDARDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if (scrn & V_FLIP)
-						dest = deststart + (destend - desttop);
-					dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
+			post_t *post = &column->posts[i];
+			source = column->pixels + post->data_offset;
+			dest = desttop;
+			if (scrn & V_FLIP)
+				dest = deststart + (destend - desttop);
+			dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
 
-					ofs = 0;
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length)
-					{
-						*dest = source[ofs>>FRACBITS];
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case MAPPEDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if (scrn & V_FLIP)
-						dest = deststart + (destend - desttop);
-					dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
-
-					ofs = 0;
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length)
-					{
-						*dest = *(v_colormap + source[ofs>>FRACBITS]);
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case TRANSLUCENTDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if (scrn & V_FLIP)
-						dest = deststart + (destend - desttop);
-					dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
-
-					ofs = 0;
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length)
-					{
-						*dest = *(v_translevel + ((source[ofs>>FRACBITS]<<8)&0xff00) + (*dest&0xff));
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case TRANSMAPPEDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if (scrn & V_FLIP)
-						dest = deststart + (destend - desttop);
-					dest += FixedInt(FixedMul(post->topdelta<<FRACBITS,vdup))*vid.width;
-
-					ofs = 0;
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length)
-					{
-						*dest = *(v_translevel + (((*(v_colormap + source[ofs>>FRACBITS]))<<8)&0xff00) + (*dest&0xff));
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
+			for (ofs = 0; dest < deststop && (size_t)(ofs>>FRACBITS) < post->length; ofs += rowfrac)
+			{
+				if (dest >= screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
+					*dest = patchdrawfunc(dest, source, ofs);
+				dest += vid.width;
+			}
 		}
 	}
 }
@@ -882,7 +790,7 @@ void V_DrawStretchyFixedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vsca
 // Draws a patch cropped and scaled to arbitrary size.
 void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, INT32 scrn, patch_t *patch, const UINT8 *colormap, fixed_t sx, fixed_t sy, fixed_t w, fixed_t h)
 {
-	UINT8 patchdrawtype;
+	UINT8 (*patchdrawfunc)(const UINT8*, const UINT8*, fixed_t);
 	UINT32 alphalevel = ((scrn & V_ALPHAMASK) >> V_ALPHASHIFT);
 	UINT32 blendmode = ((scrn & V_BLENDMASK) >> V_BLENDSHIFT);
 	// boolean flip = false;
@@ -907,7 +815,7 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, IN
 	}
 #endif
 
-	patchdrawtype = STANDARDDRAW;
+	patchdrawfunc = standardpdraw;
 
 	v_translevel = NULL;
 	if (alphalevel || blendmode)
@@ -925,7 +833,7 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, IN
 		if (alphalevel || blendmode)
 		{
 			v_translevel = R_GetBlendTable(blendmode+1, alphalevel);
-			patchdrawtype = TRANSLUCENTDRAW;
+			patchdrawfunc = translucentpdraw;
 		}
 	}
 
@@ -933,7 +841,7 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, IN
 	if (colormap)
 	{
 		v_colormap = colormap;
-		patchdrawtype = (v_translevel) ? TRANSMAPPEDDRAW : MAPPEDDRAW;
+		patchdrawfunc = (v_translevel) ? transmappedpdraw : mappedpdraw;
 	}
 
 	dup = vid.dup;
@@ -1125,127 +1033,26 @@ void V_DrawCroppedPatch(fixed_t x, fixed_t y, fixed_t pscale, fixed_t vscale, IN
 
 		column = &patch->columns[col>>FRACBITS];
 
-		switch (patchdrawtype)
+		for (unsigned i = 0; i < column->num_posts; i++)
 		{
-			case STANDARDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					INT32 topdelta = post->topdelta;
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if ((topdelta<<FRACBITS)-sy > 0)
-					{
-						dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
-						ofs = 0;
-					}
-					else
-						ofs = sy-(topdelta<<FRACBITS);
+			post_t *post = &column->posts[i];
+			INT32 topdelta = post->topdelta;
+			source = column->pixels + post->data_offset;
+			dest = desttop;
+			if ((topdelta<<FRACBITS)-sy > 0)
+			{
+				dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
+				ofs = 0;
+			}
+			else
+				ofs = sy-(topdelta<<FRACBITS);
 
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h)
-					{
-						*dest = source[ofs>>FRACBITS];
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case MAPPEDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					INT32 topdelta = post->topdelta;
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if ((topdelta<<FRACBITS)-sy > 0)
-					{
-						dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
-						ofs = 0;
-					}
-					else
-						ofs = sy-(topdelta<<FRACBITS);
-
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h)
-					{
-						*dest = *(v_colormap + source[ofs>>FRACBITS]);
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case TRANSLUCENTDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					INT32 topdelta = post->topdelta;
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if ((topdelta<<FRACBITS)-sy > 0)
-					{
-						dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
-						ofs = 0;
-					}
-					else
-						ofs = sy-(topdelta<<FRACBITS);
-
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h)
-					{
-						*dest = *(v_translevel + ((source[ofs>>FRACBITS]<<8)&0xff00) + (*dest&0xff));
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
-
-			case TRANSMAPPEDDRAW:
-				for (unsigned i = 0; i < column->num_posts; i++)
-				{
-					post_t *post = &column->posts[i];
-					INT32 topdelta = post->topdelta;
-					source = column->pixels + post->data_offset;
-					dest = desttop;
-					if ((topdelta<<FRACBITS)-sy > 0)
-					{
-						dest += FixedInt(FixedMul((topdelta<<FRACBITS)-sy,vdup))*vid.width;
-						ofs = 0;
-					}
-					else
-						ofs = sy-(topdelta<<FRACBITS);
-
-					while (dest < screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
-					{
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-
-					while (dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h)
-					{
-						*dest = *(v_translevel + (((*(v_colormap + source[ofs>>FRACBITS]))<<8)&0xff00) + (*dest&0xff));
-						dest += vid.width;
-						ofs += rowfrac;
-					}
-				}
-				break;
+			for (; dest < deststop && (size_t)(ofs>>FRACBITS) < post->length && ((ofs - sy) + (topdelta<<FRACBITS)) < h; ofs += rowfrac)
+			{
+				if (dest >= screens[scrn&V_PARAMMASK]) // don't draw off the top of the screen (CRASH PREVENTION)
+					*dest = patchdrawfunc(dest, source, ofs);
+				dest += vid.width;
+			}
 		}
 	}
 }
@@ -1500,7 +1307,7 @@ static UINT32 V_GetHWConsBackColor(void)
 	switch (cons_backcolor.value)
 	{
 		case 0:		r = 0xff; g = 0xff; b = 0xff;	break; 	// White
-		case 1:		r = 0x01; g = 0x01; b = 0x01;	break; 	// Black -- it was gray, not totally black
+		case 1:		r = 0x80; g = 0x80; b = 0x80;	break; 	// Black
 		case 2:		r = 0xde; g = 0xb8; b = 0x87;	break;	// Sepia
 		case 3:		r = 0x40; g = 0x20; b = 0x10;	break; 	// Brown
 		case 4:		r = 0xfa; g = 0x80; b = 0x72;	break; 	// Pink
@@ -1518,7 +1325,6 @@ static UINT32 V_GetHWConsBackColor(void)
 		case 16:	r = 0x00; g = 0x00; b = 0xff;	break; 	// Blue
 		case 17:	r = 0xff; g = 0x00; b = 0xff;	break; 	// Purple
 		case 18:	r = 0xee; g = 0x82; b = 0xee;	break; 	// Lavender
-		case 19:	r = 0x80; g = 0x80; b = 0x80;	break; 	// Gray
 		// Default green
 		default:	r = 0x00; g = 0x80; b = 0x00;	break;
 	}
@@ -2064,7 +1870,6 @@ void V_DrawPromptBack(INT32 boxheight, INT32 color)
 			case 16:	hwcolor = 0x0000ff00;	break; 	// Blue
 			case 17:	hwcolor = 0xff00ff00;	break; 	// Purple
 			case 18:	hwcolor = 0xee82ee00;	break; 	// Lavender
-			case 19:	hwcolor = 0x80808000;	break; 	// Gray
 			// Default green
 			default:	hwcolor = 0x00800000;	break;
 		}
@@ -2238,8 +2043,8 @@ void V_DrawFontStringAtFixed(fixed_t x, fixed_t y, INT32 option, fixed_t pscale,
 
 	if (option & V_NOSCALESTART)
 	{
-		dupx = (vid.dup*pscale);
-		dupy = (vid.dup*vscale);
+		dupx = vid.dup<<FRACBITS;
+		dupy = vid.dup<<FRACBITS;
 		scrwidth = vid.width;
 	}
 	else
@@ -2894,45 +2699,30 @@ UINT8 GetColorLUTDirect(colorlookup_t *lut, UINT8 r, UINT8 g, UINT8 b)
 	return lut->table[i];
 }
 
-void V_Resize(void)
-{
-	const INT32 screensize = vid.rowbytes * vid.height;
-	INT32 i;
-	for (i = 0; i < NUMSCREENS; i++)
-	{
-#if defined(__SSE__)
-		aligned_free(screens[i]);
-#else
-		free(screens[i]);
-#endif
-		screens[i] = NULL;
-	}
-
-	// start address of NUMSCREENS * width*height vidbuffers
-	if (screensize > 0)
-	{
-		for (i = 0; i < NUMSCREENS; i++)
-		{
-			// we need to allocate these relative to their cpu restrictions to not trigger segfaults
-			// TODO: add support for sve and neon
-#if defined(__SSE__)
-			screens[i] = aligned_alloc(128, screensize);
-#else
-			screens[i] = malloc(screensize);
-#endif
-			memset(screens[i], 0, screensize);
-		}
-	}
-}
-
 // V_Init
 // old software stuff, buffers are allocated at video mode setup
 // here we set the screens[x] pointers accordingly
 // WARNING: called at runtime (don't init cvar here)
 void V_Init(void)
 {
+	INT32 i;
+	UINT8 *base = vid.buffer;
+	const INT32 screensize = vid.rowbytes * vid.height;
+
 	LoadMapPalette();
-	V_Resize();
+
+	for (i = 0; i < NUMSCREENS; i++)
+		screens[i] = NULL;
+
+	// start address of NUMSCREENS * width*height vidbuffers
+	if (base)
+	{
+		for (i = 0; i < NUMSCREENS; i++)
+			screens[i] = base + i*screensize;
+	}
+
+	if (vid.direct)
+		screens[0] = vid.direct;
 
 #ifdef DEBUG
 	CONS_Debug(DBG_RENDER, "V_Init done:\n");
@@ -2960,10 +2750,8 @@ void V_Recalc(void)
 
 #if 0
 	// STAR NOTE: very broken, not really willing to fix either
-	// this breaks the console too i think
 #ifdef NATIVESCREENRES
-	//if (cv_nativeres.value && !cv_nativerescompare.value)
-	if (!cv_nativerescompare.value)
+	if (cv_nativeres.value && !cv_nativerescompare.value)
 	{
 		// for now -bitten
 		vid.dup = max(vid.width, vid.height);
@@ -2974,4 +2762,8 @@ void V_Recalc(void)
 
 	vid.meddup = (UINT8)(vid.dup >> 1) + 1;
 	vid.smalldup = (UINT8)(vid.dup / 3) + 1;
+#ifdef HWRENDER
+	vid.fmeddup = vid.meddup*FRACUNIT;
+	vid.fsmalldup = vid.smalldup*FRACUNIT;
+#endif
 }

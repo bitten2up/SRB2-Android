@@ -82,7 +82,6 @@
 
 #ifdef HWRENDER
 #include "hardware/hw_main.h" // 3D View Rendering
-#include "hardware/r_glcommon/r_glcommon.h"
 #endif
 
 #ifdef _WINDOWS
@@ -94,7 +93,6 @@
 #endif
 
 #include "lua_script.h"
-#include "lua_hud.h"
 
 // Android
 #ifdef TOUCHINPUTS
@@ -110,10 +108,14 @@ int SUBVERSION;
 // platform independant focus loss
 UINT8 window_notinfocus = false;
 
-// Android: Set IWAD Unpacking
+static addfilelist_t startupwadfiles;
+static addfilelist_t startuppwads;
+
 #if defined(__ANDROID__) && defined(UNPACK_FILES) && defined(HAVE_WHANDLE) && defined(HAVE_SDL)
 #define ANDROID_FILE_UNPACK
 #endif
+
+static fhandletype_t startuphandletype = FILEHANDLE_STANDARD;
 
 //
 // DEMO LOOP
@@ -147,9 +149,10 @@ UINT16 numskincolors;
 menucolor_t *menucolorhead, *menucolortail;
 
 char savegamename[2][SAVEGAMENAMELEN];
-	char *cursavegamename = savegamename[0];
 char liveeventbackup[2][SAVEGAMENAMELEN];
-	char *curliveeventbackup = liveeventbackup[0];
+
+char *cursavegamename = savegamename[0];
+char *curliveeventbackup = liveeventbackup[0];
 
 char srb2home[256] = ".";
 char srb2path[256] = ".";
@@ -323,14 +326,11 @@ static void D_Display(void)
 	static boolean wipe = false;
 	INT32 wipedefindex = 0;
 
-	if (dedicated)
+	if (I_AppOnBackground() || dedicated)
 		return;
 
 	if (nodrawers)
 		return; // for comparative timing/profiling
-
-	if (I_AppOnBackground())
-		return;
 
 	// Lactozilla: Switching renderers works by checking
 	// if the game has to do it right when the frame
@@ -347,12 +347,21 @@ static void D_Display(void)
 	// 4. The frame is ready to be drawn!
 
 	// Check for change of renderer or screen size (video mode)
-	if (vid.change.set && !wipe)
+	if ((setrenderneeded || setmodeneeded) && !wipe)
 		SCR_SetMode(); // change video mode
 
 	// Recalc the screen
 	if (vid.recalc)
 		SCR_Recalc(); // NOTE! setsizeneeded is set by SCR_Recalc()
+
+#ifdef HWRENDER
+	// Display the last renderer switching error, if there was any
+	if (android_data.renderer_switcherror == render_opengl)
+		VID_DisplayGLError();
+
+	// Clear the last renderer switching error
+	android_data.renderer_switcherror = 0;
+#endif
 
 	// View morph
 	if (rendermode == render_soft && !splitscreen)
@@ -365,19 +374,6 @@ static void D_Display(void)
 		R_ExecuteSetViewSize();
 		forcerefresh = true; // force background redraw
 	}
-
-#ifdef HWRENDER
-	if (android_data.renderer_switcherror == render_opengl)
-	{
-		// Display the last renderer switching error, if there was any
-		VID_DisplayGLError();
-	}
-	android_data.renderer_switcherror = 0; // Clear the last renderer switching error
-#endif
-
-	// draw buffered stuff to screen
-	// Used only by linux GGI version
-	I_UpdateNoBlit();
 
 	// save the current screen if about to wipe
 	wipe = (gamestate != wipegamestate);
@@ -413,7 +409,7 @@ static void D_Display(void)
 				else if (F_TryColormapFade(31))
 					wipetypepost = -1; // Don't run the fade below this one
 				F_WipeEndScreen();
-				F_RunWipe(wipetypepre, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN);
+				F_RunWipe(wipetypepre, !(gamestate == GS_TIMEATTACK || gamestate == GS_TITLESCREEN));
 			}
 
 			F_WipeStartScreen();
@@ -532,18 +528,23 @@ static void D_Display(void)
 				{
 					topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
 					objectsdrawn = 0;
-#ifdef HWRENDER
+	#ifdef HWRENDER
 					if (rendermode != render_soft)
 						HWR_RenderPlayerView(0, &players[displayplayer]);
 					else
-#endif
+	#endif
 					if (rendermode != render_none)
 						R_RenderPlayerView(&players[displayplayer]);
 				}
 
+				if (I_AppOnBackground())
+					return;
+
 				// render the second screen
 				if (splitscreen && players[secondarydisplayplayer].mo)
 				{
+					viewwindowy = vid.height / 2;
+
 #ifdef HWRENDER
 					if (rendermode == render_opengl)
 						HWR_RenderPlayerView(1, &players[secondarydisplayplayer]);
@@ -551,17 +552,16 @@ static void D_Display(void)
 #endif
 					if (rendermode != render_none)
 					{
-						viewwindowy = vid.height / 2;
-
 						topleft = screens[0] + viewwindowy*vid.width + viewwindowx;
 
 						R_RenderPlayerView(&players[secondarydisplayplayer]);
-
-						viewwindowy = 0;
 					}
 
 					viewwindowy = 0;
 				}
+
+				if (I_AppOnBackground())
+					return;
 
 				// Image postprocessing effect
 				if (rendermode == render_soft)
@@ -679,7 +679,7 @@ static void D_Display(void)
 				wipestyleflags &= ~WSF_FADEOUT;
 			}
 
-			F_RunWipe(wipetypepost, gamestate != GS_TIMEATTACK && gamestate != GS_TITLESCREEN);
+			F_RunWipe(wipetypepost, !(gamestate == GS_TIMEATTACK || gamestate == GS_TITLESCREEN));
 		}
 
 		// reset counters so timedemo doesn't count the wipe duration
@@ -749,12 +749,12 @@ void D_SRB2Loop(void)
 	double deltasecs = 0.0;
 	static lumpnum_t gstartuplumpnum;
 
-	boolean interp = false;
-	boolean doDisplay = false;
-
 #if defined(__ANDROID__)
 	boolean firstframe = false;
 #endif
+
+	boolean interp = false;
+	boolean doDisplay = false;
 
 	if (dedicated)
 		server = true;
@@ -772,27 +772,24 @@ void D_SRB2Loop(void)
 #endif
 
 	I_UpdateTime(cv_timescale.value);
+
 	oldentertics = I_GetTime();
 
 	// end of loading screen: CONS_Printf() will no more call FinishUpdate()
 	con_refresh = false;
 	con_startup = false;
 
-	// set user default mode or mode set at cmdline
-	SCR_CheckDefaultMode();
-
 	// make sure to do a d_display to init mode _before_ load a level
 	SCR_SetMode(); // change video mode
 	SCR_Recalc();
 
-	chosenrendermode = render_none;
-
 #ifdef TOUCHINPUTS
-	// Android: refresh touch controls
 	if (usertouchcontrols == NULL)
 		TS_DefaultControlLayout(true);
 	TS_UpdateControls();
 #endif
+
+	chosenrendermode = render_none;
 
 	// Check and print which version is executed.
 	// Use this as the border between setup and the main game loop being entered.
@@ -803,8 +800,10 @@ void D_SRB2Loop(void)
 	"                            ...wait. =P\n"
 	"===========================================================================\n");
 
+#if !defined(__ANDROID__)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
+#endif
 
 	I_FinishUpdate(); // page flip or blit buffer
 	/*
@@ -1175,6 +1174,7 @@ static inline void D_CleanFile(addfilelist_t *list)
 	list->numfiles = 0;
 }
 
+#if !defined(__ANDROID__)
 ///\brief Checks if a netgame URL is being handled, and changes working directory to the EXE's if so.
 ///       Done because browsers (at least, Firefox on Windows) launch the game from the browser's directory, which causes problems.
 static void ChangeDirForUrlHandler(void)
@@ -1208,6 +1208,7 @@ static void ChangeDirForUrlHandler(void)
 #endif
 	}
 }
+#endif
 
 // ==========================================================================
 // Identify the SRB2 version, and IWAD file to use.
@@ -1215,18 +1216,16 @@ static void ChangeDirForUrlHandler(void)
 
 #define FILEPATH(fname) va(pandf,srb2waddir,fname)
 
-static void IdentifyVersion(addfilelist_t *startupwadfiles)
+static void IdentifyVersion(void)
 {
-	char *srb2wad;
-	const char *srb2waddir = NULL;
 	const char *basepk3 = "srb2.pk3";
-	fhandletype_t handletype;
+	const char *srb2waddir = NULL;
 
 #if defined(__ANDROID__)
-	handletype = FILEHANDLE_SDL;
-	(void)srb2wad;
+	fhandletype_t handletype = FILEHANDLE_SDL;
 #else
-	handletype = FILEHANDLE_STANDARD;
+	char *srb2wad;
+	fhandletype_t handletype = FILEHANDLE_STANDARD;
 #endif
 
 #if defined (__unix__) || defined (UNIXCOMMON) || defined (HAVE_SDL)
@@ -1238,7 +1237,7 @@ static void IdentifyVersion(addfilelist_t *startupwadfiles)
 	// get the current directory (possible problem on NT with "." as current dir)
 	if (srb2waddir)
 	{
-		strlcpy(srb2path, srb2waddir, sizeof(srb2path));
+		strlcpy(srb2path, srb2waddir,sizeof (srb2path));
 	}
 	else
 	{
@@ -1257,20 +1256,13 @@ static void IdentifyVersion(addfilelist_t *startupwadfiles)
 		srb2waddir = I_GetWadDir();
 #endif
 
-#if 0
 #if defined(__ANDROID__)
 	// Simplified
 	D_AddFile(&startupwadfiles, FILEPATH(basepk3), ASSET_HASH_SRB2_PK3);
 #else
-#endif // STAR NOTE: put everything below in here if enabled
-#endif
-
-#if 0
-	// STAR NOTE: use one fo these
 	// will be overwritten in case of -cdrom or unix/win home
 	snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, srb2waddir);
 	configfile[sizeof configfile - 1] = '\0';
-#endif
 
 	// Commercial.
 	srb2wad = malloc(strlen(srb2waddir)+1+strlen(basepk3)+1);
@@ -1281,30 +1273,31 @@ static void IdentifyVersion(addfilelist_t *startupwadfiles)
 
 	// Load the IWAD
 	if (srb2wad != NULL && FIL_ReadFileOK(srb2wad))
-		D_AddFile(startupwadfiles, srb2wad, ASSET_HASH_SRB2_PK3);
+		D_AddFile(&startupwadfiles, srb2wad, ASSET_HASH_SRB2_PK3);
 	else
 		I_Error("%s not found! Expected in %s, ss file: %s\n", basepk3, srb2waddir, srb2wad);
 
 	if (srb2wad)
 		free(srb2wad);
+#endif
 
 	// if you change the ordering of this or add/remove a file, be sure to update the md5
 	// checking in D_SRB2Main
 
 	// Add the maps
-	D_AddFile(startupwadfiles, FILEPATH("zones.pk3"), ASSET_HASH_ZONES_PK3);
+	D_AddFile(&startupwadfiles, FILEPATH("zones.pk3"), ASSET_HASH_ZONES_PK3);
 
-	// Add the characters
-	D_AddFile(startupwadfiles, FILEPATH("characters.pk3"), ASSET_HASH_CHARACTERS_PK3);
+	// Add the players
+	D_AddFile(&startupwadfiles, FILEPATH("characters.pk3"), ASSET_HASH_CHARACTERS_PK3);
 
 #ifdef USE_PATCH_DTA
 	// Add our crappy patches to fix our bugs
-	D_AddFile(startupwadfiles, FILEPATH("patch.pk3"), ASSET_HASH_PATCH_PK3);
+	D_AddFile(&startupwadfiles, FILEPATH("patch.pk3"), ASSET_HASH_PATCH_PK3);
 #endif
 
 #ifdef USE_ANDROID_PK3
 	// Android assets
-	D_AddFile(startupwadfiles, ANDROID_PK3_FILENAME, ASSET_HASH_ANDROID_PK3);
+	D_AddFile(&startupwadfiles, ANDROID_PK3_FILENAME, ASSET_HASH_ANDROID_PK3);
 #endif
 
 #if !defined (HAVE_SDL) || defined (HAVE_MIXER)
@@ -1314,7 +1307,7 @@ static void IdentifyVersion(addfilelist_t *startupwadfiles)
 			const char *musicpath = FILEPATH(str);\
 			int ms = W_VerifyNMUSlumps(musicpath, handletype, false); \
 			if (ms == 1) \
-				D_AddFile(startupwadfiles, musicpath, NULL); \
+				D_AddFile(&startupwadfiles, musicpath, NULL); \
 			else if (ms == 0) \
 				I_Error("File "str" has been modified with non-music/sound lumps"); \
 		}
@@ -1361,10 +1354,6 @@ void D_SRB2Main(void)
 	INT32 pstartmap = 1;
 	boolean autostart = false;
 
-	addfilelist_t startup_pwads = { .files = NULL, .numfiles = 0 };
-	addfilelist_t startupwadfiles = { .files = NULL, .numfiles = 0 };
-	fhandletype_t startuphandletype = FILEHANDLE_STANDARD;
-
 	/* break the version string into version numbers, for netplay */
 	D_ConvertVersionNumbers();
 
@@ -1405,16 +1394,17 @@ void D_SRB2Main(void)
 	// Test Dehacked lists
 	DEH_TableCheck();
 
+#if !defined(__ANDROID__)
 	// Netgame URL special case: change working dir to EXE folder.
 	ChangeDirForUrlHandler();
+#endif
 
 #if defined(__ANDROID__)
-	CONS_Printf("D_SetupHome()...\n");
 	D_SetupHome();
 #endif
 
 	// identify the main IWAD file to use
-	IdentifyVersion(&startupwadfiles);
+	IdentifyVersion();
 
 #if !defined(NOTERMIOS)
 	setbuf(stdout, NULL); // non-buffered output
@@ -1434,12 +1424,13 @@ void D_SRB2Main(void)
 	if (devparm)
 		CONS_Printf(M_GetText("Development mode ON.\n"));
 
-#if 1
 #if !defined(__ANDROID__)
-	CONS_Printf("D_SetupHome()...\n");
 	D_SetupHome();
 #endif
-#endif
+
+	// Create addons dir
+	snprintf(addonsdir, sizeof addonsdir, "%s%s%s", srb2home, PATHSEP, "addons");
+	I_mkdir(addonsdir, 0755);
 
 	// seed M_Random because it is necessary; seed P_Random for scripts that
 	// might want to use random numbers immediately at start
@@ -1482,9 +1473,9 @@ void D_SRB2Main(void)
 			else if (myargv[i][0] == '-' || myargv[i][0] == '+')
 				addontype = 0;
 			else if (addontype == 1)
-				D_AddFile(&startup_pwads, myargv[i], NULL);
+				D_AddFile(&startuppwads, myargv[i], NULL);
 			else if (addontype == 2)
-				D_AddFolder(&startup_pwads, myargv[i]);
+				D_AddFolder(&startuppwads, myargv[i]);
 		}
 	}
 
@@ -1526,10 +1517,10 @@ void D_SRB2Main(void)
 #endif
 
 #ifdef ANDROID_FILE_UNPACK
-	// The main files added at startup are handled by SDL_RWops
-	// and can be loaded from the inside the APK.
 	CONS_Printf("W_UnpackMultipleFiles(): Unpacking IWAD and main PWADs.\n");
 	W_UnpackMultipleFiles(&startupwadfiles);
+	// The main files added at startup are handled by SDL_RWops
+	// and can be loaded from the inside the APK.
 	startuphandletype = FILEHANDLE_SDL;
 #endif
 
@@ -1581,11 +1572,11 @@ void D_SRB2Main(void)
 
 	CON_StopRefresh(); // Temporarily stop refreshing the screen for wad loading
 
-	if (startup_pwads.numfiles)
+	if (startuppwads.numfiles)
 	{
 		CONS_Printf("W_InitMultipleFiles(): Adding extra PWADs.\n");
-		W_InitMultipleFiles(&startup_pwads, FILEHANDLE_STANDARD);
-		D_CleanFile(&startup_pwads);
+		W_InitMultipleFiles(&startuppwads, FILEHANDLE_STANDARD);
+		D_CleanFile(&startuppwads);
 	}
 
 	CON_StartRefresh(); // Restart the refresh!
@@ -1607,13 +1598,14 @@ void D_SRB2Main(void)
 	M_CopyGameData(serverGamedata, clientGamedata);
 
 #ifdef TOUCHINPUTS
-	CONS_Printf("TS_InitLayouts()...\n");
 	TS_InitLayouts();
-	CONS_Printf("TS_LoadUserLayouts(): Loading touchscreen data...\n");
 	TS_LoadUserLayouts(); // will call TS_LoadLayouts
 #endif
 
-	allow_fullscreen = true; // used to be (the only thing) within VID_PrepareModeList
+	VID_PrepareModeList(); // Regenerate Modelist according to cv_fullscreen
+
+	// set user default mode or mode set at cmdline
+	SCR_CheckDefaultMode();
 
 	wipegamestate = gamestate;
 
@@ -1943,30 +1935,31 @@ void D_MakeSaveGamePaths(const char *home)
 	// can't use snprintf since there is %u in savegamename
 	strcatbf(savegamename[0], home, PATHSEP);
 	strcatbf(liveeventbackup[0], home, PATHSEP);
+
 #ifdef USE_SAVEGAME_PATHS
 	strcatbf(savegamename[1], srb2path, PATHSEP);
 	strcatbf(liveeventbackup[1], srb2path, PATHSEP);
 #endif
 }
 
-//#if defined(__ANDROID__)
-static void FindUsableStorageLocation(char *dest, size_t destsize, const char *path, const char **homelist)
+#if defined(__ANDROID__)
+static void FindUsableStorageLocation(char *dest, size_t destsize, char *path, const char **homelist, char *defpath)
 {
-	for (INT32 i = 0; homelist[i]; i++)
+	INT32 i;
+
+	for (i = 0; homelist[i]; i++)
 	{
-		//I_mkdir(homelist[i], 0755); // make sure workdir exists
 		snprintf(dest, destsize, "%s" PATHSEP "%s", homelist[i], path);
 		if (FIL_ReadFileOK(dest))
 			return;
 	}
-	//I_mkdir(srb2home, 0755); // make sure workdir exists
-	snprintf(dest, destsize, "%s" PATHSEP "%s", srb2home, path);
+
+	snprintf(dest, destsize, "%s" PATHSEP "%s", defpath, path);
 }
 
 static void D_AndroidSetupHome(const char *userhome)
 {
 	const char *homelist[3] = { NULL, NULL, NULL };
-	const char *config_to_use = (dedicated ? "d"CONFIGFILENAME : CONFIGFILENAME);
 	INT32 next = 0;
 
 	strlcpy(srb2home, userhome, sizeof(srb2home));
@@ -1979,30 +1972,29 @@ static void D_AndroidSetupHome(const char *userhome)
 	ListAdd(srb2home);
 	ListAdd(I_AppStorageLocation());
 
-#define SetupLocation(loc, path) FindUsableStorageLocation(loc, sizeof(loc), path, homelist)
-	SetupLocation(addonsdir, "addons");
-	I_mkdir(addonsdir, 0755);
+#define SetupLocation(loc, path) FindUsableStorageLocation(loc, sizeof(loc), path, homelist, srb2home)
+
 	SetupLocation(downloaddir, "DOWNLOAD");
-#if 1
-	// STAR NOTE: use one fo these
-	SetupLocation(configfile, config_to_use);
-	configfile[sizeof configfile - 1] = '\0';
-#endif
+
+	if (dedicated)
+		SetupLocation(configfile, "d"CONFIGFILENAME);
+	else
+		SetupLocation(configfile, CONFIGFILENAME);
+
 #ifdef TOUCHINPUTS
 	SetupLocation(touchlayoutfolder, "touchlayouts");
 #endif
+
 	SetupLocation(luafiledir, "luafiles");
 
 #undef SetupLocation
 #undef ListAdd
 }
-//#endif
+#endif
 
-// STAR NOTE: in the future i want to merge androidsetuphome with this
 void D_SetupHome(void)
 {
 	const char *userhome = D_Home(); //Alam: path to home
-	const char *config_to_use = (dedicated ? "d"CONFIGFILENAME : CONFIGFILENAME);
 
 #if defined(__ANDROID__)
 	strlcpy(srb2path, I_AppStorageLocation(), sizeof(srb2path));
@@ -2011,59 +2003,54 @@ void D_SetupHome(void)
 	D_DefaultSaveGameName(SAVEGAMENAME"%u.ssg");
 	D_DefaultLiveEventName("live"SAVEGAMENAME".bkp"); // intentionally not ending with .ssg
 
-#if 0
-	if (userhome)
-	{
-		D_AndroidSetupHome(userhome);
-		return;
-	}
-#endif
-
 	if (!userhome)
 	{
 #if (defined (__unix__) || defined (__APPLE__) || defined (UNIXCOMMON)) && !defined (__CYGWIN__)
 		I_Error("Please set $HOME to your home directory\n");
 #else
-		snprintf(configfile, sizeof configfile, "%s", config_to_use);
+		if (dedicated)
+			snprintf(configfile, sizeof configfile, "d"CONFIGFILENAME);
+		else
+			snprintf(configfile, sizeof configfile, CONFIGFILENAME);
 #endif
 	}
 	else
 	{
 #if defined(__ANDROID__)
 		D_AndroidSetupHome(userhome);
-		D_MakeSaveGamePaths(srb2home);
-		return;
 #elif defined(DEFAULTDIR)
+		// use user specific config file
 		snprintf(srb2home, sizeof srb2home, "%s" PATHSEP DEFAULTDIR, userhome);
-#else
-		snprintf(srb2home, sizeof srb2home, "%s", userhome);
+		snprintf(downloaddir, sizeof downloaddir, "%s" PATHSEP "DOWNLOAD", srb2home);
+		if (dedicated)
+			snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, srb2home);
+		else
+			snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, srb2home);
+
+#ifdef TOUCHINPUTS
+		snprintf(touchlayoutfolder, sizeof touchlayoutfolder, "%s" PATHSEP "touchlayouts", srb2home);
 #endif
-		//I_mkdir(srb2home, 0755); // make sure workdir exists
+
+		snprintf(luafiledir, sizeof luafiledir, "%s" PATHSEP "luafiles", srb2home);
+#else // DEFAULTDIR
+		snprintf(srb2home, sizeof srb2home, "%s", userhome);
+		snprintf(downloaddir, sizeof downloaddir, "%s", userhome);
+		if (dedicated)
+			snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, userhome);
+		else
+			snprintf(configfile, sizeof configfile, "%s" PATHSEP CONFIGFILENAME, userhome);
+
+#ifdef TOUCHINPUTS
+		snprintf(touchlayoutfolder, sizeof touchlayoutfolder, "%s" PATHSEP "touchlayouts", userhome);
+#endif
+
+		snprintf(luafiledir, sizeof luafiledir, "%s" PATHSEP "luafiles", userhome);
+#endif // DEFAULTDIR
+
 		D_MakeSaveGamePaths(srb2home);
 	}
 
-#if defined(DEFAULTDIR)
-	const char *home_to_use = srb2home;
-#else
-	const char *home_to_use = userhome;
-#endif
-
-	// Create addons dir
-	snprintf(addonsdir, sizeof addonsdir, "%s%s%s", srb2home, PATHSEP, "addons");
-	I_mkdir(addonsdir, 0755);
-
-#if 1
-	// STAR NOTE: use one fo these
-	// use user specific config file
-	snprintf(configfile, sizeof configfile, "%s" PATHSEP "%s", home_to_use, config_to_use);
 	configfile[sizeof configfile - 1] = '\0';
-#endif
-
-	snprintf(downloaddir, sizeof downloaddir, "%s" PATHSEP "DOWNLOAD", home_to_use);
-#ifdef TOUCHINPUTS
-	snprintf(touchlayoutfolder, sizeof touchlayoutfolder, "%s" PATHSEP "touchlayouts", home_to_use);
-#endif
-	snprintf(luafiledir, sizeof luafiledir, "%s" PATHSEP "luafiles", home_to_use);
 }
 
 static boolean check_top_dir(const char **path, const char *top)
@@ -2098,6 +2085,7 @@ static int cmp_strlen_desc(const void *A, const void *B)
 	size_t Bs = strlen(pB);
 	return ((int)Bs - (int)As);
 }
+
 
 boolean D_IsPathAllowed(const char *path)
 {

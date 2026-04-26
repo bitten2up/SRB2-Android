@@ -10,17 +10,6 @@ target_sources(SRB2SDL2 PRIVATE
 	hw_md3load.c
 	hw_model.c
 	hw_batching.c
-	r_glcommon/r_glcommon.c
-	shaders/gl_shaders.c
+	r_opengl/r_opengl.c
 	hw_shaders.c
 )
-
-if(SRB2_CONFIG_HAVE_GLES2)
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_GLES -DHAVE_GLES2)
-	target_sources(SRB2SDL2 PRIVATE r_gles/r_gles2.c)
-elseif(SRB2_CONFIG_HAVE_GLES)
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_GLES)
-	target_sources(SRB2SDL2 PRIVATE r_gles/r_gles1.c)
-else()
-	target_sources(SRB2SDL2 PRIVATE r_opengl/r_opengl.c)
-endif()

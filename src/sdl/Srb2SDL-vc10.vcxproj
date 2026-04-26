@@ -441,6 +441,7 @@
     <None Include="SDL_icon.xpm" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\android\apk_m_textreader.c" />
     <ClCompile Include="..\am_map.c" />
     <ClCompile Include="..\apng.c" />
     <ClCompile Include="..\blua\lapi.c" />
@@ -533,7 +534,6 @@
     <ClCompile Include="..\m_fixed.c" />
     <ClCompile Include="..\m_menu.c" />
     <ClCompile Include="..\m_misc.c" />
-    <ClCompile Include="..\m_textreader.c" />
     <ClCompile Include="..\m_tokenizer.c" />
     <ClCompile Include="..\m_perfstats.c" />
     <ClCompile Include="..\m_queue.c" />

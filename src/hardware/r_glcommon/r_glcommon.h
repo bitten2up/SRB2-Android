@@ -2,91 +2,93 @@
 //-----------------------------------------------------------------------------
 // Copyright (C) 1998-2021 by Sonic Team Junior.
 // Copyright (C) 2020-2023 by SRB2 Mobile Project.
-// Copyright (C) 2025 by Bitten2Up.
-// Copyright (C) 2025 by StarManiaKG.
 //
 // This program is free software distributed under the
 // terms of the GNU General Public License, version 2.
 // See the 'LICENSE' file for more details.
 //-----------------------------------------------------------------------------
 /// \file r_glcommon.h
-/// \brief Common OpenGL functions and structs shared by our backends
+/// \brief Common OpenGL functions and structs shared by OpenGL backends
 
 #ifndef _R_GLCOMMON_H_
 #define _R_GLCOMMON_H_
 
 #define GL_GLEXT_PROTOTYPES
 
-#ifdef HAVE_SDL
-	#define _MATH_DEFINES_DEFINED
-	#include "SDL.h"
-	#include "../../sdl/sdlmain.h"
-	#ifdef _MSC_VER
-		#pragma warning(disable : 4214 4244)
-	#endif
-	#if !defined (HAVE_GLES2)
-		#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
-	#endif
-	#ifdef _MSC_VER
-		#pragma warning(default : 4214 4244)
-	#endif
-#endif
-
-#if defined (HAVE_GLES2)
+#if defined(HAVE_GLES2)
 	#include <GLES2/gl2.h>
 	#include <GLES2/gl2ext.h>
-	#define DRIVER_STRING "OpenGL ES 2.0"
-#elif defined (HAVE_GLES)
-	#if defined (__ANDROID__)
-		#error HAVE_GLES2 not set for some weird reason
-	#endif
+#elif defined(HAVE_GLES)
 	#include <GLES/gl.h>
 	#include <GLES/glext.h>
-	#define DRIVER_STRING "OpenGL ES 1.1"
 #else
-	#if defined (__ANDROID__)
-		#error HAVE_GLES2 not set for some weird reason
-	#endif
-	#ifndef HAVE_SDL
+	#ifdef HAVE_SDL
+		#define _MATH_DEFINES_DEFINED
+
+		#ifdef _MSC_VER
+		#pragma warning(disable : 4214 4244)
+		#endif
+
+		#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
+
+		#ifdef _MSC_VER
+		#pragma warning(default : 4214 4244)
+		#endif
+	#else
 		#include <GL/gl.h>
 		#include <GL/glu.h>
 		#if defined(STATIC_OPENGL)
 			#include <GL/glext.h>
 		#endif
 	#endif
-	#define DRIVER_STRING "OpenGL"
 #endif
 
-// This is necessary for the below headers
-#define _CREATE_DLL_ // necessary for Unix AND Windows
+#ifdef HAVE_SDL
+#define _MATH_DEFINES_DEFINED
+#include "SDL.h"
+#endif
+
+#if 0
+	// STAR NOTE: not as simple as the bottom comment because
+	//	APPARENTLY GLclampd chooses to not get defined somehow
+	#ifdef HAVE_SDL
+		#include "SDL_opengl.h" //Alam_GBC: Simple, yes?
+	#endif
+#endif
+	typedef double GLclampd;
 
 #include "../../doomdata.h"
 #include "../../doomtype.h"
 #include "../../doomdef.h"
-#include "../../z_zone.h"
 
-#include "../hw_data.h"  // GLMipmap_s
-#include "../hw_defs.h"  // FTextureInfo
-#ifndef NO_DRV_DEFINED_HERE
-	#include "../hw_drv.h"   // f you
+#include "../../hardware/hw_data.h"  // GLMipmap_s
+#include "../../hardware/hw_defs.h"  // FTextureInfo
+#include "../../hardware/hw_model.h" // model_t / mesh_t / mdlframe_t
+#include "../r_opengl/r_vbo.h"
+
+void GL_DBG_Printf(const char *format, ...);
+void GL_MSG_Warning(const char *format, ...);
+void GL_MSG_Error(const char *format, ...);
+
+extern char *lastglerror;
+
+#ifdef DEBUG_TO_FILE
+extern FILE *gllogstream;
 #endif
-#include "../hw_model.h" // model_t / mesh_t / mdlframe_t
-#include "r_vbo.h"
-
-// ==========================================================================
-//                                                                     PROTOS
-// ==========================================================================
 
 #ifndef R_GL_APIENTRY
-	#if defined (_WIN32)
+	#if defined(_WIN32)
 		#define R_GL_APIENTRY APIENTRY
 	#else
 		#define R_GL_APIENTRY
 	#endif
 #endif
 
-#ifdef STATIC_OPENGL
+// ==========================================================================
+//                                                                     PROTOS
+// ==========================================================================
 
+#ifdef STATIC_OPENGL
 /* Miscellaneous */
 #define pglClear glClear
 #define pglGetFloatv glGetFloatv
@@ -99,9 +101,20 @@
 #define pglBlendFunc glBlendFunc
 #define pglCullFace glCullFace
 #define pglPolygonOffset glPolygonOffset
+#if 1
+// STAR NOTE: hi
 #define pglScissor glScissor
+#endif
 #define pglEnable glEnable
 #define pglDisable glDisable
+#if 1
+// STAR NOTE: still hi
+#define pglGetFloatv glGetFloatv
+//glGetIntegerv
+//glGetString
+#define pglHint glHint
+#endif
+
 
 /* Depth buffer */
 #define pglDepthMask glDepthMask
@@ -131,10 +144,8 @@
 /* Texture mapping */
 #define pglCopyTexImage2D glCopyTexImage2D
 #define pglCopyTexSubImage2D glCopyTexSubImage2D
-
 #else
-
-/* 1.0 Miscellaneous Functions */
+/* Miscellaneous */
 typedef void (R_GL_APIENTRY * PFNglClear) (GLbitfield mask);
 extern PFNglClear pglClear;
 typedef void (R_GL_APIENTRY * PFNglGetFloatv) (GLenum pname, GLfloat *params);
@@ -159,12 +170,22 @@ typedef void (R_GL_APIENTRY * PFNglCullFace) (GLenum mode);
 extern PFNglCullFace pglCullFace;
 typedef void (R_GL_APIENTRY * PFNglPolygonOffset) (GLfloat factor, GLfloat units);
 extern PFNglPolygonOffset pglPolygonOffset;
+#if 1
+// STAR NOTE: hi
 typedef void (R_GL_APIENTRY * PFNglScissor) (GLint x, GLint y, GLsizei width, GLsizei height);
 extern PFNglScissor pglScissor;
+#endif
 typedef void (R_GL_APIENTRY * PFNglEnable) (GLenum cap);
 extern PFNglEnable pglEnable;
 typedef void (R_GL_APIENTRY * PFNglDisable) (GLenum cap);
 extern PFNglDisable pglDisable;
+#if 1
+// STAR NOTE: hi
+typedef void (R_GL_APIENTRY * PFNglGetFloatv) (GLenum pname, GLfloat *params);
+extern PFNglGetFloatv pglGetFloatv;
+typedef void (R_GL_APIENTRY * PFNglPolygonMode) (GLenum, GLenum);
+extern PFNglPolygonMode pglPolygonMode;
+#endif
 
 /* Depth buffer */
 typedef void (R_GL_APIENTRY * PFNglDepthFunc) (GLenum func);
@@ -216,16 +237,20 @@ extern PFNglCopyTexSubImage2D pglCopyTexSubImage2D;
 typedef void (R_GL_APIENTRY * PFNglTexImage3D) (GLenum target, GLint level, GLint internalFormat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 extern PFNglTexImage3D pglTexImage3D;
 
+#if 1
+// STAR NOTE: hi
 /* 1.3 functions for multitexturing */
 typedef void (R_GL_APIENTRY *PFNglMultiTexCoord2f) (GLenum, GLfloat, GLfloat);
 extern PFNglMultiTexCoord2f pglMultiTexCoord2f;
 typedef void (R_GL_APIENTRY *PFNglMultiTexCoord2fv) (GLenum target, const GLfloat *v);
 extern PFNglMultiTexCoord2fv pglMultiTexCoord2fv;
+#endif
 
+#if 1
 /* Vertex Attrib */
 typedef void (R_GL_APIENTRY * PFNglVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 extern PFNglVertexAttribPointer pglVertexAttribPointer;
-
+#endif
 #endif // STATIC_OPENGL
 
 //
@@ -238,6 +263,7 @@ extern PFNglVertexAttribPointer pglVertexAttribPointer;
 #else
 	typedef void (R_GL_APIENTRY * PFNglActiveTexture) (GLenum);
 	extern PFNglActiveTexture pglActiveTexture;
+
 	typedef void (R_GL_APIENTRY * PFNglClientActiveTexture) (GLenum);
 	extern PFNglClientActiveTexture pglClientActiveTexture;
 #endif
@@ -246,16 +272,21 @@ extern PFNglVertexAttribPointer pglVertexAttribPointer;
 // Mipmapping
 //
 
+// STAR NOTE: testing testing 1234
+
+//#ifdef HAVE_GLES
 /* Texture mapping */
 typedef void (R_GL_APIENTRY * PFNglGenerateMipmap) (GLenum target);
 extern PFNglGenerateMipmap pglGenerateMipmap;
+//#endif
 
 //
 // Depth functions
 //
 
-#if !defined (HAVE_GLES) && !defined (HAVE_GLES2)
-	typedef double		GLclampd;	/* double precision float in [0,1] */
+// STAR NOTE: testing testing 1234
+
+//#ifndef HAVE_GLES
 	#ifdef STATIC_OPENGL
 		#define pglClearDepth glClearDepth
 		#define pglDepthFunc glDepthFunc
@@ -265,7 +296,7 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 		typedef void (R_GL_APIENTRY * PFNglDepthRange) (GLclampd near_val, GLclampd far_val);
 		extern PFNglDepthRange pglDepthRange;
 	#endif
-#else
+//#else
 	#ifdef STATIC_OPENGL
 		#define pglClearDepthf glClearDepthf
 		#define pglDepthFuncf glDepthFuncf
@@ -275,7 +306,7 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 		typedef void (R_GL_APIENTRY * PFNglDepthRangef) (GLclampf near_val, GLclampf far_val);
 		extern PFNglDepthRangef pglDepthRangef;
 	#endif
-#endif
+//#endif
 
 //
 // Legacy functions
@@ -308,12 +339,15 @@ extern PFNglGenerateMipmap pglGenerateMipmap;
 #define pglLightfv glLightfv
 #define pglLightModelfv glLightModelfv
 #define pglMaterialfv glMaterialfv
+#if 1
+// STAR NOTE: hi
 #define pglMateriali glMateriali
+#endif
 
 /* Texture mapping */
 #define pglTexEnvi glTexEnvi
 
-#else
+#else // STATIC_OPENGL
 
 typedef void (R_GL_APIENTRY * PFNglMatrixMode) (GLenum mode);
 extern PFNglMatrixMode pglMatrixMode;
@@ -355,8 +389,11 @@ typedef void (R_GL_APIENTRY * PFNglLightModelfv) (GLenum pname, GLfloat *params)
 extern PFNglLightModelfv pglLightModelfv;
 typedef void (R_GL_APIENTRY * PFNglMaterialfv) (GLint face, GLenum pname, GLfloat *params);
 extern PFNglMaterialfv pglMaterialfv;
+#if 1
+// STAR NOTE: hi
 typedef void (R_GL_APIENTRY * PFNglMateriali) (GLint face, GLenum pname, GLint param);
 extern PFNglMateriali pglMateriali;
+#endif
 
 /* Texture mapping */
 typedef void (R_GL_APIENTRY * PFNglTexEnvi) (GLenum target, GLenum pname, GLint param);
@@ -365,12 +402,12 @@ extern PFNglTexEnvi pglTexEnvi;
 #endif // STATIC_OPENGL
 #endif // HAVE_GLES2
 
-/* Coloring */
+// Color
 #ifdef HAVE_GLES
 	#ifdef STATIC_OPENGL
 		#define pglColor4f glColor4f
 	#else
-		typedef void (R_GL_APIENTRY *PFNglColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+		typedef void (*PFNglColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 		extern PFNglColor4f pglColor4f;
 	#endif
 #else
@@ -424,14 +461,10 @@ extern PFNglFramebufferRenderbuffer pglFramebufferRenderbuffer;
 //                                                                  FUNCTIONS
 // ==========================================================================
 
-FUNCPRINTF void GL_DBG_Printf(const char *format, ...);
-void GL_MSG_Warning(const char *format, ...);
-void GL_MSG_Error(const char *format, ...);
-
-void GLBackend_CheckError(const char *func, const char *file, int line);
-#define CHECK_GL_ERROR(file) GLBackend_CheckError(__FUNCTION__, file, __LINE__ - 1)
-
-void VID_DisplayGLError(void);
+#if !defined(HAVE_GLES2) && !defined(HAVE_GLES)
+boolean SetupGLfunc(void);
+void SetupGLFunc4(void);
+#endif
 
 #ifdef HAVE_GL_FRAMEBUFFER
 void GLFramebuffer_Generate(void);
@@ -447,6 +480,7 @@ void GLFramebuffer_SetDepth(INT32 depth);
 #endif
 
 void GLModel_GenerateVBOs(model_t *model);
+void GLModel_ClearVBOs(model_t *model);
 void GLModel_DeleteVBOs(model_t *model);
 
 void GLModel_AllocLerpBuffer(size_t size);
@@ -463,11 +497,11 @@ boolean GLBackend_Init(void);
 boolean GLBackend_InitContext(void);
 void    GLBackend_DeleteModelData(void);
 
-void   *GLBackend_GetFunction(const char *proc);
 boolean GLBackend_LoadFunctions(void);
 boolean GLBackend_LoadExtraFunctions(void);
 boolean GLBackend_LoadCommonFunctions(void);
 boolean GLBackend_LoadLegacyFunctions(void);
+void   *GLBackend_GetFunction(const char *proc);
 
 #define GETOPENGLFUNC(func) \
 	p ## gl ## func = GLBackend_GetFunction("gl" #func); \
@@ -475,24 +509,23 @@ boolean GLBackend_LoadLegacyFunctions(void);
 	{ \
 		GL_MSG_Error("Failed to get OpenGL function %s\n", #func); \
 		return false; \
-	} \
-	GL_DBG_Printf("Got OpenGL function %s\n", #func);
+	}
 
 #define GETOPENGLFUNCTRY(func) \
 	p ## gl ## func = GLBackend_GetFunction("gl" #func); \
 	if (!(p ## gl ## func)) \
-		GL_DBG_Printf("Failed to get OpenGL function %s\n", #func); \
-	else \
-		GL_DBG_Printf("Got OpenGL function %s\n", #func);
+		GL_DBG_Printf("Failed to get OpenGL function %s\n", #func);
+
+// Backwards-compat for regular OpenGL
+#define GetGLFunc(proc) GLBackend_GetFunction(proc)
 
 INT32 GLBackend_GetShaderType(INT32 type);
 INT32 GLBackend_GetAlphaTestShader(INT32 type);
 INT32 GLBackend_InvertAlphaTestShader(INT32 type);
 
-void GLBackend_SetPalette(RGBA_t *palette);
 void GLBackend_ReadRect(INT32 x, INT32 y, INT32 width, INT32 height, INT32 dst_stride, UINT16 *dst_data);
 
-boolean GLBackend_SetSurface(INT32 w, INT32 h);
+void GLBackend_SetSurface(INT32 w, INT32 h);
 void GLBackend_SetBlend(FBITFIELD PolyFlags);
 void GLBackend_SetModelView(INT32 w, INT32 h);
 void GLBackend_SetStates(void);
@@ -511,7 +544,11 @@ boolean GLExtension_LoadFunctions(void);
 #define ASPECT_RATIO            (1.0f)  //(320.0f/200.0f)
 
 #define FAR_CLIPPING_PLANE      32768.0f // Draw further! Tails 01-21-2001
-extern float NEAR_CLIPPING_PLANE;
+
+#define NULL_VBO_VERTEX ((gl_skyvertex_t*)NULL)
+#define sky_vbo_x (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->x : &sky->data[0].x)
+#define sky_vbo_u (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->u : &sky->data[0].u)
+#define sky_vbo_r (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->r : &sky->data[0].r)
 
 /* 1.2 Parms */
 /* GL_CLAMP_TO_EDGE_EXT */
@@ -532,16 +569,13 @@ extern float NEAR_CLIPPING_PLANE;
 #ifndef GL_TEXTURE1
 #define GL_TEXTURE1 0x84C1
 #endif
-#ifndef GL_TEXTURE2
-#define GL_TEXTURE2 0x84C2
-#endif
 
 /* 1.5 Parms */
-#ifndef GL_ARRAY_BUFFER
-#define GL_ARRAY_BUFFER 0x8892
-#endif
 #ifndef GL_STATIC_DRAW
 #define GL_STATIC_DRAW 0x88E4
+#endif
+#ifndef GL_ARRAY_BUFFER
+#define GL_ARRAY_BUFFER 0x8892
 #endif
 
 #ifndef GL_FUNC_ADD
@@ -629,9 +663,10 @@ typedef enum
 //                                                                    GLOBALS
 // ==========================================================================
 
-#ifdef DEBUG_TO_FILE
-extern FILE *gllogstream;
-#endif
+/**	\brief OpenGL flags for video driver
+*/
+extern INT32 oglflags;
+extern GLint textureformatGL;
 
 extern const GLubyte *gl_version;
 extern const GLubyte *gl_renderer;
@@ -639,7 +674,6 @@ extern const GLubyte *gl_extensions;
 
 extern GLRGBAFloat white;
 extern GLRGBAFloat black;
-extern const GLubyte white_bytes[4];
 
 extern RGBA_t *textureBuffer;
 extern size_t textureBufferSize;
@@ -649,51 +683,52 @@ extern RGBA_t myPaletteData[];
 extern GLint  screen_width;
 extern GLint  screen_height;
 extern GLbyte screen_depth;
+extern GLint  maximumAnisotropy;
+#if 0
+// STAR NOTE: not needed anymore, but eh, you never know
+extern boolean supportMipMap;
+#endif
 
-/**	\brief OpenGL flags for video driver
-*/
-extern GLint oglflags;
-extern GLint textureformatGL;
-extern GLboolean mipmapEnabled;
-extern GLboolean mipmapSupported;
+extern GLboolean MipmapEnabled;
+extern GLboolean MipmapSupported;
 extern GLint min_filter;
 extern GLint mag_filter;
 extern GLint anisotropic_filter;
-extern GLint maximumAnisotropy;
 
 extern boolean alpha_test;
 extern float alpha_threshold;
 
 extern boolean model_lighting;
 
-// Linked list of all textures.
+extern float near_clipping_plane;
+
 extern FTextureInfo *TexCacheTail;
 extern FTextureInfo *TexCacheHead;
 
-// Linked list of all lighttables.
-extern LTListItem *LightTablesTail;
-extern LTListItem *LightTablesHead;
-
 extern GLuint    tex_downloaded;
-extern GLuint    lt_downloaded;
 extern GLfloat   fov;
 extern FBITFIELD CurrentPolyFlags;
 
-// Sryder:	NextTexAvail is broken for these because palette changes or changes to the texture filter or antialiasing
-//			flush all of the stored textures, leaving them unavailable at times such as between levels
-//			These need to start at 0 and be set to their number, and be reset to 0 when deleted so that intel GPUs
-//			can know when the textures aren't there, as textures are always considered resident in their virtual memory
 extern GLuint screenTextures[NUMSCREENTEXTURES];
+extern GLuint screentexture;
+extern GLuint startScreenWipe;
+extern GLuint endScreenWipe;
+extern GLuint finalScreenTexture;
 
 extern RGBA_t screenPalette[256]; // the palette for the postprocessing step in palette rendering
 extern GLuint screenPaletteTex; // 1D texture containing the screen palette
 extern GLuint paletteLookupTex; // 3D texture containing RGB -> palette index lookup table
 
+// Linked list of all lighttables.
+extern LTListItem *LightTablesTail;
+extern LTListItem *LightTablesHead;
+
 #ifdef HAVE_GL_FRAMEBUFFER
-#define NumRenderbufferFormats 5
 extern GLuint FramebufferObject, FramebufferTexture;
 extern GLuint RenderbufferObject, RenderbufferDepthBits;
 extern GLboolean FramebufferEnabled, RenderToFramebuffer;
+
+#define NumRenderbufferFormats 5
 extern GLenum RenderbufferFormats[NumRenderbufferFormats];
 #endif
 
@@ -726,9 +761,12 @@ extern boolean GLExtension_framebuffer_object;
 #endif
 extern boolean GLExtension_shaders;
 
-#define NULL_VBO_VERTEX ((gl_skyvertex_t*)NULL)
-#define sky_vbo_x (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->x : &sky->data[0].x)
-#define sky_vbo_u (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->u : &sky->data[0].u)
-#define sky_vbo_r (GLExtension_vertex_buffer_object ? &NULL_VBO_VERTEX->r : &sky->data[0].r)
+// ==========================================================================
+//                                                                    BACKEND
+// ==========================================================================
+
+#if 0
+extern boolean GLBackend_useprogram;
+#endif
 
 #endif // _R_GLCOMMON_H_

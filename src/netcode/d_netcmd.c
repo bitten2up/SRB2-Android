@@ -967,7 +967,9 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_android_liveshudpos);
 	CV_RegisterVar(&cv_android_thinkless);
 #ifdef NATIVESCREENRES
+	#if 0 //bitten
 	SCR_NativeRes_SetMaxDivider(SCR_NativeRes_GetMaxDivider(0, 0));
+	#endif
 	CV_RegisterVar(&cv_nativeres);
 	CV_RegisterVar(&cv_nativeresdiv);
 	CV_RegisterVar(&cv_nativeresauto);

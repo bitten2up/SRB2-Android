@@ -23,9 +23,6 @@
 // SRB2Android
 #include "../android/apk_main.h"
 
-// STAR NOTE: models won't load
-/// \todo fix that llol
-
 static float PI = (3.1415926535897932384626433832795f);
 static float U_Deg2Rad(float deg)
 {
@@ -62,6 +59,9 @@ void VectorRotate(vector_t *rotVec, const vector_t *axisVec, float angle)
 
 void UnloadModel(model_t *model)
 {
+	if (!model)
+		return;
+
 	// Wouldn't it be great if C just had destructors?
 	int i;
 	for (i = 0; i < model->numMeshes; i++)
@@ -281,17 +281,15 @@ model_t *LoadModel(const char *filename, int ztag, wadfile_t *wadfile)
 	return model;
 }
 
-#include "../r_skins.h"
 void HWR_ReloadModels(void)
 {
 	size_t i;
 
 #if 0
-	HWR_ReadModels();
+	HWR_LoadModels();
 #endif
 
-	//for (i = 0; i < md2_numplayermodels; i++)
-	for (i = 0; i < numskins; i++)
+	for (i = 0; i < md2_numplayermodels; i++)
 	{
 		if (md2_playermodels[i].model)
 			LoadModelSprite2(md2_playermodels[i].model);

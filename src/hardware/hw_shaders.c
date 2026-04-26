@@ -11,35 +11,25 @@
 
 #ifdef HWRENDER
 
-#include "hw_defs.h"
 #include "hw_glob.h"
 #include "hw_drv.h"
-#include "hw_shaders.h"
-#include "../z_zone.h"
-
-// StarManiaKG:
-// hw_shaders should be enough, everything's stored in there,
-// these are just extras.
-// hey, maybe we could make these all a pk3 eventually?
-// shaders.pk3 maybe?
-#include "shaders/gl_shaders.h"
-#if 1
 #ifdef HAVE_GLES2
 	#include "shaders/shaders_gles2.h"
 #else
-	#if defined (__ANDROID__)
-		#error SHOULD BE GLES2
-	#endif
+	#error SHOULD BE GLES2
 	#include "shaders/shaders_gl2.h"
 #endif
-#endif
+#include "hw_shaders.h"
+#include "../z_zone.h"
 
 // ================
 //  Shader sources
 // ================
 
-const gl_shadersources_t gl_shadersources[] =
-{
+static struct {
+	const char *vertex;
+	const char *fragment;
+} const gl_shadersources[] = {
 	// Floor shader
 	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_FLOOR_FRAGMENT_SHADER},
 
@@ -50,7 +40,6 @@ const gl_shadersources_t gl_shadersources[] =
 	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_WALL_FRAGMENT_SHADER},
 
 	// Model shader
-	//{GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_FRAGMENT_SHADER}, // DEFAULT I THINK
 	{GLSL_MODEL_VERTEX_SHADER, GLSL_MODEL_FRAGMENT_SHADER},
 
 	// Water shader
@@ -70,39 +59,61 @@ const gl_shadersources_t gl_shadersources[] =
 
 	// UI tinted wipe shader
 	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_UI_TINTED_WIPE_FRAGMENT_SHADER},
-
 #ifdef HAVE_GLES2
-	// Default shader with alpha test
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_DEFAULT_ALPHA_TEST},
+        // Default shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_DEFAULT_ALPHA_TEST},
 
-	// Floor shader with alpha test
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+        // Floor shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
 
-	// Wall shader with alpha test
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+        // Wall shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
 
-	// Sprite shader with alpha test
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+        // Sprite shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
 
-	// Model shader with alpha test
-	//{GLSL_MODEL_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST}, // DEFAULT I THINK
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
+        // Model shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_SOFTWARE_ALPHA_TEST},
 
-	// Model lighting shader with alpha test
-	{GLSL_MODEL_LIGHTING_VERTEX_SHADER, GLSL_MODEL_LIGHTING_ALPHA_TEST},
+        // Model lighting shader with alpha test
+    {GLSL_MODEL_LIGHTING_VERTEX_SHADER, GLSL_MODEL_LIGHTING_ALPHA_TEST},
 
-	// Water shader with alpha test
-	{GLSL_DEFAULT_VERTEX_SHADER, GLSL_WATER_ALPHA_TEST},
+        // Water shader with alpha test
+    {GLSL_DEFAULT_VERTEX_SHADER, GLSL_WATER_ALPHA_TEST},
 
-	// Fade mask shader
-	{GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_FRAGMENT_SHADER},
+        // Fade mask shader
+    {GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_FRAGMENT_SHADER},
 
-	// Additive and subtractive fade mask shader
-	{GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_ADDITIVEANDSUBTRACTIVE_FRAGMENT_SHADER},
+        // Additive and subtractive fade mask shader
+    {GLSL_FADEMASK_VERTEX_SHADER, GLSL_FADEMASK_ADDITIVEANDSUBTRACTIVE_FRAGMENT_SHADER},
 #endif
 
 	{NULL, NULL},
 };
+
+#if 1
+// STAR NOTE: come back here right now stupid
+
+typedef struct
+{
+	int base_shader; // index of base shader_t
+	int custom_shader; // index of custom shader_t
+} shadertarget_t;
+
+typedef struct
+{
+	char *vertex;
+	char *fragment;
+	boolean compiled;
+} shader_t; // these are in an array and accessed by indices
+
+// the array has NUMSHADERTARGETS entries for base shaders and for custom shaders
+// the array could be expanded in the future to fit "dynamic" custom shaders that
+// aren't fixed to shader targets
+//static shader_t gl_shaders[NUMSHADERTARGETS*2];
+
+static shadertarget_t gl_shadertargets[NUMSHADERTARGETS];
+#endif
 
 #define WHITESPACE_CHARS " \t"
 
@@ -116,17 +127,13 @@ boolean HWR_InitShaders(void)
 	int i;
 
 	if (!HWD.pfnInitShaders())
-	{
-		GL_MSG_Error("HWR_InitShaders() - Shader loading failed!\n");
 		return false;
-	}
 
 	for (i = 0; i < NUMSHADERTARGETS; i++)
 	{
 		// set up string pointers for base shaders
-		gl_shaders[i].vertex_shader = Z_StrDup(gl_shadersources[i].vertex);
-		gl_shaders[i].fragment_shader = Z_StrDup(gl_shadersources[i].fragment);
-
+		gl_shaders[i].vertex = Z_StrDup(gl_shadersources[i].vertex);
+		gl_shaders[i].fragment = Z_StrDup(gl_shadersources[i].fragment);
 		// set shader target indices to correct values
 		gl_shadertargets[i].base_shader = i;
 		gl_shadertargets[i].custom_shader = -1;
@@ -387,10 +394,9 @@ static char *HWR_PreprocessShader(char *original)
 // preprocess and compile shader at gl_shaders[index]
 static void HWR_CompileShader(int index)
 {
-	char *vertex_source = gl_shaders[index].vertex_shader;
-	char *fragment_source = gl_shaders[index].fragment_shader;
+	char *vertex_source = gl_shaders[index].vertex;
+	char *fragment_source = gl_shaders[index].fragment;
 
-	GL_DBG_Printf("HWR_CompileShader() - BEGINNING COMPILE...\n");
 	if (vertex_source)
 	{
 		char *preprocessed = HWR_PreprocessShader(vertex_source);
@@ -403,7 +409,6 @@ static void HWR_CompileShader(int index)
 		if (!preprocessed) return;
 		HWD.pfnLoadShader(index, preprocessed, HWD_SHADERSTAGE_FRAGMENT);
 	}
-	GL_DBG_Printf("HWR_CompileShader() - SHADER COMPILED!\n");
 
 	gl_shaders[index].compiled = HWD.pfnCompileShader(index);
 }
@@ -469,15 +474,15 @@ customshaderxlat_t shaderxlat[] =
 	{"UIColormapFade", SHADER_UI_COLORMAP_FADE},
 	{"UITintedWipe", SHADER_UI_TINTED_WIPE},
 #ifdef HAVE_GLES2
-	{"AlphaTest", SHADER_ALPHA_TEST},
-	{"FlatAlphaTest", SHADER_FLOOR_ALPHA_TEST},
-	{"WallTextureAlphaTest", SHADER_WALL_ALPHA_TEST},
-	{"SpriteAlphaTest", SHADER_SPRITE_ALPHA_TEST},
-	{"ModelAlphaTest", SHADER_MODEL_ALPHA_TEST},
-	{"ModelLightingAlphaTest", SHADER_MODEL_LIGHTING_ALPHA_TEST},
-	{"WaterRippleAlphaTest", SHADER_WATER_ALPHA_TEST},
-	{"FadeMask", SHADER_FADEMASK},
-	{"FadeMaskTinted", SHADER_FADEMASK_ADDITIVEANDSUBTRACTIVE},
+    {"AlphaTest", SHADER_ALPHA_TEST},
+    {"FlatAlphaTest", SHADER_FLOOR_ALPHA_TEST},
+    {"WallTextureAlphaTest", SHADER_WALL_ALPHA_TEST},
+    {"SpriteAlphaTest", SHADER_SPRITE_ALPHA_TEST},
+    {"ModelAlphaTest", SHADER_MODEL_ALPHA_TEST},
+    {"ModelLightingAlphaTest", SHADER_MODEL_LIGHTING_ALPHA_TEST},
+    {"WaterRippleAlphaTest", SHADER_WATER_ALPHA_TEST},
+    {"FadeMask", SHADER_FADEMASK},
+    {"FadeMaskTinted", SHADER_FADEMASK_ADDITIVEANDSUBTRACTIVE},
 #endif
 	{NULL, 0},
 };
@@ -498,7 +503,7 @@ static const char version_directives[][14] = {
 	"#version 130\n",
 	"#version 120\n",
 	"#version 110\n",
-	"#version 100\n", /// \todo StarManiaKG: Maybe remove? This *was* only here for android after all
+	"#version 100\n",
 };
 
 static boolean HWR_VersionDirectiveExists(const char* source)
@@ -532,8 +537,8 @@ static boolean HWR_CheckVersionDirectives(const char* vert, const char* frag)
 
 static void HWR_TryToCompileShaderWithImplicitVersion(INT32 shader_index, INT32 shaderxlat_id)
 {
-	char* vert_shader = gl_shaders[shader_index].vertex_shader;
-	char* frag_shader = gl_shaders[shader_index].fragment_shader;
+	char* vert_shader = gl_shaders[shader_index].vertex;
+	char* frag_shader = gl_shaders[shader_index].fragment;
 
 	boolean vert_shader_version_exists = HWR_VersionDirectiveExists(vert_shader);
 	boolean frag_shader_version_exists = HWR_VersionDirectiveExists(frag_shader);
@@ -559,8 +564,8 @@ static void HWR_TryToCompileShaderWithImplicitVersion(INT32 shader_index, INT32 
 			// first time reallocation would have to be made
 
 			if(i == 0) {
-				void* old = (void*)gl_shaders[shader_index].vertex_shader;
-				vert_shader = gl_shaders[shader_index].vertex_shader = HWR_PrependVersionDirective(vert_shader, i);
+				void* old = (void*)gl_shaders[shader_index].vertex;
+				vert_shader = gl_shaders[shader_index].vertex = HWR_PrependVersionDirective(vert_shader, i);
 				Z_Free(old);
 			} else {
 				HWR_ReplaceVersionInplace(vert_shader, i);
@@ -569,8 +574,8 @@ static void HWR_TryToCompileShaderWithImplicitVersion(INT32 shader_index, INT32 
 
 		if(!frag_shader_version_exists) {
 			if(i == 0) {
-				void* old = (void*)gl_shaders[shader_index].fragment_shader;
-				frag_shader = gl_shaders[shader_index].fragment_shader = HWR_PrependVersionDirective(frag_shader, i);
+				void* old = (void*)gl_shaders[shader_index].fragment;
+				frag_shader = gl_shaders[shader_index].fragment = HWR_PrependVersionDirective(frag_shader, i);
 				Z_Free(old);
 			} else {
 				HWR_ReplaceVersionInplace(frag_shader, i);
@@ -701,30 +706,30 @@ skip_lump:
 					{
 						// this will clear any old custom shaders from previously loaded files
 						// Z_Free checks if the pointer is NULL!
-						Z_Free(gl_shaders[shader_index].vertex_shader);
-						gl_shaders[shader_index].vertex_shader = NULL;
-						Z_Free(gl_shaders[shader_index].fragment_shader);
-						gl_shaders[shader_index].fragment_shader = NULL;
+						Z_Free(gl_shaders[shader_index].vertex);
+						gl_shaders[shader_index].vertex = NULL;
+						Z_Free(gl_shaders[shader_index].fragment);
+						gl_shaders[shader_index].fragment = NULL;
 					}
 					modified_shaders[shaderxlat[i].id] = true;
 
 					if (shadertype == 1)
 					{
-						if (gl_shaders[shader_index].vertex_shader)
+						if (gl_shaders[shader_index].vertex)
 						{
 							CONS_Alert(CONS_WARNING, "HWR_LoadCustomShadersFromFile: %s is overwriting another %s vertex shader from the same addon! (file %s, line %d)\n", shader_lumpname, shaderxlat[i].type, wadfiles[wadnum]->filename, linenum);
-							Z_Free(gl_shaders[shader_index].vertex_shader);
+							Z_Free(gl_shaders[shader_index].vertex);
 						}
-						gl_shaders[shader_index].vertex_shader = shader_source;
+						gl_shaders[shader_index].vertex = shader_source;
 					}
 					else
 					{
-						if (gl_shaders[shader_index].fragment_shader)
+						if (gl_shaders[shader_index].fragment)
 						{
 							CONS_Alert(CONS_WARNING, "HWR_LoadCustomShadersFromFile: %s is overwriting another %s fragment shader from the same addon! (file %s, line %d)\n", shader_lumpname, shaderxlat[i].type, wadfiles[wadnum]->filename, linenum);
-							Z_Free(gl_shaders[shader_index].fragment_shader);
+							Z_Free(gl_shaders[shader_index].fragment);
 						}
-						gl_shaders[shader_index].fragment_shader = shader_source;
+						gl_shaders[shader_index].fragment = shader_source;
 					}
 
 					Z_Free(shader_lumpname);
@@ -743,15 +748,14 @@ skip_field:
 		{
 			int shader_index = i + NUMSHADERTARGETS; // index to gl_shaders
 			gl_shadertargets[i].custom_shader = shader_index;
-
 			// if only one stage (vertex/fragment) is defined, the other one
 			// is copied from the base shaders.
-			if (!gl_shaders[shader_index].fragment_shader)
-				gl_shaders[shader_index].fragment_shader = Z_StrDup(gl_shadersources[i].fragment);
-			if (!gl_shaders[shader_index].vertex_shader)
-				gl_shaders[shader_index].vertex_shader = Z_StrDup(gl_shadersources[i].vertex);
+			if (!gl_shaders[shader_index].fragment)
+				gl_shaders[shader_index].fragment = Z_StrDup(gl_shadersources[i].fragment);
+			if (!gl_shaders[shader_index].vertex)
+				gl_shaders[shader_index].vertex = Z_StrDup(gl_shadersources[i].vertex);
 
-			if(!HWR_CheckVersionDirectives(gl_shaders[shader_index].vertex_shader, gl_shaders[shader_index].fragment_shader)) {
+			if(!HWR_CheckVersionDirectives(gl_shaders[shader_index].vertex, gl_shaders[shader_index].fragment)) {
 				HWR_TryToCompileShaderWithImplicitVersion(shader_index, i);
 			} else {
 				HWR_CompileShader(shader_index);
@@ -776,7 +780,7 @@ const char *HWR_GetShaderName(INT32 shader)
 			return shaderxlat[i].type;
 	}
 
-	return "Unknown Shader";
+	return "Unknown";
 }
 
 #endif // HWRENDER

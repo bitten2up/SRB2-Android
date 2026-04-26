@@ -10,7 +10,6 @@
 //-----------------------------------------------------------------------------
 /// \file  apk_nativescreenres.c
 /// \brief Native screen rendering for SRB2
-/// \todo remove, we have any-res now
 
 #include "apk_nativescreenres.h"
 #include "apk_main.h"
@@ -22,14 +21,17 @@
 
 #ifdef NATIVESCREENRES
 
+#if 0 // bitten keeping just in case
+	// Size of statusbar.
+	#define ST_HEIGHT 32
+	#define ST_WIDTH 320
+#endif
+
 #define RESDIVFACTOR (1.0f / 16.0f)
 
 // =========================================================================
 //                                COMMANDS
 // =========================================================================
-
-// STAR NOTE: by the way my plan is to remove cv_nativeres
-// maybe the whole def too, but not everything here
 
 static void SCR_ToggleNativeRes(void);
 static void SCR_NativeResDivChanged(void);
@@ -45,63 +47,42 @@ static CV_PossibleValue_t nativerescompare_cons_t[] = {{0, "Width"}, {1, "Height
 consvar_t cv_nativeres = NATIVERES_CVAR("nativeres", "On", CV_OnOff);
 consvar_t cv_nativeresdiv = NATIVERES_CVAR_FLAGS("nativeresdiv", "1", nativeresdiv_cons_t, SCR_NativeResDivChanged, CV_FLOAT);
 consvar_t cv_nativeresauto = NATIVERES_CVAR_CALL("nativeresauto", "On", CV_OnOff, SCR_NativeResAutoChanged);
+consvar_t cv_nativeresfov = NATIVERES_CVAR_CALL("nativeresfov", "On", CV_OnOff, R_SetViewSize);
 consvar_t cv_nativerescompare = NATIVERES_CVAR("nativerescompare", "Height", nativerescompare_cons_t);
 
 // =========================================================================
 //                            SCREEN ROUTINES
 // =========================================================================
 
-boolean SCR_NativeRes_IsValidResolution(INT32 width, INT32 height)
-{
-	if (width < BASEVIDWIDTH || width > MAXVIDWIDTH) return false;
-	if (height < BASEVIDHEIGHT || height > MAXVIDHEIGHT) return false;
-	return true;
-}
-
-// sets the resolution as the new default to be saved in the config file
-void SCR_NativeRes_SetDefaultMode(INT32 width, INT32 height)
-{
-	if (!SCR_NativeRes_IsValidResolution(width, height)) return;
-	CV_SetValue((cv_fullscreen.value ? &cv_scr_width : &cv_scr_width_w), width);
-	CV_SetValue((cv_fullscreen.value ? &cv_scr_height : &cv_scr_height_w), height);
-}
-
 // Set the mode number based on the resolution saved in the config
-void SCR_NativeRes_SetModeFromConfig(void)
+void APK_SCR_SetModeFromConfig(void)
 {
-	INT32 width = (cv_fullscreen.value ? cv_scr_width.value : cv_scr_width_w.value);
-	INT32 height = (cv_fullscreen.value ? cv_scr_height.value : cv_scr_height_w.value);
-	SCR_ChangeResolution(width, height, true);
+	if (cv_fullscreen.value)
+		setmodeneeded = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value);
+	else
+		setmodeneeded = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value);
+	setmodeneeded++;
 }
 
-void SCR_NativeRes_CheckMode(void)
+void SCR_CheckNativeMode(void)
 {
 	INT32 w, h;
 
 	VID_GetNativeResolution(&w, &h);
+
 	if (w || h)
-		SCR_NativeRes_SetMaxDivider(SCR_NativeRes_GetMaxDivider(w, h));
+		SCR_SetMaxNativeResDivider(SCR_GetMaxNativeResDivider(w, h));
 
 	if (cv_nativeresauto.value)
-		android_data.scr_resdiv = SCR_NativeRes_GetDivider(w, h);
+		android_data.scr_resdiv = SCR_GetNativeResDivider(w, h);
 	else
 		android_data.scr_resdiv = FixedToFloat(cv_nativeresdiv.value);
 }
 
-void SCR_NativeRes_SetDivider(float div)
+void SCR_ResetNativeResDivider(void)
 {
-	char f[16];
-
-	if (!cv_nativeresauto.value) return;
-
-	snprintf(f, sizeof(f), "%.6f", ((div > 0) ? div : android_data.scr_resdiv));
-	CV_StealthSet(&cv_nativeresdiv, f);
-}
-
-void SCR_NativeRes_ResetDivider(void)
-{
-	char f[9];
 	float resdiv = atof(cv_nativeresdiv.defaultvalue);
+	char f[9];
 
 	android_data.scr_resdiv = resdiv;
 
@@ -111,72 +92,68 @@ void SCR_NativeRes_ResetDivider(void)
 
 static void SCR_ToggleNativeRes(void)
 {
-#if 1
-	// off by default
-	SCR_NativeRes_SetModeFromConfig();
-#endif
+	INT32 mode;
+
+	if (cv_fullscreen.value)
+		mode = VID_GetModeForSize(cv_scr_width.value, cv_scr_height.value);
+	else
+		mode = VID_GetModeForSize(cv_scr_width_w.value, cv_scr_height_w.value);
+
+	if (mode == -1)
+		mode = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT);
+
+	setmodeneeded = mode + 1;
 	android_data.scr_resdiv = FixedToFloat(cv_nativeresdiv.value);
 }
 
 static void SCR_NativeResDivChanged(void)
 {
 	CV_StealthSetValue(&cv_nativeresauto, 0);
-	//CV_StealthSetValue(&cv_nativeres, 1);
+	CV_StealthSetValue(&cv_nativeres, 1);
 	SCR_ToggleNativeRes();
-
-#if 0
-	INT32 w = (INT32)((float)w / android_data.scr_resdiv);
-	INT32 h = (INT32)((float)h / android_data.scr_resdiv);
-
-	//INT32 w = (INT32)((float)vid.change.width / android_data.scr_resdiv);
-	//INT32 h = (INT32)((float)vid.change.height / android_data.scr_resdiv);
-
-	//INT32 w = (INT32)((float)vid.width / android_data.scr_resdiv);
-	//INT32 h = (INT32)((float)vid.height / android_data.scr_resdiv);
-
-	//VID_SetSize(w, h); // STAR NOTE: Breaks the game on startup lol
-	//SCR_ChangeResolution(w, h, true); // STAR NOTE: Breaks the game on startup lol
-	SCR_SetWindowSize(w, h, true);
-#endif
 }
 
 static void SCR_NativeResAutoChanged(void)
 {
-	INT32 w = 0, h = 0;
-
 	if (!android_data.scr_startupmodeset)
 		return;
 
 	if (cv_nativeresauto.value)
 	{
+		INT32 w = 0, h = 0;
 		char f[16];
 
 		// Set for next resolution change
 		VID_GetNativeResolution(&w, &h);
-		android_data.scr_resdiv = SCR_NativeRes_GetDivider(w, h);
+		android_data.scr_resdiv = SCR_GetNativeResDivider(w, h);
 
 		// Stealth change current resolution divider variable
 		snprintf(f, sizeof(f), "%.6f", android_data.scr_resdiv);
 		CV_StealthSet(&cv_nativeresdiv, f);
 	}
 	else
-		SCR_NativeRes_ResetDivider();
+		SCR_ResetNativeResDivider();
 
-	//if (cv_nativeres.value)
-		SCR_NativeRes_SetModeFromConfig();
+	if (cv_nativeres.value)
+	{
+		APK_SCR_SetModeFromConfig();
+		if (setmodeneeded <= 0)
+			setmodeneeded = VID_GetModeForSize(BASEVIDWIDTH, BASEVIDHEIGHT) + 1;
+	}
 }
 
 static INT32 SCR_CalcDup(INT32 width, INT32 height)
 {
 	INT32 dupx = max(1, width / BASEVIDWIDTH);
 	INT32 dupy = max(1, height / BASEVIDHEIGHT);
+
 	if (!cv_nativerescompare.value)
-		return ((dupx >= dupy) ? dupx : dupy);
+		return (dupx >= dupy ? dupx : dupy);
 	else
-		return ((dupx < dupy) ? dupx : dupy);
+		return (dupx < dupy ? dupx : dupy);
 }
 
-float SCR_NativeRes_GetDivider(INT32 width, INT32 height)
+float SCR_GetNativeResDivider(INT32 width, INT32 height)
 {
 	if (cv_nativeresauto.value)
 	{
@@ -201,17 +178,20 @@ float SCR_NativeRes_GetDivider(INT32 width, INT32 height)
 
 			if (corner < iw / 5)
 				break;
+
 			if (wsize <= BASEVIDWIDTH || hsize <= BASEVIDHEIGHT)
 				break;
 
 			div += 0.25f;
 		}
+
 		return min(div, FixedToFloat(nativeresdiv_cons_t[1].value));
 	}
+
 	return FixedToFloat(cv_nativeresdiv.value);
 }
 
-float SCR_NativeRes_GetMaxDivider(INT32 nw, INT32 nh)
+float SCR_GetMaxNativeResDivider(INT32 nw, INT32 nh)
 {
 	float w, h;
 	float div = 1.0f;
@@ -227,15 +207,35 @@ float SCR_NativeRes_GetMaxDivider(INT32 nw, INT32 nh)
 		w = ((float)nw / div);
 		h = ((float)nh / div);
 		if (w <= (INT32)BASEVIDWIDTH || h <= (INT32)BASEVIDHEIGHT)
-			break;
+			return div;
 		div += RESDIVFACTOR;
 	}
+
 	return div;
 }
 
-void SCR_NativeRes_SetMaxDivider(float max)
+void SCR_SetMaxNativeResDivider(float max)
 {
 	nativeresdiv_cons_t[1].value = FloatToFixed(max);
+}
+
+void APK_R_GetNativeResFov(fixed_t *fov)
+{
+#if 0
+	if (cv_nativeres.value && cv_nativeresfov.value)
+	{
+		fixed_t resmul = FloatToFixed(((float)vid.width / (float)vid.height));
+		(*fov) = atan(tan(fov*M_PI/360)*(resmul*0.7))*360/M_PI;
+	}
+#else
+	if (cv_nativeres.value && cv_nativeresfov.value)
+	{
+		fixed_t resmul = FixedDiv(vid.width * FRACUNIT, vid.height * FRACUNIT);
+		if (resmul > FRACUNIT)
+			fovtan = FixedMul(fovtan, (7*resmul/10));
+		(*fov) = resmul;
+	}
+#endif
 }
 
 #endif // NATIVESCREENRES

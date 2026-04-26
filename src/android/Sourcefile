@@ -1,2 +1,3 @@
 apk_main.c
 apk_nativescreenres.c
+apk_m_textreader.c

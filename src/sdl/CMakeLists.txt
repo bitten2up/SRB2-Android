@@ -1,6 +1,7 @@
 # Declare SDL2 interface sources
 
 target_sources(SRB2SDL2 PRIVATE
+	ogl_sdl.c
 	i_threads.c
 	i_net.c
 	i_system.c
@@ -10,16 +11,6 @@ target_sources(SRB2SDL2 PRIVATE
 	endtxt.c
 	hwsym_sdl.c
 )
-
-if(SRB2_CONFIG_HAVE_GLES2)
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_GLES -DHAVE_GLES2)
-	target_sources(SRB2SDL2 PRIVATE ogl_es_sdl.c)
-elseif(SRB2_CONFIG_HAVE_GLES)
-	target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_GLES)
-	target_sources(SRB2SDL2 PRIVATE ogl_es_sdl.c)
-else()
-	target_sources(SRB2SDL2 PRIVATE ogl_sdl.c)
-endif()
 
 # Compatibility flag with later versions of GCC
 # We should really fix our code to not need this

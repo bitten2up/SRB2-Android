@@ -54,11 +54,7 @@ PFNWGLEXTSWAPCONTROLPROC wglSwapIntervalEXT = NULL;
 
 #define MAX_VIDEO_MODES   32
 static  vmode_t     video_modes[MAX_VIDEO_MODES];
-
-#define WIN_GETOPENGLFUNC(func) \
-	p ## wgl ## func = GLBackend_GetFunction("wgl" #func); \
-	if (!(p ## wgl ## func)) \
-		CONS_Printf("Failed to get OpenGL function %s\n", #func);
+INT32     oglflags = 0;
 
 // **************************************************************************
 //                                                                  FUNCTIONS
@@ -117,7 +113,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, // handle to DLL module
 #define pwglDeleteContext wglDeleteContext;
 #define pwglMakeCurrent wglMakeCurrent;
 #else
-static HMODULE OGL32;
+static HMODULE OGL32, GLU32;
 typedef void *(WINAPI *PFNwglGetProcAddress) (const char *);
 static PFNwglGetProcAddress pwglGetProcAddress;
 typedef HGLRC (WINAPI *PFNwglCreateContext) (HDC hdc);
@@ -132,6 +128,13 @@ static PFNwglMakeCurrent pwglMakeCurrent;
 void *GLBackend_GetFunction(const char *proc)
 {
 	void *func = NULL;
+	if (strncmp(proc, "glu", 3) == 0)
+	{
+		if (GLU32)
+			func = GetProcAddress(GLU32, proc);
+		else
+			return NULL;
+	}
 	if (pwglGetProcAddress)
 		func = pwglGetProcAddress(proc);
 	if (!func)
@@ -148,22 +151,14 @@ boolean GLBackend_Init(void)
 	if (!OGL32)
 		return 0;
 
-	WIN_GETOPENGLFUNC(GetProcAddress)
-	WIN_GETOPENGLFUNC(CreateContext)
-	WIN_GETOPENGLFUNC(DeleteContext)
-	WIN_GETOPENGLFUNC(MakeCurrent)
+	GLU32 = LoadLibrary("GLU32.DLL");
+
+	pwglGetProcAddress = GLBackend_GetFunction("wglGetProcAddress");
+	pwglCreateContext = GLBackend_GetFunction("wglCreateContext");
+	pwglDeleteContext = GLBackend_GetFunction("wglDeleteContext");
+	pwglMakeCurrent = GLBackend_GetFunction("wglMakeCurrent");
 #endif
-
-	if (GLBackend_LoadCommonFunctions() == false)
-	{
-		return false;
-	}
-	if (GLBackend_LoadLegacyFunctions() == false)
-	{
-		return false;
-	}
-
-	return true;
+	return GLBackend_LoadFunctions();
 }
 
 // -----------------+
@@ -252,7 +247,7 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 
 	// BP : why flush texture ?
 	//      if important flush also the first one (white texture) and restore it !
-	Flush();    // Flush textures.
+	GLTexture_Flush();    // Flush textures.
 
 // TODO: if not fullscreen, skip display stuff and just resize viewport stuff ...
 
@@ -333,10 +328,10 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 		}
 	}
 
+	gl_extensions = pglGetString(GL_EXTENSIONS);
 	// Get info and extensions.
 	//BP: why don't we make it earlier ?
 	//Hurdler: we cannot do that before intialising gl context
-	gl_extensions = pglGetString(GL_EXTENSIONS);
 	renderer = (LPCSTR)pglGetString(GL_RENDERER);
 	GL_DBG_Printf("Vendor     : %s\n", pglGetString(GL_VENDOR));
 	GL_DBG_Printf("Renderer   : %s\n", renderer);
@@ -350,7 +345,7 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 
 #ifdef USE_WGL_SWAP
 	if (GLExtension_Available("WGL_EXT_swap_control"))
-		WIN_GETOPENGLFUNC(SwapIntervalEXT)
+		wglSwapIntervalEXT = GLBackend_GetFunction("wglSwapIntervalEXT");
 	else
 		wglSwapIntervalEXT = NULL;
 #endif
@@ -360,7 +355,9 @@ static INT32 WINAPI SetRes(viddef_t *lvid, vmode_t *pcurrentmode)
 	else
 		maximumAnisotropy = 0;
 
-	//SetupGLFunc13();
+#if 0
+	SetupGLFunc13();
+#endif
 	GLBackend_LoadExtraFunctions();
 
 	screen_depth = (GLbyte)(lvid->bpp*8);
@@ -530,6 +527,7 @@ EXPORT void HWRAPI(Shutdown) (void)
 		ReleaseDC(hWnd, hDC);
 		hDC = NULL;
 	}
+	FreeLibrary(GLU32);
 	FreeLibrary(OGL32);
 	GL_DBG_Printf ("HWRAPI Shutdown(DONE)\n");
 }

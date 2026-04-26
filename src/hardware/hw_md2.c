@@ -74,15 +74,11 @@
 
 // Android
 #include "../android/apk_main.h"
-#include "../m_textreader.h"
+#include "../android/apk_m_textreader.h"
 #include "../w_handle.h"
-//#define STAR_MODEL_TEST
-
-// STAR NOTE: models won't load.
-/// \todo fix that lol
+#define STAR_MODEL_TEST 1
 
 md2_t md2_models[NUMSPRITES];
-//md2_t *md2_models = NULL;
 md2_t *md2_playermodels = NULL;
 size_t md2_numplayermodels = 0;
 
@@ -419,15 +415,16 @@ static char *GetModelDefFile(const char *filename, size_t *size)
 	if (nomd2s)
 		return NULL;
 
-	char * fn = APK_M_FindFile(filename);
+	char *fn = APK_M_FindFile(filename);
 	if (!fn)
 		return NULL;
 
 	// read the models.dat file
 	filehandle_t *f = File_Open(fn, "rt", FILEHANDLE_SDL);
+
 	if (!f)
 	{
-		CONS_Alert(CONS_ERROR, "Could not open model definition file %s\n", fn);
+		CONS_Alert(CONS_ERROR, "Error while loading model definition file: Could not open file %s\n", fn);
 		nomd2s = true;
 		return NULL;
 	}
@@ -435,10 +432,9 @@ static char *GetModelDefFile(const char *filename, size_t *size)
 	size_t sz = File_Size(f);
 	char *text = ZZ_Alloc(sz);
 
-	//if (File_Read(text, 1, sz, f) < sz)
-	if (FIL_ReadFileOK(fn) == false)
+	if (File_Read(text, 1, sz, f) < sz)
 	{
-		CONS_Alert(CONS_ERROR, "Could not read model definition file %s\n", fn);
+		CONS_Alert(CONS_ERROR, "Error while loading model definition file: Could not read file %s\n", fn);
 		Z_Free(text);
 		return NULL;
 	}
@@ -447,7 +443,6 @@ static char *GetModelDefFile(const char *filename, size_t *size)
 
 	File_Close(f);
 
-	CONS_Alert(CONS_NOTICE, "Read model definition file '%s'!\n", fn);
 	return text;
 }
 
@@ -455,11 +450,6 @@ void HWR_InitModels(void)
 {
 	size_t i;
 	INT32 s;
-
-	md2_numplayermodels = (size_t)numskins;
-	md2_playermodels = Z_Realloc(md2_playermodels, sizeof(*md2_playermodels) * numskins, PU_STATIC, NULL);
-	//md2_playermodels = Z_Realloc(md2_playermodels, sizeof(*md2_playermodels) * md2_numplayermodels, PU_STATIC, NULL);
-	//md2_models = Z_Realloc(md2_models, sizeof(md2_t) * (size_t)numsprites, PU_STATIC, NULL);
 
 	for (s = 0; s < numskins; s++)
 	{
