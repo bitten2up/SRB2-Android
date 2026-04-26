@@ -956,14 +956,7 @@ void G_ResetAccelerometer(void)
 	accelxmove = accelymove = 0;
 #endif
 }
-boolean G_CanUseAccelerometer(void)
-{
-#ifdef ACCELEROMETER
-	return (cv_useaccelerometer.value && (!(menuactive || paused || con_destlines || chat_on || gamestate != GS_LEVEL)));
-#else
-	return false;
-#endif
-}
+
 // clear mice positions
 void G_ResetMice(void)
 {
@@ -971,13 +964,13 @@ void G_ResetMice(void)
 	G_SetMouseDeltas(0, 0, 2);
 }
 
-#ifdef ACCELEROMETER
 // Returns true if the accelerometer can be used
 boolean G_CanUseAccelerometer(void)
 {
+#ifdef ACCELEROMETER
 	return (cv_useaccelerometer.value && (!(menuactive || paused || con_destlines || chat_on || gamestate != GS_LEVEL)));
-}
 #endif
+}
 
 INT32 G_GetControlScheme(INT32 (*fromcontrols)[2], const INT32 *gclist, INT32 gclen)
 {

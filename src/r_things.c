@@ -720,7 +720,7 @@ void R_AddSpriteDefs(UINT16 wadnum)
 
 	if (spritesadded || framesadded)
 	{
-#if 1
+#if 0
 		// STAR NOTE: hi model rendering
 #ifdef HWRENDER
 		if (rendermode == render_opengl)
