@@ -187,8 +187,11 @@ void HWR_Lighting(FSurfaceInfo *Surface, INT32 light_level, extracolormap_t *col
 	// Clamp the light level, since it can sometimes go out of the 0-255 range from animations
 	light_level = min(max(light_level, 0), 255);
 
-	V_CubeApply(&tint_color.s.red, &tint_color.s.green, &tint_color.s.blue);
-	V_CubeApply(&fade_color.s.red, &fade_color.s.green, &fade_color.s.blue);
+	if(!HWR_ShouldUsePaletteRendering()) // In palette rendering mode, changes to the color profile are taken into account
+	{
+		V_CubeApply(&tint_color.s.red, &tint_color.s.green, &tint_color.s.blue);
+		V_CubeApply(&fade_color.s.red, &fade_color.s.green, &fade_color.s.blue);
+	}
 	Surface->PolyColor.rgba = poly_color.rgba;
 	Surface->TintColor.rgba = tint_color.rgba;
 	Surface->FadeColor.rgba = fade_color.rgba;
@@ -209,7 +212,7 @@ UINT8 HWR_FogBlockAlpha(INT32 light, extracolormap_t *colormap) // Let's see if 
 
 	realcolor.rgba = (colormap != NULL) ? colormap->rgba : 0x00000000;
 
-	if (cv_glshaders.value && gl_shadersavailable)
+	if (HWR_UseShader())
 	{
 		surfcolor.s.alpha = (255 - light);
 	}
@@ -475,8 +478,8 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 
 #define SETUP3DVERT(vert, vx, vy) {\
 		/* Hurdler: add scrolling texture on floor/ceiling */\
-		vert->s = ((vx) / fflatwidth) + (scrollx / xscale);\
-		vert->t = -((vy) / fflatheight) + (scrolly / yscale);\
+		vert->s = (vx) + ((scrollx * fflatwidth) / xscale);\
+		vert->t = -(vy) + ((scrolly * fflatheight) / yscale);\
 \
 		/* Need to rotate before translate */\
 		if (angle) /* Only needs to be done if there's an altered angle */\
@@ -487,8 +490,8 @@ static void HWR_RenderPlane(subsector_t *subsector, extrasubsector_t *xsub, bool
 			vert->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));\
 		}\
 \
-		vert->s *= xscale;\
-		vert->t *= yscale;\
+		vert->s = (vert->s / fflatwidth) * xscale;\
+		vert->t = (vert->t / fflatheight) * yscale;\
 \
 		if (slope)\
 		{\
@@ -1487,7 +1490,7 @@ static void HWR_ProcessSeg(void)
 			texturevpeg += gl_sidedef->rowoffset + gl_sidedef->offsety_mid;
 
 			wallVerts[3].t = wallVerts[2].t = texturevpeg * grTex->scaleY;
-			wallVerts[0].t = wallVerts[1].t = (texturevpeg + gl_frontsector->ceilingheight - gl_frontsector->floorheight) * grTex->scaleY;
+			wallVerts[0].t = wallVerts[1].t = (texturevpeg + (gl_frontsector->ceilingheight - gl_frontsector->floorheight) * yscale) * grTex->scaleY;
 			wallVerts[0].s = wallVerts[3].s = ((cliplow * xscale) + gl_sidedef->textureoffset + gl_sidedef->offsetx_mid) * grTex->scaleX;
 			wallVerts[2].s = wallVerts[1].s = ((cliphigh * xscale) + gl_sidedef->textureoffset + gl_sidedef->offsetx_mid) * grTex->scaleX;
 
@@ -2230,8 +2233,8 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 	{
 		// Go from the polysector's original vertex locations
 		// Means the flat is offset based on the original vertex locations
-		v3d->s = (FixedToFloat(polysector->origVerts[i].x) / fflatwidth) + (scrollx / xscale);
-		v3d->t = -(FixedToFloat(polysector->origVerts[i].y) / fflatheight) + (scrolly / yscale);
+		v3d->s = FixedToFloat(polysector->origVerts[i].x) + ((scrollx * fflatwidth) / xscale);
+		v3d->t = -FixedToFloat(polysector->origVerts[i].y) + ((scrolly * fflatheight) / yscale);
 
 		// Need to rotate before translate
 		if (angle) // Only needs to be done if there's an altered angle
@@ -2245,8 +2248,8 @@ static void HWR_RenderPolyObjectPlane(polyobj_t *polysector, boolean isceiling, 
 			v3d->t = (tempxsow * sin(anglef)) + (tempytow * cos(anglef));
 		}
 
-		v3d->s *= xscale;
-		v3d->t *= yscale;
+		v3d->s = (v3d->s / fflatwidth) * xscale;
+		v3d->t = (v3d->t / fflatheight) * yscale;
 
 		v3d->x = FIXED_TO_FLOAT(polysector->vertices[i]->x);
 		v3d->y = height;
@@ -2678,45 +2681,31 @@ fixed_t *hwbbox;
 #if 0
 static void HWR_RenderBSPNode(INT32 bspnum)
 {
-	node_t *bsp = &nodes[bspnum];
-
-	// Decide which side the view point is on
+	bspnode_t *bsp;
 	INT32 side;
 
 	ps_numbspcalls.value.i++;
 
-	// Found a subsector?
-	if (bspnum & NF_SUBSECTOR)
+	while (!(bspnum & NF_SUBSECTOR))  // Found a subsector?
 	{
-		if (bspnum == -1)
-		{
-			//*(gl_drawsubsector_p++) = 0;
-			HWR_Subsector(0);
-		}
-		else
-		{
-			//*(gl_drawsubsector_p++) = bspnum&(~NF_SUBSECTOR);
-			HWR_Subsector(bspnum&(~NF_SUBSECTOR));
-		}
-		return;
-	}
+		bsp = &nodes[bspnum];
 
-	// Decide which side the view point is on.
-	side = R_PointOnSide(viewx, viewy, bsp);
-
-	// BP: big hack for a test in lighning ref : 1249753487AB
-	hwbbox = bsp->bbox[side];
-
-	// Recursively divide front space.
-	HWR_RenderBSPNode(bsp->children[side]);
-
-	// Possibly divide back space.
-	if (HWR_CheckBBox(bsp->bbox[side^1]))
-	{
+		// Decide which side the view point is on.
+		side = R_PointOnSide(viewx, viewy, bsp);
 		// BP: big hack for a test in lighning ref : 1249753487AB
-		hwbbox = bsp->bbox[side^1];
-		HWR_RenderBSPNode(bsp->children[side^1]);
+		hwbbox = bsp->bbox[side];
+		// Recursively divide front space.
+		HWR_RenderBSPNode(bsp->children[side]);
+
+		// Possibly divide back space.
+
+		if (!HWR_CheckBBox(bsp->bbox[side^1]))
+			return;
+
+		bspnum = bsp->children[side^1];
 	}
+
+	HWR_Subsector(bspnum == -1 ? 0 : bspnum & ~NF_SUBSECTOR);
 }
 #else
 // BITTEN FIX(?)
@@ -3189,7 +3178,13 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (!occlusion) use_linkdraw_hack = true;
 	}
 
-	Surf.PolyColor.s.alpha = FixedMul(newalpha, Surf.PolyColor.s.alpha);
+	if (cv_translucency.value && newalpha < FRACUNIT)
+	{
+		// TODO: The ternary operator is a hack to make alpha values roughly match what their FF_TRANSMASK equivalent would be
+		// See if there's a better way of doing this
+		Surf.PolyColor.s.alpha = min(FixedMul(newalpha, Surf.PolyColor.s.alpha == 0xFF ? 256 : Surf.PolyColor.s.alpha), 0xFF);
+		blend = HWR_GetBlendModeFlag(blendmode);
+	}
 
 	if (HWR_UseShader())
 	{
@@ -3220,7 +3215,7 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (h <= temp)
 		{
 			if (!lightset)
-				lightlevel = *list[i-1].lightlevel > 255 ? 255 : *list[i-1].lightlevel;
+				lightlevel = max(min(*list[i-1].lightlevel, 255), 0);
 			if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 				colormap = *list[i-1].extra_colormap;
 			break;
@@ -3239,7 +3234,7 @@ static void HWR_SplitSprite(gl_vissprite_t *spr)
 		if (!(list[i].flags & FOF_NOSHADE) && (list[i].flags & FOF_CUTSPRITES))
 		{
 			if (!lightset)
-				lightlevel = *list[i].lightlevel > 255 ? 255 : *list[i].lightlevel;
+				lightlevel = max(min(*list[i].lightlevel, 255), 0);
 			if (!(spr->mobj->renderflags & RF_NOCOLORMAPS))
 				colormap = *list[i].extra_colormap;
 		}
@@ -3347,6 +3342,7 @@ static void HWR_DrawBoundingBox(gl_vissprite_t *vis)
 {
 	FOutVector v[24];
 	FSurfaceInfo Surf = {0};
+	RGBA_t *palette = HWR_GetTexturePalette();
 
 	//
 	// create a cube (side view)
@@ -3386,7 +3382,7 @@ static void HWR_DrawBoundingBox(gl_vissprite_t *vis)
 	v[ 3].y = v[ 4].y = v[ 5].y = v[ 9].y = v[10].y = v[11].y =
 		v[15].y = v[16].y = v[17].y = v[21].y = v[22].y = v[23].y = vis->gzt; // top
 
-	Surf.PolyColor = V_GetColor(R_GetBoundingBoxColor(vis->mobj));
+	Surf.PolyColor = palette[R_GetBoundingBoxColor(vis->mobj)];
 
 	HWR_ProcessPolygon(&Surf, v, 24, (cv_renderhitboxgldepth.value ? 0 : PF_NoDepthTest)|PF_Modulated|PF_NoTexture|PF_WireFrame, SHADER_NONE, false);
 }
@@ -3620,13 +3616,13 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 			INT32 light = R_GetPlaneLight(sector, spr->mobj->z, false);
 
 			if (!lightset)
-				lightlevel = *sector->lightlist[light].lightlevel > 255 ? 255 : *sector->lightlist[light].lightlevel;
+				lightlevel = max(min(*sector->lightlist[light].lightlevel, 255), 0);
 
 			if (*sector->lightlist[light].extra_colormap && !(spr->mobj->renderflags & RF_NOCOLORMAPS))
 				colormap = *sector->lightlist[light].extra_colormap;
 		}
 		else if (!lightset)
-			lightlevel = sector->lightlevel > 255 ? 255 : sector->lightlevel;
+			lightlevel = max(min(sector->lightlevel, 255), 0);
 
 		if (R_ThingIsSemiBright(spr->mobj))
 			lightlevel = 128 + (lightlevel>>1);
@@ -3684,7 +3680,13 @@ static void HWR_DrawSprite(gl_vissprite_t *spr)
 			if (!occlusion) use_linkdraw_hack = true;
 		}
 
-		Surf.PolyColor.s.alpha = FixedMul(newalpha, Surf.PolyColor.s.alpha);
+		if (cv_translucency.value && newalpha < FRACUNIT)
+		{
+			// TODO: The ternary operator is a hack to make alpha values roughly match what their FF_TRANSMASK equivalent would be
+			// See if there's a better way of doing this
+			Surf.PolyColor.s.alpha = min(FixedMul(newalpha, Surf.PolyColor.s.alpha == 0xFF ? 256 : Surf.PolyColor.s.alpha), 0xFF);
+			blend = HWR_GetBlendModeFlag(blendmode);
+		}
 
 		if (spr->renderflags & RF_SHADOWEFFECTS)
 		{
@@ -4356,6 +4358,7 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	float x1, x2;
 	float rightsin, rightcos;
 	float this_scale, this_xscale, this_yscale;
+	fixed_t highresscale;
 	float spritexscale, spriteyscale;
 	float shadowheight = 1.0f, shadowscale = 1.0f;
 	float gz, gzt;
@@ -4551,7 +4554,15 @@ static void HWR_ProjectSprite(mobj_t *thing)
 	}
 
 	if (thing->skin && ((skin_t *)thing->skin)->flags & SF_HIRES)
-		this_scale *= FIXED_TO_FLOAT(((skin_t *)thing->skin)->highresscale);
+	{
+		float hi_res = ((skin_t *)thing->skin)->highresscale;
+		this_scale *= FIXED_TO_FLOAT(hi_res);
+		highresscale = hi_res;
+	}
+	else
+	{
+		highresscale = FRACUNIT;
+	}
 
 	spr_width = spritecachedinfo[lumpoff].width;
 	spr_height = spritecachedinfo[lumpoff].height;
@@ -4602,8 +4613,8 @@ static void HWR_ProjectSprite(mobj_t *thing)
 		if ((thing->renderflags & RF_FLIPOFFSETS) && flip)
 			flipoffset = -1;
 
-		spr_offset += interp.spritexoffset * flipoffset;
-		spr_topoffset += interp.spriteyoffset * flipoffset;
+		spr_offset += FixedDiv(interp.spritexoffset,highresscale) * flipoffset;
+		spr_topoffset += FixedDiv(interp.spriteyoffset,highresscale) * flipoffset;
 	}
 
 	if (papersprite)
@@ -4867,6 +4878,10 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	// uncapped/interpolation
 	interpmobjstate_t interp = {0};
 
+	// Do this here so the precip sprite doesn't jitter at the beginning of a gametic
+	if (!paused && thing->lastupdatetime < gametic)
+		R_ResetPrecipitationMobjInterpolationState(thing);
+
 	// do interpolation
 	if (R_UsingFrameInterpolation() && !paused)
 	{
@@ -4958,13 +4973,14 @@ static void HWR_ProjectPrecipitationSprite(precipmobj_t *thing)
 	vis->bbox = false;
 
 	// okay... this is a hack, but weather isn't networked, so it should be ok
-	if (!(thing->precipflags & PCF_THUNK))
+	if (!(paused || P_AutoPause() || objectplacing) && thing->lastupdatetime < gametic)
 	{
 		if (thing->precipflags & PCF_RAIN)
 			P_RainThinker(thing);
 		else
 			P_SnowThinker(thing);
-		thing->precipflags |= PCF_THUNK;
+
+		thing->lastupdatetime = gametic;
 	}
 }
 
@@ -5360,7 +5376,7 @@ static void HWR_SetTransformAiming(FTransform *trans, player_t *player, boolean 
 //
 static void HWR_SetShaderState(void)
 {
-	HWD.pfnSetSpecialState(HWD_SET_SHADERS, (INT32)HWR_UseShader());
+	HWD.pfnSetSpecialState(HWD_SET_SHADERS, HWR_UseShader());
 }
 
 static void HWR_SetupView(player_t *player, INT32 viewnumber, float fpov, boolean skybox)
@@ -5778,7 +5794,6 @@ void HWR_LoadLevel(void)
 // ==========================================================================
 
 static CV_PossibleValue_t glshaders_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Ignore custom shaders"}, {0, NULL}};
-static CV_PossibleValue_t glmodelinterpolation_cons_t[] = {{0, "Off"}, {1, "Sometimes"}, {2, "Always"}, {0, NULL}};
 static CV_PossibleValue_t glfakecontrast_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Smooth"}, {0, NULL}};
 static CV_PossibleValue_t glshearing_cons_t[] = {{0, "Off"}, {1, "On"}, {2, "Third-person"}, {0, NULL}};
 #ifdef HAVE_GL_FRAMEBUFFER
@@ -5816,7 +5831,7 @@ consvar_t cv_glcoronasize = CVAR_INIT ("gr_coronasize", "1", CV_SAVE|CV_FLOAT, 0
 #endif
 
 consvar_t cv_glmodels = CVAR_INIT ("gr_models", "Off", CV_SAVE, CV_OnOff, NULL);
-consvar_t cv_glmodelinterpolation = CVAR_INIT ("gr_modelinterpolation", "Sometimes", CV_SAVE, glmodelinterpolation_cons_t, NULL);
+consvar_t cv_glmodelinterpolation = CVAR_INIT ("gr_modelinterpolation", "On", CV_SAVE, CV_OnOff, NULL);
 consvar_t cv_glmodellighting = CVAR_INIT ("gr_modellighting", "Off", CV_SAVE|CV_CALL, CV_OnOff, CV_glmodellighting_OnChange);
 
 consvar_t cv_glshearing = CVAR_INIT ("gr_shearing", "Off", CV_SAVE, glshearing_cons_t, NULL);
@@ -6166,6 +6181,8 @@ void HWR_DoPostProcessor(player_t *player)
 			Surf.PolyColor.s.red = Surf.PolyColor.s.green = Surf.PolyColor.s.blue = 0xff;
 
 		Surf.PolyColor.s.alpha = 0xc0; // match software mode
+
+		V_CubeApply(&Surf.PolyColor.s.red, &Surf.PolyColor.s.green, &Surf.PolyColor.s.blue);
 
 		HWD.pfnDrawPolygon(&Surf, v, 4, PF_Modulated|PF_Additive|PF_NoTexture|PF_NoDepthTest);
 	}

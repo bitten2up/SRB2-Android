@@ -158,7 +158,7 @@ static void Midiplayer_Onchange(void)
 	if (Mix_GetMidiPlayer() != cv_midiplayer.value)
 	{
 		if (Mix_SetMidiPlayer(cv_midiplayer.value)) // <> 0 means error
-			CONS_Alert(CONS_ERROR, "Midi player error: %s", Mix_GetError());
+			CONS_Alert(CONS_ERROR, "Midi player error: %s\n", Mix_GetError());
 		else
 			restart = true;
 	}
@@ -168,7 +168,7 @@ static void Midiplayer_Onchange(void)
 	if (!Mix_GetSoundFonts() || stricmp(Mix_GetSoundFonts(), path))
 	{
 		if (!Mix_SetSoundFonts(path)) // == 0 means error
-			CONS_Alert(CONS_ERROR, "Sound font error: %s", Mix_GetError());
+			CONS_Alert(CONS_ERROR, "Sound font error: %s\n", Mix_GetError());
 		else
 			restart = true;
 	}
@@ -219,7 +219,7 @@ static void MidiSoundfontPath_Onchange(void)
 		if (proceed)
 		{
 			if (!Mix_SetSoundFonts(path))
-				CONS_Alert(CONS_ERROR, "Sound font error: %s", Mix_GetError());
+				CONS_Alert(CONS_ERROR, "Sound font error: %s\n", Mix_GetError());
 			else
 				S_StartEx(true);
 		}
@@ -229,13 +229,20 @@ static void MidiSoundfontPath_Onchange(void)
 // make sure that s_sound.c does not already verify these
 // which happens when: defined(HAVE_MIXERX) && !defined(HAVE_MIXER)
 static CV_PossibleValue_t midiplayer_cons_t[] = {
-	{MIDI_OPNMIDI, "OPNMIDI"},
-	{MIDI_Fluidsynth, "Fluidsynth"},
+	{MIDI_ADLMIDI,    "ADLMIDI"},
+	{MIDI_OPNMIDI,    "OPNMIDI"},
 #if !defined(__ANDROID__)
 	{MIDI_Timidity, "Timidity"},
+#endif
+	{MIDI_Fluidsynth, "Fluidsynth"},
+#if SDL_MIXER_VERSION_ATLEAST(2,6,0)
+	{MIDI_EDMIDI,     "EDMIDI"},
+#endif
+#if !defined(__ANDROID__)
 	{MIDI_Native, "Native"},
 #endif
-	{0, NULL}
+	{MIDI_ANY,        "Any"},
+	{0,               NULL}
 };
 
 consvar_t cv_midiplayer = CVAR_INIT ("midiplayer", "OPNMIDI" /*MIDI_OPNMIDI*/, CV_CALL|CV_NOINIT|CV_SAVE, midiplayer_cons_t, Midiplayer_Onchange);

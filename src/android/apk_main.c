@@ -171,7 +171,7 @@ boolean APK_G_CanViewpointSwitch(boolean luahook)
 		if (checkdisplayplayer == MAXPLAYERS)
 			checkdisplayplayer = 0;
 
-		if (!playeringame[checkdisplayplayer])
+		if (!players[checkdisplayplayer].ingame)
 			continue;
 
 		// Call ViewpointSwitch hooks here.
@@ -344,7 +344,7 @@ void APK_ST_SetInputPosition(INT32 *x, INT32 *y, INT32 *f, hudinfo_t **pos)
 	}
 	(*x) = (*pos)->x;
 	(*y) = hudinfo[HUD_INPUT].y;
-	(*f) = hudinfo[HUD_INPUT].f;
+	(*f) = V_PERPLAYER|hudinfo[HUD_INPUT].f;
 }
 
 //

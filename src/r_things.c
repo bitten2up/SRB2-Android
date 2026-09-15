@@ -401,7 +401,7 @@ static void CheckFrame(const char *sprname)
 		{
 		case SRF_NONE:
 			// no rotations were found for that frame at all
-			I_Error("R_AddSingleSpriteDef: No patches found for %s", framedescription);
+			CONS_Alert(CONS_ERROR, "R_AddSingleSpriteDef: No patches found for %s\n", framedescription);
 			break;
 
 		case SRF_SINGLE:
@@ -411,8 +411,8 @@ static void CheckFrame(const char *sprname)
 		case SRF_2D: // both Left and Right rotations
 			// we test to see whether the left and right slots are present
 			if ((spriteframe->lumppat[2] == LUMPERROR) || (spriteframe->lumppat[6] == LUMPERROR))
-				I_Error("R_AddSingleSpriteDef: Sprite %s is missing rotations (L-R mode)",
-				framedescription);
+				CONS_Alert(CONS_ERROR, "R_AddSingleSpriteDef: Sprite %s is missing rotations (L-R mode)\n",
+					framedescription);
 			break;
 
 		default:
@@ -424,7 +424,7 @@ static void CheckFrame(const char *sprname)
 					// we test the patch lump, or the id lump whatever
 					// if it was not loaded the two are LUMPERROR
 					if (spriteframe->lumppat[rotation] == LUMPERROR)
-						I_Error("R_AddSingleSpriteDef: Sprite %s is missing rotations (1-%c mode)",
+						CONS_Alert(CONS_ERROR, "R_AddSingleSpriteDef: Sprite %s is missing rotations (1-%c mode)\n",
 								framedescription, ((spriteframe->rotate & SRF_3DGE) ? 'G' : '8'));
 				}
 			}
@@ -477,7 +477,10 @@ boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16
 	for (l = startlump; l < endlump; l++)
 	{
 		if (longname && W_IsLumpFolder(wadnum, l))
-			I_Error("R_AddSingleSpriteDef: all frame lumps for a sprite should be contained inside a single folder\n");
+		{
+			CONS_Alert(CONS_ERROR, "R_AddSingleSpriteDef: all frame lumps for a sprite should be contained inside a single folder\n");
+			return false;
+		}
 
 		// For long sprites, the startlump-endlump range only includes
 		// relevant lumps, so no check needed in that case
@@ -503,7 +506,7 @@ boolean R_AddSingleSpriteDef(const char *sprname, spritedef_t *spritedef, UINT16
 
 			if (!good) // Give an actual NAME error -_-...
 			{
-				CONS_Alert(CONS_WARNING, M_GetText("Bad sprite name: %s\n"), W_CheckNameForNumPwad(wadnum,l));
+				CONS_Alert(CONS_ERROR, M_GetText("Bad sprite name: %s\n"), W_CheckNameForNumPwad(wadnum,l));
 				continue;
 			}
 
@@ -783,7 +786,7 @@ void R_InitSprites(void)
 	{
 		R_AddSkins((UINT16)i, true);
 		R_PatchSkins((UINT16)i, true);
-		R_LoadSpriteInfoLumps(i, wadfiles[i]->numlumps);
+		R_LoadSpriteInfoLumps(i);
 	}
 	ST_ReloadSkinFaceGraphics();
 
@@ -1828,7 +1831,7 @@ static void R_ProjectSprite(mobj_t *thing)
 	fixed_t gz = 0, gzt = 0;
 	INT32 heightsec, phs;
 	INT32 light = 0;
-	fixed_t this_scale;
+	fixed_t this_scale, highresscale;
 	fixed_t spritexscale, spriteyscale;
 
 	// rotsprite
@@ -2040,9 +2043,14 @@ static void R_ProjectSprite(mobj_t *thing)
 
 	if (thing->skin && ((skin_t *)thing->skin)->flags & SF_HIRES)
 	{
-		fixed_t highresscale = ((skin_t *)thing->skin)->highresscale;
-		spritexscale = FixedMul(spritexscale, highresscale);
-		spriteyscale = FixedMul(spriteyscale, highresscale);
+		fixed_t high_res = ((skin_t *)thing->skin)->highresscale;
+		spritexscale = FixedMul(spritexscale, high_res);
+		spriteyscale = FixedMul(spriteyscale, high_res);
+		highresscale = high_res;
+	}
+	else
+	{
+		highresscale = FRACUNIT;
 	}
 
 	if (spritexscale < 1 || spriteyscale < 1)
@@ -2060,8 +2068,8 @@ static void R_ProjectSprite(mobj_t *thing)
 		if ((thing->renderflags & RF_FLIPOFFSETS) && flip)
 			flipoffset = -1;
 
-		spr_offset += interp.spritexoffset * flipoffset;
-		spr_topoffset += interp.spriteyoffset * flipoffset;
+		spr_offset += FixedDiv(interp.spritexoffset, highresscale) * flipoffset;
+		spr_topoffset += FixedDiv(interp.spriteyoffset, highresscale) * flipoffset;
 	}
 
 	if (flip)
@@ -2581,6 +2589,10 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 	// uncapped/interpolation
 	interpmobjstate_t interp = {0};
 
+	// Do this here so the precip sprite doesn't jitter at the beginning of a gametic
+	if (!paused && thing->lastupdatetime < gametic)
+		R_ResetPrecipitationMobjInterpolationState(thing);
+
 	// do interpolation
 	if (R_UsingFrameInterpolation() && !paused)
 	{
@@ -2728,13 +2740,14 @@ static void R_ProjectPrecipitationSprite(precipmobj_t *thing)
 
 weatherthink:
 	// okay... this is a hack, but weather isn't networked, so it should be ok
-	if (!(thing->precipflags & PCF_THUNK))
+	if (!(paused || P_AutoPause() || objectplacing) && thing->lastupdatetime < gametic)
 	{
 		if (thing->precipflags & PCF_RAIN)
 			P_RainThinker(thing);
 		else
 			P_SnowThinker(thing);
-		thing->precipflags |= PCF_THUNK;
+
+		thing->lastupdatetime = gametic;
 	}
 }
 
@@ -3739,7 +3752,7 @@ boolean R_ThingVisible (mobj_t *thing)
 {
 	return (!(
 		(thing->sprite == SPR_NULL) || // Don't draw null-sprites
-		(thing->flags2 & MF2_DONTDRAW) || // Don't draw MF2_LINKDRAW objects
+		(thing->flags2 & MF2_DONTDRAW) || // Don't draw MF2_DONTDRAW objects
 		(thing->drawonlyforplayer && thing->drawonlyforplayer != viewplayer) || // Don't draw other players' personal objects
 		(!R_BlendLevelVisible(thing->blendmode, R_GetThingTransTable(thing->alpha, 0))) ||
 		(!P_MobjWasRemoved(r_viewmobj) && (

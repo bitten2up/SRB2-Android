@@ -3,6 +3,7 @@ include(clang-tidy-default)
 add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	comptime.c
 	md5.c
+	lonesha256.c
 	config.h.in
 	string.c
 	d_main.c
@@ -27,6 +28,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	i_time.c
 	y_inter.c
 	st_stuff.c
+	matrix.c
 	m_aatree.c
 	m_anigif.c
 	m_argv.c
@@ -61,6 +63,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	p_tick.c
 	p_user.c
 	p_slopes.c
+	quaternion.c
 	tables.c
 	r_bsp.c
 	r_data.c
@@ -82,6 +85,7 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	r_portal.c
 	screen.c
 	taglist.c
+	vector3d.c
 	v_video.c
 	s_sound.c
 	sounds.c
@@ -103,12 +107,18 @@ add_executable(SRB2SDL2 MACOSX_BUNDLE WIN32
 	lua_thinkerlib.c
 	lua_maplib.c
 	lua_taglib.c
+	lua_randomlib.c
 	lua_polyobjlib.c
 	lua_blockmaplib.c
 	lua_hudlib.c
 	lua_hudlib_drawlist.c
 	lua_colorlib.c
 	lua_inputlib.c
+	lua_interceptlib.c
+	lua_vectorlib.c
+	lua_matrixlib.c
+	lua_quaternionlib.c
+	lua_archive.c
 )
 
 # This updates the modification time for comptime.c at the
@@ -148,7 +158,7 @@ if("${CMAKE_COMPILER_IS_GNUCC}" AND "${CMAKE_SYSTEM_NAME}" MATCHES "Windows")
 	endif()
 endif()
 
-target_compile_features(SRB2SDL2 PRIVATE c_std_11 cxx_std_17)
+target_compile_features(SRB2SDL2 PRIVATE c_std_23 cxx_std_17)
 
 ### Configuration
 set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
@@ -200,9 +210,6 @@ if("${SRB2_CONFIG_USE_GME}")
 endif()
 
 target_compile_definitions(SRB2SDL2 PRIVATE -D_LARGEFILE64_SOURCE)
-
-set(SRB2_HAVE_THREADS ON)
-target_compile_definitions(SRB2SDL2 PRIVATE -DHAVE_THREADS)
 
 if("${SRB2_CONFIG_HWRENDER}")
 	target_compile_definitions(SRB2SDL2 PRIVATE -DHWRENDER)

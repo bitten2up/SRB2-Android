@@ -76,8 +76,7 @@ void R_DrawColumn_8(void)
 			if (frac < 0)
 				while ((frac += heightmask) <  0);
 			else
-				while (frac >= heightmask)
-					frac -= heightmask;
+				frac %= heightmask;
 
 			do
 			{
@@ -95,8 +94,7 @@ void R_DrawColumn_8(void)
 #endif
 					frac += fracstep;
 
-				while (frac >= heightmask)
-					frac -= heightmask;
+				frac %= heightmask;
 			} while (--count);
 		}
 		else
@@ -232,8 +230,7 @@ void R_DrawColumnClamped_8(void)
 #endif
 					frac += fracstep;
 
-				while (frac >= heightmask)
-					frac -= heightmask;
+				frac %= heightmask;
 			} while (--count);
 		}
 		else
@@ -318,8 +315,7 @@ void R_Draw2sMultiPatchColumn_8(void)
 			if (frac < 0)
 				while ((frac += heightmask) <  0);
 			else
-				while (frac >= heightmask)
-					frac -= heightmask;
+				frac %= heightmask;
 
 			do
 			{
@@ -341,8 +337,7 @@ void R_Draw2sMultiPatchColumn_8(void)
 #endif
 					frac += fracstep;
 
-				while (frac >= heightmask)
-					frac -= heightmask;
+				frac %= heightmask;
 			} while (--count);
 		}
 		else

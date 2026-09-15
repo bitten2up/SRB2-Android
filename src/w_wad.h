@@ -20,6 +20,8 @@
 #include "hardware/hw_data.h"
 #endif
 
+#include "m_aatree.h"
+
 #ifdef __GNUG__
 #pragma interface
 #endif
@@ -130,6 +132,8 @@ typedef struct wadfile_s
 	lumpinfo_t *lumpinfo;
 	lumpcache_t *lumpcache;
 	lumpcache_t *patchcache;
+	aatree_t *startfolders;
+	aatree_t *endfolders;
 	UINT16 numlumps; // this wad's number of resources
 	UINT16 foldercount; // folder count
 	void *handle;
@@ -231,6 +235,11 @@ void W_GetFolderLumpsPwad(const char *name, UINT16 wad, UINT32 **list, UINT16 *l
 void W_GetFolderLumps(const char *name, UINT32 **list, UINT16 *list_capacity, UINT16 *numlumps);
 UINT32 W_CountFolderLumpsPwad(const char *name, UINT16 wad);
 UINT32 W_CountFolderLumps(const char *name);
+
+const char *W_GetFilenameFromFullname(const char *path);
+
+void W_GetFolderLumpsPwad(const char *name, UINT16 wad, UINT32 **list, UINT16 *list_capacity, UINT16 *numlumps);
+void W_GetFolderLumps(const char *name, UINT32 **list, UINT16 *list_capacity, UINT16 *numlumps);
 
 lumpnum_t W_CheckNumForMap(const char *name);
 lumpnum_t W_CheckNumForName(const char *name);
