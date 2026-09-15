@@ -974,6 +974,7 @@ void D_RegisterClientCommands(void)
 	CV_RegisterVar(&cv_nativeresdiv);
 	CV_RegisterVar(&cv_nativeresauto);
 	CV_RegisterVar(&cv_nativerescompare);
+	CV_RegisterVar(&cv_nativeresfov);
 #endif
 
 	// add cheat commands
@@ -3980,7 +3981,7 @@ static void Command_Version_f(void)
 		CONS_Printf("Bits Unknown ");
 
 	// No ASM?
-#if defined(NOASM) && !defined(__ANDROID__)
+#if defined(NOASM) && !defined(__ANDROID__) && !defined(IOS)
 	CONS_Printf("\x85" "NOASM " "\x80");
 #endif
 

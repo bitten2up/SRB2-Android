@@ -1881,7 +1881,12 @@ EXPORT void HWRAPI(SetScreenPalette) (RGBA_t *palette)
 		pglBindTexture(GL_TEXTURE_1D, screenPaletteTex);
 		pglTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		pglTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		// ios hack
+#ifndef IOS
 		pglTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, palette);
+#else
+		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, palette);
+#endif
 #endif
 		pglActiveTexture(GL_TEXTURE0);
 	}

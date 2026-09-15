@@ -144,25 +144,9 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 #define STRBUFCPY(dst,src) strlcpy(dst, src, sizeof dst)
 
 /* Boolean type definition */
-
-// Note: C++ bool and C99/C11 _Bool are NOT compatible.
-// Historically, boolean was win32 BOOL on Windows. For equivalence, it's now
-// int32_t. "true" and "false" are only declared for C code; in C++, conversion
-// between "bool" and "int32_t" takes over.
-#ifndef _WIN32
-typedef int32_t boolean;
-#else
-#define boolean BOOL
-#endif
-
-#ifndef __cplusplus
-#ifndef _WIN32
-enum {false = 0, true = 1};
-#else
-#define false FALSE
-#define true TRUE
-#endif
-#endif
+// fuck you, this is all thats needed
+#include <stdbool.h>
+typedef bool boolean;
 
 /* 7.18.2.1  Limits of exact-width integer types */
 

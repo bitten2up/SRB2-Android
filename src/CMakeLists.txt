@@ -154,6 +154,14 @@ target_compile_features(SRB2SDL2 PRIVATE c_std_11 cxx_std_17)
 set(SRB2_CONFIG_DEV_BUILD OFF CACHE BOOL
 	"Compile a development build of SRB2.")
 
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+	set(SRB2_CONFIG_USE_INTERNAL_LIBRARIES ON)
+	set(SRB2_CONFIG_HWRENDER ON)
+	set(SRB2_CONFIG_LTO ON)
+	set(SRB2_CONFIG_EXECINFO OFF)
+	set(SRB2_CONFIG_HAVE_PNG ON)
+endif()
+
 add_subdirectory(blua)
 add_subdirectory(netcode)
 
@@ -188,6 +196,10 @@ endif()
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES "Darwin")
 	target_compile_definitions(SRB2SDL2 PRIVATE -DMACOSX)
+endif()
+
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+	add_definitions(-DIOS -DTOUCHINPUTS -DHAVE_GLES -DHAVE_GLES2 -DHWRENDER -DNATIVESCREENRES)
 endif()
 
 if("${SRB2_CONFIG_USE_GME}")
@@ -446,6 +458,42 @@ if(TARGET PNG::PNG)
 	message(STATUS "libpng Found")
 else()
 	message(STATUS "No libpng Found")
+endif()
+
+if(${CMAKE_SYSTEM} MATCHES Darwin AND NOT ${SRB2_CONFIG_DEDICATED})
+	# This target has no native Xcode Resources build phase, so
+	# sdl/srb2.icon (an Icon Composer bundle -- supports light/dark/tinted/
+	# clear appearances) never gets picked up by actool automatically the
+	# way it would in a normal Xcode project. Compile it ourselves.
+	# add_custom_command(TARGET SRB2SDL2 ...) has to happen in this
+	# directory, the one that actually created the SRB2SDL2 target above
+	# (add_custom_command(TARGET) requires that exact scope), not in
+	# src/sdl/CMakeLists.txt where the rest of the icon config lives.
+	if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+		set(SRB2_MACOS_ICON_DEPLOYMENT_TARGET "11.0")
+	else()
+		set(SRB2_MACOS_ICON_DEPLOYMENT_TARGET "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+	endif()
+	# actool also generates a flattened, legacy-compatible srb2.icns
+	# fallback right alongside Assets.car (verified: it contains the ic04-
+	# ic10 representations that have been the standard icns payload since
+	# Lion/10.7, plus newer ic11-ic14 Retina variants -- pre-10.13 systems,
+	# which don't understand CFBundleIconName/Assets.car at all, need
+	# CFBundleIconFile pointing at it to show any icon). actool's
+	# --output-partial-info-plist reports both CFBundleIconName and
+	# CFBundleIconFile for this reason; macosx/Info.plist.in only has the
+	# former, so merge the latter in too instead of discarding it.
+	add_custom_command(TARGET SRB2SDL2 POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:SRB2SDL2>/Resources"
+		COMMAND xcrun actool --compile "$<TARGET_BUNDLE_CONTENT_DIR:SRB2SDL2>/Resources"
+			--platform macosx
+			--minimum-deployment-target "${SRB2_MACOS_ICON_DEPLOYMENT_TARGET}"
+			--app-icon srb2
+			--output-partial-info-plist "${CMAKE_CURRENT_BINARY_DIR}/icon-partial-info.plist"
+			"${CMAKE_CURRENT_SOURCE_DIR}/sdl/srb2.icon"
+		COMMAND /usr/libexec/PlistBuddy -c "Merge ${CMAKE_CURRENT_BINARY_DIR}/icon-partial-info.plist :" "$<TARGET_BUNDLE_CONTENT_DIR:SRB2SDL2>/Info.plist"
+		VERBATIM
+	)
 endif()
 
 if(TARGET PNG::PNG AND TARGET ZLIB::ZLIB)

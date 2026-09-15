@@ -94,13 +94,73 @@ endif()
 
 
 find_package(ZLIB REQUIRED)
-find_package(PNG REQUIRED)
-find_package(CURL REQUIRED)
-find_package(libopenmpt QUIET)
-if("${SRB2_CONFIG_USE_GME}")
-	find_package(libgme QUIET)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(PNG_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/thirdparty/libpng/iOS/include")
+    set(PNG_LIBRARIES "${CMAKE_SOURCE_DIR}/thirdparty/libpng/iOS/libpng.xcframework")
+
+    if(NOT TARGET PNG::PNG)
+        add_library(PNG::PNG STATIC IMPORTED GLOBAL)
+
+        set_target_properties(PNG::PNG PROPERTIES
+            IMPORTED_LOCATION "${PNG_LIBRARIES}"
+            INTERFACE_INCLUDE_DIRECTORIES "${PNG_INCLUDE_DIRS}"
+			INTERFACE_LINK_LIBRARIES ZLIB::ZLIB
+        )
+    endif()
+else()
+    find_package(PNG REQUIRED)
 endif()
-find_package(miniupnpc QUIET)
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(CURL_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/thirdparty/curl/iOS/include")
+    set(CURL_LIBRARIES "${CMAKE_SOURCE_DIR}/thirdparty/curl/iOS/curl.xcframework")
+
+    if(NOT TARGET CURL::libcurl)
+        add_library(CURL::libcurl STATIC IMPORTED GLOBAL)
+
+        set_target_properties(CURL::libcurl PROPERTIES
+            IMPORTED_LOCATION "${CURL_LIBRARIES}"
+            INTERFACE_INCLUDE_DIRECTORIES "${CURL_INCLUDE_DIRS}"
+            # Built with CURL_USE_SECTRANSP (Apple's native TLS) instead of
+            # a separately cross-compiled OpenSSL -- see
+            # srb2-legacy-ioslibs/build.sh. SecureTransport needs
+            # Security.framework; curl's Apple network-change/proxy
+            # detection code needs SystemConfiguration.framework.
+            INTERFACE_LINK_LIBRARIES "-framework Security;-framework SystemConfiguration"
+        )
+    endif()
+else()
+    find_package(CURL REQUIRED)
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(OPENMPT_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/thirdparty/libopenmpt/iOS/include")
+    set(OPENMPT_LIBRARIES "${CMAKE_SOURCE_DIR}/thirdparty/libopenmpt/iOS/libopenmpt.xcframework")
+
+    if(NOT TARGET libopenmpt::libopenmpt)
+        add_library(libopenmpt::libopenmpt STATIC IMPORTED GLOBAL)
+
+        set_target_properties(libopenmpt::libopenmpt PROPERTIES
+            IMPORTED_LOCATION "${OPENMPT_LIBRARIES}"
+            INTERFACE_INCLUDE_DIRECTORIES "${OPENMPT_INCLUDE_DIRS}"
+        )
+    endif()
+else()
+    find_package(libopenmpt QUIET)
+endif()
+
+if("${SRB2_CONFIG_USE_GME}")
+    find_package(libgme QUIET)
+endif()
+if(NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Not cross-compiled for iOS (no xcframework); find_package() would
+    # otherwise pick up a host Homebrew miniupnpc whose CMake package
+    # doesn't add its include dir explicitly, so it silently breaks under
+    # iOS's isysroot-based cross-compilation. UPnP port-forwarding is
+    # optional -- src/CMakeLists.txt already handles "not found" cleanly.
+    find_package(miniupnpc QUIET)
+endif()
 
 
 if(${PROJECT_SOURCE_DIR} MATCHES ${PROJECT_BINARY_DIR})
@@ -135,9 +195,13 @@ set(SRB2_SDL2_EXE_SUFFIX "" CACHE STRING "Optional executable suffix, separated 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 
 add_subdirectory(src)
-add_subdirectory(assets)
 
-
+# This must run before add_subdirectory(assets): that directory's
+# CMakeLists.txt reads SRB2SDL2's OUTPUT_NAME property (via
+# get_target_property) to know the real .app bundle name for the iOS/macOS
+# asset-install destination, so the override below has to land first, or it
+# reads the pre-override name src/sdl/CMakeLists.txt set (e.g. "Sonic Robo
+# Blast 2" on Apple platforms) instead of the final git-branch-suffixed one.
 set(GIT_EXECUTABLE "git" CACHE FILEPATH "Path to git binary")
 include(GitUtilities)
 
@@ -172,3 +236,5 @@ list(APPEND EXE_NAME_PARTS ${SRB2_SDL2_EXE_SUFFIX})
 
 list(JOIN EXE_NAME_PARTS "_" EXE_NAME)
 set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME ${EXE_NAME})
+
+add_subdirectory(assets)

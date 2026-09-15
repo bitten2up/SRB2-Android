@@ -15,6 +15,10 @@
 ///        plus functions to parse command line parameters, configure game
 ///        parameters, and call the startup functions.
 
+#ifdef IOS
+#include "sdl/ios/ios_resources.h"
+#endif
+
 #if defined (__unix__) || defined (__APPLE__) || defined (UNIXCOMMON)
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -749,7 +753,7 @@ void D_SRB2Loop(void)
 	double deltasecs = 0.0;
 	static lumpnum_t gstartuplumpnum;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	boolean firstframe = false;
 #endif
 
@@ -800,7 +804,7 @@ void D_SRB2Loop(void)
 	"                            ...wait. =P\n"
 	"===========================================================================\n");
 
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(IOS)
 	// hack to start on a nice clear console screen.
 	COM_ImmedExecute("cls;version");
 #endif
@@ -960,7 +964,7 @@ void D_SRB2Loop(void)
 
 		LUA_Step();
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 		if (!firstframe)
 		{
 			COM_ImmedExecute("cls;version"); // hack to start on a nice clear console screen.
@@ -1174,7 +1178,7 @@ static inline void D_CleanFile(addfilelist_t *list)
 	list->numfiles = 0;
 }
 
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(IOS)
 ///\brief Checks if a netgame URL is being handled, and changes working directory to the EXE's if so.
 ///       Done because browsers (at least, Firefox on Windows) launch the game from the browser's directory, which causes problems.
 static void ChangeDirForUrlHandler(void)
@@ -1394,7 +1398,7 @@ void D_SRB2Main(void)
 	// Test Dehacked lists
 	DEH_TableCheck();
 
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(IOS)
 	// Netgame URL special case: change working dir to EXE folder.
 	ChangeDirForUrlHandler();
 #endif
@@ -2020,7 +2024,11 @@ void D_SetupHome(void)
 		D_AndroidSetupHome(userhome);
 #elif defined(DEFAULTDIR)
 		// use user specific config file
-		snprintf(srb2home, sizeof srb2home, "%s" PATHSEP DEFAULTDIR, userhome);
+#ifdef IOS
+			snprintf(srb2home, sizeof srb2home, "%s", iOS_GetHomePath());
+#else
+			snprintf(srb2home, sizeof srb2home, "%s" PATHSEP DEFAULTDIR, userhome);
+#endif
 		snprintf(downloaddir, sizeof downloaddir, "%s" PATHSEP "DOWNLOAD", srb2home);
 		if (dedicated)
 			snprintf(configfile, sizeof configfile, "%s" PATHSEP "d"CONFIGFILENAME, srb2home);

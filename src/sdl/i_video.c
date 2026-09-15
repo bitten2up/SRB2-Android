@@ -126,7 +126,7 @@
 	#ifdef PNG_READ_SUPPORTED
 		#define SPLASH_SCREEN_SUPPORTED
 
-		#if defined(__ANDROID__)
+		#if defined(__ANDROID__) || defined (IOS)
 			#include "SDL_rwops.h"
 		#endif
 
@@ -153,7 +153,7 @@ static void Impl_SetDither(void);
 static consvar_t cv_dither = CVAR_INIT ("dither", "Off", CV_SAVE|CV_CALL|CV_NOINIT, CV_OnOff, Impl_SetDither);
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 static void Impl_SetColorBufferDepth(INT32 red, INT32 green, INT32 blue, INT32 alpha);
 #endif
 
@@ -163,7 +163,7 @@ UINT8 graphics_started = 0; // Is used in console.c and screen.c
 boolean allow_fullscreen = false;
 static SDL_bool disable_fullscreen = SDL_FALSE;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 #define USE_FULLSCREEN SDL_TRUE
 #else
 #define USE_FULLSCREEN (disable_fullscreen||!allow_fullscreen)?0:cv_fullscreen.value
@@ -398,7 +398,7 @@ static void Impl_VideoSetupSurfaces(int width, int height)
 	int bpp = 16;
 	int sw_texture_format = SDL_PIXELFORMAT_ABGR8888;
 
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(IOS)
 	if (!usesdl2soft)
 	{
 		sw_texture_format = SDL_PIXELFORMAT_RGB565;
@@ -512,7 +512,7 @@ static SDL_bool SDLSetMode(INT32 width, INT32 height, SDL_bool fullscreen, SDL_b
 	return SDL_TRUE;
 }
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 static void Impl_AppEnteredForeground(void)
 {
 	static boolean storagewarning = false;
@@ -629,7 +629,7 @@ static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
 		case SDL_SCANCODE_LGUI:   return KEY_LEFTWIN;
 		case SDL_SCANCODE_RGUI:   return KEY_RIGHTWIN;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 		case SDL_SCANCODE_AC_BACK: return KEY_ESCAPE;
 #endif
 
@@ -791,7 +791,7 @@ static void Impl_Unfocused(boolean unfocused)
 		S_ResumeAudio();
 }
 
-#if defined (__ANDROID__)
+#if defined (__ANDROID__) || defined(IOS)
 static void Impl_AppWillEnterBackground(void)
 {
 	appOnBackground = SDL_TRUE;
@@ -815,7 +815,7 @@ static void Impl_PumpEvents(void)
 {
 	SDL_Event ev;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	SDL_bool focused = SDL_FALSE;
 #endif
 
@@ -831,7 +831,7 @@ static void Impl_PumpEvents(void)
 
 #undef IgnoreEvent
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	while (SDL_PeepEvents(&ev, 1, SDL_GETEVENT, SDL_APP_WILLENTERFOREGROUND, SDL_APP_WILLENTERFOREGROUND))
 	{
 		if (focused == SDL_FALSE)
@@ -854,7 +854,7 @@ static void Impl_HandleWindowEvent(SDL_WindowEvent evt)
 	static SDL_bool mousefocus = SDL_TRUE;
 	static SDL_bool kbfocus = SDL_TRUE;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined (IOS)
 	static Sint32 windowWidth = 0;
 	static Sint32 windowHeight = 0;
 #endif
@@ -882,11 +882,15 @@ static void Impl_HandleWindowEvent(SDL_WindowEvent evt)
 		case SDL_WINDOWEVENT_MAXIMIZED:
 			break;
 		case SDL_WINDOWEVENT_SIZE_CHANGED:
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 			windowWidth = evt.data1;
 			windowHeight = evt.data2;
 
+#ifdef IOS
+			if (1)
+#else
 			if (JNI_IsInMultiWindowMode())
+#endif
 			{
 				appWindowWidth = windowWidth;
 				appWindowHeight = windowHeight;
@@ -1188,13 +1192,21 @@ static void Impl_HandleJoystickAxisEvent(SDL_JoyAxisEvent evt)
 		if (evt.axis%2)
 		{
 			event.key = evt.axis / 2;
-			event.x = SDLJoyAxis(evt.value, event.type);
+#if defined(__APPLE__)
+		event.y = -SDLJoyAxis(evt.value, event.type);
+#else
+		event.y = SDLJoyAxis(evt.value, event.type);
+#endif
 		}
 		else
 		{
 			evt.axis--;
 			event.key = evt.axis / 2;
-			event.y = SDLJoyAxis(evt.value, event.type);
+#if defined(__APPLE__)
+		event.y = -SDLJoyAxis(evt.value, event.type);
+#else
+		event.y = SDLJoyAxis(evt.value, event.type);
+#endif
 		}
 	}
 
@@ -1336,7 +1348,7 @@ static void Impl_HandleTouchEvent(SDL_TouchFingerEvent evt)
 {
 	event_t event;
 	touchevent_t finger;
-	INT32 id = (INT32)(evt.fingerId);
+	INT32 id = SDL_GetNumTouchFingers(evt.fingerId);
 	float x, y, dx, dy;
 
 	if (id >= NUMTOUCHFINGERS)
@@ -1464,7 +1476,7 @@ void Impl_HandleVideoEvent(SDL_Event *evt)
 		case SDL_WINDOWEVENT:
 			Impl_HandleWindowEvent(evt->window);
 			break;
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 		case SDL_APP_WILLENTERBACKGROUND:
 			Impl_AppWillEnterBackground();
 			break;
@@ -2036,7 +2048,7 @@ INT32 VID_CheckRenderer(void)
 #if 1
 	// STAR NOTE: hi
 	boolean contextcreated = false;
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	boolean modechanged = (renderinit == SDL_FALSE || vid.width != realwidth || vid.height != realheight);
 #endif
 #endif
@@ -2079,7 +2091,7 @@ INT32 VID_CheckRenderer(void)
 #endif
 
 		// STAR NOTE: hi
-#if !defined(__ANDROID__)
+#if !defined(__ANDROID__) && !defined(IOS)
 		if (rendererchanged && !contextcreated)
 			Impl_RenderContextCreate();
 #endif
@@ -2098,7 +2110,7 @@ INT32 VID_CheckRenderer(void)
 
 #if 1
 	// STAR NOTE: break away
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	if (modechanged || rendererchanged)
 #if 0
 		Impl_RenderContextReset();
@@ -2170,7 +2182,7 @@ void VID_GetNativeResolution(INT32 *width, INT32 *height)
 {
 	INT32 w = 0, h = 0;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	if (appWindowWidth && appWindowHeight)
 	{
 		w = appWindowWidth;
@@ -2300,12 +2312,17 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	Impl_SetColorBufferDepth(8, 8, 8, 8);
 #endif
 
 #ifdef NATIVESCREENRES
 	flags |= SDL_WINDOW_RESIZABLE;
+#endif
+
+#ifdef IOS
+	// iOS requires apps to size their content based on screen coordinates rather than content size.
+	flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
 
 	// Create a window
@@ -2383,7 +2400,7 @@ static void Impl_InitGLESDriver(void)
 }
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 static void Impl_SetColorBufferDepth(INT32 red, INT32 green, INT32 blue, INT32 alpha)
 {
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, red);
@@ -2429,7 +2446,7 @@ void Impl_InitVideoSubSystem(void)
 	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
 #endif
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	// render_none means the current renderer is undetermined, so we only use SDL's renderer and texture
 	vid.width = BASEVIDWIDTH;
 	vid.height = BASEVIDHEIGHT;
@@ -2632,7 +2649,7 @@ void VID_StartupOpenGL(void)
 	if (vid.glstate == VID_GL_LIBRARY_LOADED)
 		return;
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 	// Force PO2-sized textures on mobile GPUs
 	gl_powersoftwo = true;
 #endif

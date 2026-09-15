@@ -1,7 +1,7 @@
 # Declare SDL2 interface sources
 
 target_sources(SRB2SDL2 PRIVATE
-	ogl_sdl.c
+	ogl_es_sdl.c
 	i_threads.c
 	i_net.c
 	i_system.c
@@ -177,15 +177,16 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 endif()
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
-	set(MACOSX_BUNDLE_ICON_FILE Srb2mac.icns)
-	set_source_files_properties(macosx/Srb2mac.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 	target_sources(SRB2SDL2 PRIVATE
 		macosx/mac_alert.c
 		macosx/mac_alert.h
 		macosx/mac_resources.c
 		macosx/mac_resources.h
-		macosx/Srb2mac.icns
 	)
+endif()
+
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+	target_sources(SRB2SDL2 PRIVATE ios/ios_resources.c ios/ios_resources.h)
 endif()
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
@@ -204,15 +205,46 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
 
 	set_target_properties(SRB2SDL2 PROPERTIES OUTPUT_NAME "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}")
 
-	# Configure the app bundle icon and plist properties
-	target_sources(SRB2SDL2 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/macosx/Srb2mac.icns")
+	# Configure the app bundle icon and plist properties. This target has
+	# no native Xcode Resources build phase (same situation as the iOS
+	# target -- see build.sh/test-sim.sh there for the same issue), so
+	# srb2.icon (an Icon Composer bundle -- supports light/dark/tinted/
+	# clear appearances) never gets picked up by actool automatically.
+	# It's compiled via an explicit post-build actool invocation below
+	# instead of MACOSX_PACKAGE_LOCATION + target_sources.
 	set_target_properties(SRB2SDL2 PROPERTIES
-		MACOSX_BUNDLE_ICON_FILE "Srb2mac"
 		MACOSX_BUNDLE_BUNDLE_NAME "Sonic Robo Blast 2"
 		MACOSX_BUNDLE_BUNDLE_VERSION ${SRB2_VERSION}
-
-		RESOURCE "${CMAKE_CURRENT_SOURCE_DIR}/macosx/Srb2mac.icns"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macosx/Info.plist.in"
 	)
+	# The actual icon-compiling add_custom_command(TARGET SRB2SDL2 ...)
+	# has to live in src/CMakeLists.txt, the directory that actually
+	# creates the SRB2SDL2 target (add_custom_command(TARGET) requires
+	# that exact scope) -- see the Darwin block there.
+endif()
+
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+	set_target_properties(SRB2SDL2 PROPERTIES
+		OUTPUT_NAME "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
+		MACOSX_BUNDLE_BUNDLE_NAME "SRB2"
+		MACOSX_BUNDLE_BUNDLE_VERSION ${SRB2_VERSION}
+		MACOSX_BUNDLE_GUI_IDENTIFIER "org.stjr.srb2"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.stjr.srb2"
+		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist.in"
+		# must be set here since Xcode overwrites the setting in Info.plist.in
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+	)
+
+	target_compile_definitions(SRB2SDL2 PRIVATE -DSDLMAIN)
+
+	set(SRB2_IOS_FRAMEWORKS UIKit Foundation CoreFoundation CoreGraphics QuartzCore CoreAudio AudioToolbox AVFoundation CoreMotion GameController CoreHaptics CoreBluetooth Metal OpenGLES)
+
+	foreach(fwname ${SRB2_IOS_FRAMEWORKS})
+		find_library(SRB2_IOS_FRAMEWORK_${fwname} ${fwname})
+		target_link_libraries(SRB2SDL2 PRIVATE ${SRB2_IOS_FRAMEWORK_${fwname}})
+	endforeach()
+
+	target_link_libraries(SRB2SDL2 PRIVATE c++)
 endif()
 
 if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
@@ -232,8 +264,27 @@ if("${CMAKE_SYSTEM_NAME}" MATCHES Windows)
 	)
 endif()
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(SDL2 REQUIRED)
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+	set(SDL2_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/thirdparty/SDL2/iOS/include")
+	set(SDL2_LIBRARY "${CMAKE_SOURCE_DIR}/thirdparty/SDL2/iOS/SDL2.xcframework")
+
+	if(NOT TARGET SDL2::SDL2)
+		add_library(SDL2::SDL2 STATIC IMPORTED GLOBAL)
+		set_target_properties(SDL2::SDL2 PROPERTIES
+			IMPORTED_LOCATION "${SDL2_LIBRARY}"
+			INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIR}"
+		)
+	endif()
+
+	# need sdl2 main aswell
+	if(NOT TARGET SDL2main)
+		add_library(SDL2main STATIC IMPORTED GLOBAL)
+		set_target_properties(SDL2main PROPERTIES IMPORTED_LOCATION "${CMAKE_SOURCE_DIR}/thirdparty/SDL2/iOS/SDL2main.xcframework" )
+	endif()
+else()
+	find_package(SDL2 CONFIG REQUIRED)
+	find_package(SDL2 REQUIRED)
+endif()
 if(TARGET SDL2main)
 	target_link_libraries(SRB2SDL2 PRIVATE SDL2main)
 endif()
@@ -263,8 +314,33 @@ if(TARGET SDL2_mixer_ext::SDL2_mixer_ext OR TARGET SDL2_mixer_ext::SDL2_mixer_ex
 	message(STATUS "SDL2_mixer_ext found, skipping SDL2_mixer")
 else()
 	message(STATUS "SDL2_mixer_ext not found, going to try SDL2_mixer")
+if(${CMAKE_SYSTEM} MATCHES "iOS")
+    set(SDL2_MIXER_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/thirdparty/SDL2_mixer/iOS/include)
+    set(SDL2_MIXER_ROOT "${CMAKE_SOURCE_DIR}/thirdparty/SDL2_mixer/iOS")
+
+    set(SDL2_MIXER_LIBRARIES
+        "${SDL2_MIXER_ROOT}/SDL2_mixer.xcframework"
+        "${SDL2_MIXER_ROOT}/opusfile.xcframework"
+        "${SDL2_MIXER_ROOT}/opus.xcframework"
+        "${SDL2_MIXER_ROOT}/vorbisfile.xcframework"
+        "${SDL2_MIXER_ROOT}/vorbis.xcframework"
+        "${SDL2_MIXER_ROOT}/ogg.xcframework"
+        "${SDL2_MIXER_ROOT}/xmp.xcframework"
+        "${SDL2_MIXER_ROOT}/wavpack.xcframework"
+    )
+
+    if(NOT TARGET SDL2_mixer::SDL2_mixer)
+        add_library(SDL2_mixer::SDL2_mixer INTERFACE IMPORTED GLOBAL)
+
+        set_target_properties(SDL2_mixer::SDL2_mixer PROPERTIES
+            INTERFACE_LINK_LIBRARIES "${SDL2_MIXER_LIBRARIES}"
+            INTERFACE_INCLUDE_DIRECTORIES "${SDL2_MIXER_INCLUDE_DIRS}"
+        )
+    endif()
+else()
 	find_package(SDL2_mixer CONFIG QUIET)
 	find_package(SDL2_mixer QUIET)
+endif()
 	if(TARGET SDL2_mixer::SDL2_mixer OR TARGET SDL2_mixer::SDL2_mixer-static OR TARGET SDL2_mixer OR TARGET SDL2_mixer_Static)
 		if(NOT TARGET SDL2_mixer::SDL2_mixer-static AND TARGET SDL2_mixer_Static)
 		add_library(SDL2_mixer::SDL2_mixer-static ALIAS SDL2_mixer_Static)
@@ -312,7 +388,7 @@ else()
 endif()
 
 #### Installation ####
-if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin)
+if("${CMAKE_SYSTEM_NAME}" MATCHES Darwin OR ${CMAKE_SYSTEM} MATCHES "iOS")
 	install(TARGETS SRB2SDL2
 		BUNDLE DESTINATION .
 	)

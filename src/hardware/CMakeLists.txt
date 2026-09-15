@@ -10,6 +10,8 @@ target_sources(SRB2SDL2 PRIVATE
 	hw_md3load.c
 	hw_model.c
 	hw_batching.c
-	r_opengl/r_opengl.c
+	r_gles/r_gles2.c
+	r_glcommon/r_glcommon.c
+	shaders/gl_shaders.c
 	hw_shaders.c
 )
