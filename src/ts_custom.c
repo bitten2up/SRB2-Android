@@ -560,7 +560,7 @@ boolean TS_LoadSingleLayout(INT32 ilayout)
 	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, filename), "rt");
 	if (!f)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		DisplayMessage(va(M_GetText(
 			"\x82%s\n"
 			"\x85""Failed to load layout!\n"
@@ -645,7 +645,7 @@ boolean TS_SaveSingleLayout(INT32 ilayout)
 	f = fopen(va("%s"PATHSEP"%s", touchlayoutfolder, filename), "w");
 	if (!f)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		DisplayMessage(va(M_GetText(
 			"\x82%s\n"
 			"\x85""Failed to save layout!\n"
@@ -813,7 +813,7 @@ static void SubmenuMessageResponse_LayoutList_New(INT32 ch)
 {
 	if (ch == 'y' || ch == KEY_ENTER)
 	{
-		S_StartSound(NULL, sfx_strpst);
+		S_StartSoundFromEverywhere(sfx_strpst);
 		CreateAndSetupNewLayout(false);
 	}
 }
@@ -904,7 +904,7 @@ static void SubmenuMessageResponse_LayoutList_Load(INT32 ch)
 	{
 		if (LoadLayoutOnList())
 		{
-			S_StartSound(NULL, sfx_strpst);
+			S_StartSoundFromEverywhere(sfx_strpst);
 			DisplayMessage(va(M_GetText(
 				"\x82%s\n"
 				"\x84Layout loaded!\n"
@@ -927,7 +927,7 @@ static void Submenu_LayoutList_Load(INT32 x, INT32 y, touchfinger_t *finger, eve
 
 	if (touchlayouts == NULL || !numtouchlayouts)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		return;
 	}
 
@@ -935,7 +935,7 @@ static void Submenu_LayoutList_Load(INT32 x, INT32 y, touchfinger_t *finger, eve
 
 	if (userlayoutsaved && (usertouchlayoutnum == touchcust_submenu_selection))
 	{
-		S_StartSound(NULL, sfx_skid);
+		S_StartSoundFromEverywhere(sfx_skid);
 		DisplayMessage(va(M_GetText(
 			"\x82%s\n"
 			"This layout is already loaded!\n"
@@ -994,7 +994,7 @@ static void SaveLayoutOnList(void)
 		userlayoutnew = false;
 		savelayout->saved = true;
 
-		S_StartSound(NULL, sfx_strpst);
+		S_StartSoundFromEverywhere(sfx_strpst);
 		DisplayMessage(va(M_GetText(
 			"\x82%s\n"
 			"\x83Layout saved!\n"
@@ -1004,7 +1004,7 @@ static void SaveLayoutOnList(void)
 	}
 	else
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		DisplayMessage(va(M_GetText(
 			"\x82%s\n"
 			"\x85""Failed to save layout!\n"
@@ -1031,7 +1031,7 @@ static void Submenu_LayoutList_Save(INT32 x, INT32 y, touchfinger_t *finger, eve
 
 	if (touchlayouts == NULL || !numtouchlayouts)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		return;
 	}
 	else if (usertouchlayoutnum == UNSAVEDTOUCHLAYOUT)
@@ -1091,7 +1091,7 @@ static void DeleteLayoutOnList(INT32 layoutnum)
 	}
 
 	TS_MakeLayoutList();
-	S_StartSound(NULL, sfx_altdi1 + M_RandomKey(4));
+	S_StartSoundFromEverywhere(sfx_altdi1 + M_RandomKey(4));
 }
 
 static void SubmenuMessageResponse_LayoutList_Delete(INT32 ch)
@@ -1112,7 +1112,7 @@ static void Submenu_LayoutList_Delete(INT32 x, INT32 y, touchfinger_t *finger, e
 
 	if (touchlayouts == NULL || !numtouchlayouts)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		return;
 	}
 
@@ -1150,7 +1150,7 @@ static void Submenu_LayoutList_Rename(INT32 x, INT32 y, touchfinger_t *finger, e
 
 	if (touchlayouts == NULL || !numtouchlayouts)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		return;
 	}
 

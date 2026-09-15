@@ -156,7 +156,7 @@ static void WideScreen_OnChangeResponse(INT32 ch)
 
 	CV_StealthSetValue(&cv_touchlayoutusegrid, 0);
 	ClearLayoutAndKeepSettings();
-	S_StartSound(NULL, sfx_altdi1 + M_RandomKey(4));
+	S_StartSoundFromEverywhere(sfx_altdi1 + M_RandomKey(4));
 }
 
 static void WideScreen_OnChange(void)

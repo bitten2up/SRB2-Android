@@ -3480,14 +3480,14 @@ static void M_HandleHeldKey(heldkeyroutine_t routine)
 				heldkey.time[1] = 0;
 				routine(heldkey.key);
 				if (heldkey.sound != sfx_None)
-					S_StartSound(NULL, heldkey.sound);
+					S_StartSoundFromEverywhere(heldkey.sound);
 			}
 		}
 		else
 		{
 			routine(heldkey.key);
 			if (heldkey.sound != sfx_None)
-				S_StartSound(NULL, heldkey.sound);
+				S_StartSoundFromEverywhere(heldkey.sound);
 		}
 	}
 	else
@@ -4543,6 +4543,11 @@ static INT16 M_IsTouchingJoystickMenuSelection(INT32 fx, INT32 fy)
 	return -1;
 }
 
+//added : 30-01-98:
+#define MAXCOLUMNMODES   12     //max modes displayed in one column
+#define MAXMODEDESCS     (MAXCOLUMNMODES*3)
+
+static modedesc_t modedescs[MAXMODEDESCS];
 static INT16 M_IsTouchingVideoModeSelection(INT32 fx, INT32 fy)
 {
 	INT32 i, row, col;
@@ -4898,7 +4903,7 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 					else
 					{
 						playstyle_currentchoice = selection;
-						S_StartSound(NULL, sfx_menu1);
+						S_StartSoundFromEverywhere(sfx_menu1);
 					}
 					break;
 				case MENUSTYLE_VIDEOMODES:
@@ -4907,7 +4912,7 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 					else if (vidm_testingmode == 0)
 					{
 						vidm_selected = selection;
-						S_StartSound(NULL, sfx_menu1);
+						S_StartSoundFromEverywhere(sfx_menu1);
 					}
 					break;
 				case MENUSTYLE_JOYSTICKS:
@@ -4916,7 +4921,7 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 					else
 					{
 						itemOn = selection;
-						S_StartSound(NULL, sfx_menu1);
+						S_StartSoundFromEverywhere(sfx_menu1);
 					}
 					break;
 				default:
@@ -4932,7 +4937,7 @@ static boolean M_HandleFingerUpEvent(event_t *ev, INT32 *ch)
 						if (currentMenu == &SP_MarathonDef && selection == marathonplayer && itemOn != marathonplayer)
 							slkey = -1;
 						itemOn = selection;
-						S_StartSound(NULL, sfx_menu1);
+						S_StartSoundFromEverywhere(sfx_menu1);
 					}
 					break;
 			}
@@ -7910,7 +7915,7 @@ TSNAVHANDLER(LevelPlatter)
 						else if (!lsverticalscroll) // prevent sound spam
 						{
 							lsoffs[0] = -8;
-							S_StartSound(NULL,sfx_s3kb2);
+							S_StartSoundFromEverywhere(sfx_s3kb2);
 						}
 					}
 				}
@@ -7933,7 +7938,7 @@ TSNAVHANDLER(LevelPlatter)
 					lscol = sel;
 					lsoffs[1] = (lswide(lsrow) ? wideoffs : shortoffs);
 
-					S_StartSound(NULL,sfx_s3kb7);
+					S_StartSoundFromEverywhere(sfx_s3kb7);
 					ifselectvalnextmap(lscol) else ifselectvalnextmap(0)
 
 					finger->selection = finger->int_arr[0] = 0;
@@ -9207,7 +9212,7 @@ static void VirtualKeyboard_AddonsSearch(char *text, size_t length)
 	size_t i;
 	for (i = 0; i < length; i++)
 		M_HandleAddonsTextInput(text[i]);
-	S_StartSound(NULL, sfx_menu1);
+	S_StartSoundFromEverywhere(sfx_menu1);
 }
 #endif
 
@@ -10905,7 +10910,7 @@ TSNAVHANDLER(SoundTest)
 				else
 				{
 					st_sel = t;
-					S_StartSound(NULL, sfx_menu1);
+					S_StartSoundFromEverywhere(sfx_menu1);
 				}
 
 				finger->selection = -1;
@@ -12147,24 +12152,24 @@ static void M_SaveSelectConfirm(void)
 	if (ultimate_selectable && saveSlotSelected == NOSAVESLOT && !savemoddata && !modifiedgame)
 	{
 		M_ResetSaveSelectFX(0, 0);
-		S_StartSound(NULL, sfx_skid);
+		S_StartSoundFromEverywhere(sfx_skid);
 		M_StartYNQuestion("Are you sure you want to play\n\x85ultimate mode\x80? It isn't remotely fair,\nand you don't even get an emblem for it.",M_SaveGameUltimateResponse);
 	}
 	else if (saveSlotSelected != NOSAVESLOT && savegameinfo[saveSlotSelected-1].lives == -42 && !(!modifiedgame || savemoddata))
 	{
 		M_ResetSaveSelectFX(0, 0);
-		S_StartSound(NULL, sfx_skid);
+		S_StartSoundFromEverywhere(sfx_skid);
 		M_ShowAnyKeyMessage("This cannot be done in a modified game.\n\n");
 	}
 	else if (saveSlotSelected == NOSAVESLOT || savegameinfo[saveSlotSelected-1].lives != -666) // don't allow loading of "bad saves"
 	{
 		M_ResetSaveSelectFX(0, 0);
-		S_StartSound(NULL, sfx_menu1);
+		S_StartSoundFromEverywhere(sfx_menu1);
 		M_LoadSelect(saveSlotSelected);
 	}
 	else if (!loadgameoffset)
 	{
-		S_StartSound(NULL, sfx_lose);
+		S_StartSoundFromEverywhere(sfx_lose);
 		M_ResetSaveSelectFX(-1, (14 * FRACUNIT));
 	}
 }
@@ -12228,7 +12233,7 @@ TSNAVHANDLER(SaveSelect)
 					else
 					{
 						saveSlotSelected = slot;
-						S_StartSound(NULL, sfx_s3kb7);
+						S_StartSoundFromEverywhere(sfx_s3kb7);
 						loadgamescroll = LOADGAME_SCROLLAMT * (i < 0 ? -1 : 1);
 					}
 				}
@@ -12397,7 +12402,7 @@ static void M_ResetCharacterSelectFX(void)
 
 static void M_CharacterSelectConfirm(void)
 {
-	S_StartSound(NULL, sfx_menu1);
+	S_StartSoundFromEverywhere(sfx_menu1);
 	char_scroll = 0; // finish scrolling the menu
 	M_DrawSetupChoosePlayerMenu(); // draw the finally selected character one last time for the fadeout
 	// Is this a hack?
@@ -14993,7 +14998,7 @@ TSNAVHANDLER(ServerList)
 		M_SetHeldKeyRate(2); \
 		M_SetHeldKeySound(sfx_menu1); \
 		M_SetHeldKeyThreshold(TICRATE / 3); \
-		S_StartSound(NULL, sfx_menu1); \
+		S_StartSoundFromEverywhere(sfx_menu1); \
 		finger->selection = -1; \
 		finger->type.menu = true
 
@@ -15558,7 +15563,7 @@ static void M_IPv4TextboxInput(INT32 choice)
 	size_t l = strlen(setupm_ip);
 	if ((choice >= '-' && choice <= ':') || (choice >= 'A' && choice <= 'Z') || (choice >= 'a' && choice <= 'z'))
 	{
-		S_StartSound(NULL,sfx_menu1); // Tails
+		S_StartSoundFromEverywhere(sfx_menu1); // Tails
 		setupm_ip[l] = (char)choice;
 		setupm_ip[l+1] = 0;
 	}
@@ -15567,7 +15572,7 @@ static void M_IPv4TextboxInput(INT32 choice)
 		char keypad_translation[] = {'7','8','9','-','4','5','6','+','1','2','3','0','.'};
 		if ((choice - 199) >= 0) // Redundant check to suppress compiler warning
 			choice = keypad_translation[choice - 199];
-		S_StartSound(NULL,sfx_menu1); // Tails
+		S_StartSoundFromEverywhere(sfx_menu1); // Tails
 		setupm_ip[l] = (char)choice;
 		setupm_ip[l+1] = 0;
 	}
@@ -15582,7 +15587,7 @@ static void VirtualKeyboard_IPv4Textbox(char *text, size_t length)
 			break;
 		M_IPv4TextboxInput(text[i]);
 	}
-	S_StartSound(NULL, sfx_menu1);
+	S_StartSoundFromEverywhere(sfx_menu1);
 }
 #endif
 
@@ -16659,7 +16664,7 @@ TSNAVHANDLER(PlayerSetup)
 					M_SetHeldKeyRate(2); \
 					M_SetHeldKeySound(sfx_menu1); \
 					M_SetHeldKeyThreshold(TICRATE / 3); \
-					S_StartSound(NULL, sfx_menu1); \
+					S_StartSoundFromEverywhere(sfx_menu1); \
 					finger->selection = -1; \
 					finger->type.menu = true
 
@@ -16684,7 +16689,7 @@ TSNAVHANDLER(PlayerSetup)
 				if (M_FingerTouchingSelection(fx, fy, boxx, boxy + 11, charw, charh) && i == finger->selection)
 				{
 					M_HandleSetupMultiPlayerSkin(KEY_RIGHTARROW);
-					S_StartSound(NULL, sfx_menu1);
+					S_StartSoundFromEverywhere(sfx_menu1);
 					finger->selection = -1;
 					goto done;
 				}
@@ -16820,7 +16825,7 @@ TSNAVHANDLER(PlayerSetup)
 						M_HandleSetupMultiPlayerColor(KEY_LEFTARROW);
 					else
 						M_HandleSetupMultiPlayerSkin(KEY_LEFTARROW);
-					S_StartSound(NULL, sfx_menu1);
+					S_StartSoundFromEverywhere(sfx_menu1);
 					finger->selection = -1;
 					goto done;
 				}
@@ -16830,7 +16835,7 @@ TSNAVHANDLER(PlayerSetup)
 						M_HandleSetupMultiPlayerColor(KEY_RIGHTARROW);
 					else
 						M_HandleSetupMultiPlayerSkin(KEY_RIGHTARROW);
-					S_StartSound(NULL, sfx_menu1);
+					S_StartSoundFromEverywhere(sfx_menu1);
 					finger->selection = -1;
 					goto done;
 				}
@@ -16848,7 +16853,7 @@ TSNAVHANDLER(PlayerSetup)
 #ifdef VIRTUAL_KEYBOARD
 						M_TSHandleTextField(setupm_name, MAXPLAYERNAME+1);
 #endif
-						S_StartSound(NULL, sfx_menu1);
+						S_StartSoundFromEverywhere(sfx_menu1);
 						finger->selection = -1;
 						return true;
 					}
@@ -16858,7 +16863,7 @@ TSNAVHANDLER(PlayerSetup)
 				else
 				{
 					itemOn = i;
-					S_StartSound(NULL, sfx_menu1);
+					S_StartSoundFromEverywhere(sfx_menu1);
 				}
 
 				finger->selection = -1;
@@ -17033,7 +17038,7 @@ static void M_MultiPlayerMenuTicker(void)
 
 	if (sfxtime >= 0)
 	{
-		S_StartSound(NULL, sfx_s3kb7);
+		S_StartSoundFromEverywhere(sfx_s3kb7);
 		sfxtime = -5;
 	}
 #endif
@@ -17607,7 +17612,7 @@ static void M_LayoutClearResponse(INT32 ch)
 		return;
 
 	TS_ClearCurrentLayout(true);
-	S_StartSound(NULL, sfx_altdi1 + M_RandomKey(4));
+	S_StartSoundFromEverywhere(sfx_altdi1 + M_RandomKey(4));
 	//M_ShowAnyKeyMessage("Layout cleared.\n");
 }
 
@@ -17764,7 +17769,7 @@ static void M_ChangecontrolResponse(event_t *ev)
 	// Ignore touch screen
 	if (ev->type == ev_touchmotion || ev->type == ev_touchdown || ev->type == ev_touchup)
 	{
-		S_StartSound(NULL, sfx_skid);
+		S_StartSoundFromEverywhere(sfx_skid);
 		M_StopMessage(0);
 		return;
 	}
@@ -17991,10 +17996,6 @@ static void M_DrawTouchControlsMenu(void)
 // ===============
 // VIDEO MODE MENU
 // ===============
-
-//added : 30-01-98:
-#define MAXCOLUMNMODES   12     //max modes displayed in one column
-#define MAXMODEDESCS     (MAXCOLUMNMODES*3)
 
 static modedesc_t modedescs[MAXMODEDESCS];
 

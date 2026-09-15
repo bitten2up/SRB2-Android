@@ -818,6 +818,7 @@ static INT32 W_MakeFileMD5(const char *filename, fhandletype_t handletype, void 
 		return 0;
 	}
 	return 1;
+#endif
 }
 
 // Invalidates the cache of lump numbers. Call this whenever a wad is added.
