@@ -7,7 +7,7 @@ ANDROID := 1
 LOCAL_MODULE := main
 
 # Paths
-
+LOCAL_SHORT_COMMANDS := true
 SRB2_PATH := ../../../..
 
 SRC_JNI := .
@@ -59,7 +59,7 @@ LOCAL_SRC_FILES += $(call List,$(LOCAL_PATH)/$(SRC_SDL)/Sourcefile)
 include $(XTRA_MAKE_DIR)/xtra.mk
 
 LOCAL_SRC_FILES += $(SRC_SDL)/SDL_main/SDL_android_main.c $(SRC_SDL)/mixer_sound.c $(SRC_SDL)/i_threads.c
-LOCAL_SRC_FILES += $(SRC_MAIN)/comptime.c $(SRC_MAIN)/md5.c
+LOCAL_SRC_FILES += $(SRC_MAIN)/comptime.c
 
 # Libraries
 

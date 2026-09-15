@@ -605,7 +605,7 @@ void M_RegisterCustomCVOption(consvar_t* cvar);
 	M_DrawPauseMenu,\
 	x, y,\
 	0,\
-	NULL,M_QuitPauseMenu\
+	M_QuitPauseMenu,NULL\
  }
 
 #define CENTERMENUSTYLE(id, header, source, prev, y)\
