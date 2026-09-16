@@ -25,6 +25,8 @@ rm -rf "$BUILD_DIR/bin/Release"
 
 cmake -S "$HERE" -B "$BUILD_DIR" -G Xcode \
 	-DCMAKE_TOOLCHAIN_FILE="$HERE/cmake/Modules/ios.toolchain.cmake" \
+	-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED=YES \
+	-DCMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED=YES \
 	-DPLATFORM=OS64 \
 	-DDEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
 	-DSRB2_CONFIG_EXTERNAL_ASSETS=ON \
@@ -82,6 +84,33 @@ if [ -z "$APP_PATH" ]; then
 	echo "error: no .app found under $BUILD_DIR/bin/Release, can't package .ipa" >&2
 	exit 1
 fi
+
+echo "==> Signing"
+
+PROFILE_PLIST="$(mktemp)"
+ENTITLEMENTS="$(mktemp)"
+
+security cms -D -i "$APP_PATH/embedded.mobileprovision" -o "$PROFILE_PLIST"
+
+if ! /usr/libexec/PlistBuddy -x -c "Print :Entitlements" "$PROFILE_PLIST" > "$ENTITLEMENTS"; then
+	echo "error: could not extract entitlements from provisioning profile" >&2
+	exit 1
+fi
+
+SIGNING_IDENTITY="$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development:/ {print $2; exit}')"
+
+if [ -z "$SIGNING_IDENTITY" ]; then
+	echo "error: no Apple Development signing identity found" >&2
+	exit 1
+fi
+
+echo "==> Signing with: $SIGNING_IDENTITY"
+
+codesign --force --sign "$SIGNING_IDENTITY" --entitlements "$ENTITLEMENTS" --timestamp=none "$APP_PATH"
+
+rm -f "$PROFILE_PLIST" "$ENTITLEMENTS"
+
+echo "==> Creating IPA"
 APP_NAME="$(basename "$APP_PATH" .app)"
 IPA_STAGE="$(mktemp -d)"
 mkdir -p "$IPA_STAGE/Payload"

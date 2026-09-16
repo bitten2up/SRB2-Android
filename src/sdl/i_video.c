@@ -282,6 +282,41 @@ static SDL_bool Impl_HasContext(void)
 
 static SDL_bool Impl_RenderContextCreate(void)
 {
+	if (rendermode == render_none)
+		return SDL_TRUE;
+
+#ifdef HWRENDER
+	if (rendermode == render_opengl)
+	{
+		if (window == NULL)
+			return SDL_FALSE;
+
+		// no context
+		if (sdlglcontext == NULL)
+		{
+			sdlglcontext = SDL_GL_CreateContext(window);
+
+			if (sdlglcontext == NULL)
+			{
+				VIDEO_INIT_ERROR("Couldn't create OpenGL context: %s");
+				return SDL_FALSE;
+			}
+		}
+
+		// please tell me you got the joke above
+		if (SDL_GL_MakeCurrent(window, sdlglcontext) != 0)
+		{
+			VIDEO_INIT_ERROR("Couldn't make OpenGL context current: %s");
+			return SDL_FALSE;
+		}
+
+		return SDL_TRUE;
+	}
+#endif
+
+	if (window == NULL)
+		return SDL_FALSE;
+
 	int flags = 0; // Use this to set SDL_RENDERER_* flags now
 
 	if (usesdl2soft)
@@ -300,33 +335,16 @@ static SDL_bool Impl_RenderContextCreate(void)
 #endif
 	}
 
-	if (!renderer)
-		renderer = SDL_CreateRenderer(window, -1, flags);
-
-#if 0
-	// STAR NOTE: ok
 	if (renderer == NULL)
 	{
-		VIDEO_INIT_ERROR("Couldn't create rendering context: %s");
-		return SDL_FALSE;
-	}
-#endif
+		renderer = SDL_CreateRenderer(window, -1, flags);
 
-#ifdef HWRENDER
-	if (rendermode == render_opengl && vid.glstate != VID_GL_LIBRARY_ERROR)
-	{
-		if (sdlglcontext == NULL)
+		if (renderer == NULL)
 		{
-			sdlglcontext = SDL_GL_CreateContext(window);
-
-			if (sdlglcontext == NULL)
-			{
-				VIDEO_INIT_ERROR("Couldn't create OpenGL context: %s");
-				return SDL_FALSE;
-			}
+			VIDEO_INIT_ERROR("Couldn't create SDL renderer: %s");
+			return SDL_FALSE;
 		}
 	}
-#endif
 
 	return SDL_TRUE;
 }
@@ -374,7 +392,7 @@ static SDL_bool Impl_RenderContextDestroy(void)
 
 		HWR_Startup();
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 		if (vid.glstate == VID_GL_LIBRARY_LOADED)
 			HWR_MakeScreenFinalTexture();
 #endif
@@ -2320,11 +2338,6 @@ static SDL_bool Impl_CreateWindow(SDL_bool fullscreen)
 	flags |= SDL_WINDOW_RESIZABLE;
 #endif
 
-#ifdef IOS
-	// iOS requires apps to size their content based on screen coordinates rather than content size.
-	flags |= SDL_WINDOW_ALLOW_HIGHDPI;
-#endif
-
 	// Create a window
 	window = SDL_CreateWindow("SRB2 "VERSIONSTRING, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			realwidth, realheight, flags);
@@ -2468,7 +2481,7 @@ static void Impl_SetDither(void)
 
 	if (rendermode == render_soft)
 	{
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 		if (cv_dither.value)
 			glEnable(GL_DITHER);
 		else

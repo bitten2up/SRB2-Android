@@ -767,8 +767,6 @@ extern int
 ///	    	memory that never gets touched.
 #define ALLOW_RESETDATA
 
-#define DEBUG_TO_FILE
-
 /// Experimental tweaks to analog mode. (Needs a lot of work before it's ready for primetime.)
 //#define REDSANALOG
 
