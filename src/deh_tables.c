@@ -4566,6 +4566,7 @@ const char *const ML_LIST[] = {
 	"EFFECT6",
 	"BOUNCY",
 	"TFERLINE",
+	"CLIPMIDTEX",
 	NULL
 };
 
@@ -5856,6 +5857,11 @@ struct int_const_s const INT_CONST[] = {
 	// screen.h constants
 	{"BASEVIDWIDTH",BASEVIDWIDTH},
 	{"BASEVIDHEIGHT",BASEVIDHEIGHT},
+
+	// Music flags & stuff
+	{"MUSIC_TRACKMASK", MUSIC_TRACKMASK},
+	{"MUSIC_FORCERESET", MUSIC_FORCERESET},
+	{"MUSIC_RELOADRESET", MUSIC_RELOADRESET},
 
 	{NULL,0}
 };

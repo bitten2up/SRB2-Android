@@ -928,7 +928,7 @@ static void HWR_DrawSkyWall(FOutVector *wallVerts, FSurfaceInfo *Surf)
 // Returns true if the midtexture is visible, false if not
 static boolean HWR_BlendMidtextureSurface(FSurfaceInfo *pSurf)
 {
-	FUINT blendmode = PF_Masked;
+	FUINT blendmode = PF_Masked | PF_Translucent;
 
 	pSurf->PolyColor.s.alpha = 0xFF;
 
@@ -1081,7 +1081,7 @@ static void HWR_RenderMidtexture(INT32 gl_midtexture, float cliplow, float cliph
 	}
 
 	// The cut-off values of a linedef can always be constant, since every line has an absoulute front and or back sector
-	if (gl_curline->polyseg)
+	if (gl_curline->polyseg && ((gl_linedef->flags & ML_CLIPMIDTEX) || (gl_sidedef->flags & SIDEFLAG_CLIP_MIDTEX)) == 0)
 	{
 		lowcut = polybottom;
 		highcut = polytop;
