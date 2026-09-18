@@ -1366,7 +1366,7 @@ static void Impl_HandleTouchEvent(SDL_TouchFingerEvent evt)
 {
 	event_t event;
 	touchevent_t finger;
-	INT32 id = SDL_GetNumTouchFingers(evt.fingerId);
+	INT32 id = SDL_GetNumTouchFingers(SDL_GetTouchDevice(0));
 	float x, y, dx, dy;
 
 	if (id >= NUMTOUCHFINGERS)
