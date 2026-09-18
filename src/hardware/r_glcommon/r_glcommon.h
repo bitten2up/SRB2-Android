@@ -16,11 +16,21 @@
 #define GL_GLEXT_PROTOTYPES
 
 #if defined(HAVE_GLES2)
+#if defined(__ANDROID__)
 	#include <GLES2/gl2.h>
 	#include <GLES2/gl2ext.h>
+#elif defined(IOS)
+	#include <OpenGLES/ES2/gl.h>
+	#include <OpenGLES/ES2/glext.h>
+#endif
 #elif defined(HAVE_GLES)
+#if defined(__ANDROID__)
 	#include <GLES/gl.h>
 	#include <GLES/glext.h>
+#elif defined(IOS)
+	#include <OpenGLES/ES1/gl.h>
+	#include <OpenGLES/ES1/glext.h>
+#endif
 #else
 	#ifdef HAVE_SDL
 		#define _MATH_DEFINES_DEFINED

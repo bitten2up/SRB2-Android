@@ -139,7 +139,7 @@ extern FILE *logstream;
 extern char logfilename[1024];
 #endif
 
-#if defined(LOGMESSAGES) && (defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)) && !defined(__ANDROID__)
+#if defined(LOGMESSAGES) && (defined (__unix__) || defined(__APPLE__) || defined (UNIXCOMMON)) && !defined(__ANDROID__) && !defined(IOS)
 #define LOGSYMLINK
 #endif
 
@@ -147,7 +147,7 @@ extern char logfilename[1024];
 #define SRB2APPLICATION "SRB2"
 
 // Defines that the game is being compiled for a mobile OS
-#if defined(__ANDROID__) || defined(__IPHONEOS__) || defined(__TVOS__)
+#if defined(__ANDROID__) || defined(IOS) || defined(__IPHONEOS__) || defined(__TVOS__)
 #define MOBILE_PLATFORM
 #endif
 
@@ -185,7 +185,7 @@ extern char logfilename[1024];
 //#define USE_PATCH_DTA
 
 // Load Android assets
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(IOS)
 #define UNPACK_FILES
 #define USE_ANDROID_PK3
 #endif

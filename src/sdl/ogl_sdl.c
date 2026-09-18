@@ -196,7 +196,6 @@ boolean OglSdlSurface(INT32 w, INT32 h)
 	GLBackend_SetStates();
 	pglClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-	HWR_Startup();
 	textureformatGL = cbpp > 16 ? GL_RGBA : GL_RGB5_A1;
 
 	return true;

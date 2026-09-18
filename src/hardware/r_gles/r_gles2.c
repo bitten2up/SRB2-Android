@@ -1596,14 +1596,14 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 	float xfix, yfix;
 	INT32 texsize = 512;
 	extern Uint16 realwidth, realheight;
-	
+
 
 	const float screenVerts[12] =
 	{
 		-1.0f, -1.0f, 1.0f,
 		-1.0f, 1.0f, 1.0f,
-		1.0f, 1.0f, 1.0f,
-		1.0f, -1.0f, 1.0f
+		 1.0f, 1.0f, 1.0f,
+		 1.0f, -1.0f, 1.0f
 	};
 
 	float fix[8];
@@ -1612,8 +1612,8 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 	while (texsize < screen_width || texsize < screen_height)
 		texsize <<= 1;
 
-	xfix = 1/((float)(texsize)/((float)((screen_width))));
-	yfix = 1/((float)(texsize)/((float)((screen_height))));
+	xfix = (float)screen_width / (float)texsize;
+	yfix = (float)screen_height / (float)texsize;
 
 	// const float screenVerts[12]
 
@@ -1637,12 +1637,14 @@ EXPORT void HWRAPI(DrawScreenTexture)(int tex, FSurfaceInfo *surf, FBITFIELD pol
 		Shader_SetUniforms(NULL, &white, NULL, NULL);
 	}
 
+	pglActiveTexture(GL_TEXTURE0);
+
 #if 0
 	pglTexCoordPointer(2, GL_FLOAT, 0, fix);
 	pglVertexPointer(3, GL_FLOAT, 0, screenVerts);
 #else
-	VertexAttribPointer(LOC_TEXCOORD, 2, GL_FLOAT, GL_FALSE, sizeof(fix), fix);
-	VertexAttribPointer(LOC_POSITION, 3, GL_FLOAT, GL_FALSE, sizeof(screenVerts), screenVerts);
+	VertexAttribPointer(LOC_TEXCOORD, 2, GL_FLOAT, GL_FALSE, 0, fix);
+	VertexAttribPointer(LOC_POSITION, 3, GL_FLOAT, GL_FALSE, 0, screenVerts);
 #endif
 	pglDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
@@ -1679,16 +1681,17 @@ EXPORT void HWRAPI(MakeScreenTexture) (int tex)
 		pglGenTextures(1, &screenTextures[tex]);
 	pglBindTexture(GL_TEXTURE_2D, screenTextures[tex]);
 
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
+	GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
+
 	if (firstTime)
 	{
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		pglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_S);
-		GLBackend_SetClamp2D(GL_TEXTURE_WRAP_T);
-		pglCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 0, 0, texsize, texsize, 0);
+		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texsize, texsize, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	}
-	else
-		pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, texsize, texsize);
+
+	pglCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, screen_width, screen_height);
 
 	tex_downloaded = screenTextures[tex];
 }
@@ -1881,7 +1884,12 @@ EXPORT void HWRAPI(SetScreenPalette) (RGBA_t *palette)
 		pglBindTexture(GL_TEXTURE_1D, screenPaletteTex);
 		pglTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		pglTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		// ios hack
+#ifndef IOS
 		pglTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA, 256, 0, GL_RGBA, GL_UNSIGNED_BYTE, palette);
+#else
+		pglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, palette);
+#endif
 #endif
 		pglActiveTexture(GL_TEXTURE0);
 	}

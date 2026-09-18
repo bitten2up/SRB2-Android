@@ -359,7 +359,10 @@ boolean GLBackend_LoadCommonFunctions(void)
 	GETOPENGLFUNC(GetFloatv)
 	GETOPENGLFUNC(GetIntegerv)
 	GETOPENGLFUNC(GetString)
+	// dont have this on ios
+#ifndef IOS
 	GETOPENGLFUNCTRY(PolygonMode)
+#endif
 	GETOPENGLFUNC(GetError)
 
 	GETOPENGLFUNC(DepthFunc)
@@ -374,7 +377,10 @@ boolean GLBackend_LoadCommonFunctions(void)
 	GETOPENGLFUNC(ReadPixels)
 
 	GETOPENGLFUNC(TexParameteri)
+	// dont have this on ios
+#ifndef IOS
 	GETOPENGLFUNCTRY(TexImage1D) // dammit gles
+#endif
 	GETOPENGLFUNC(TexImage2D)
 	GETOPENGLFUNC(TexSubImage2D)
 	GETOPENGLFUNCTRY(GetTexImage)
@@ -1695,7 +1701,7 @@ static void PrintExtensions(const GLubyte *extensions)
 FILE *gllogstream;
 #endif
 
-//#define DEBUG_TO_CONSOLE
+#define DEBUG_TO_CONSOLE
 
 void GL_DBG_Printf(const char *format, ...)
 {

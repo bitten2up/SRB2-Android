@@ -83,15 +83,11 @@ static boolean firstFramebuffer = false;
 */
 void OglSdlFinishUpdate(boolean waitvbl)
 {
-	int sdlw, sdlh;
-
 	static boolean oldwaitvbl = false;
 	if (oldwaitvbl != waitvbl)
 		SDL_GL_SetSwapInterval(waitvbl ? 1 : 0);
 
 	oldwaitvbl = waitvbl;
-
-	SDL_GetWindowSize(window, &sdlw, &sdlh);
 
 #if 1
 #ifdef HAVE_GL_FRAMEBUFFER
