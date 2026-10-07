@@ -89,7 +89,7 @@
 		"float lightnum = clamp(light / 17.0, 0.0, 15.0);\n" \
 		"float lightz = clamp(z / 16.0, 0.0, 127.0);\n" \
 		"float startmap = (15.0 - lightnum) * 4.0;\n" \
-		"float scale = 160.0 / (lightz + 1.0);\n" \
+		"float scale = (160.0 / (lightz + 1.0)) * mapobjectscale;\n" \
 		"float cap = (155.0 - light) * 0.26;\n" \
 		"return max(startmap * STARTMAP_FUDGE - scale * 0.5 * SCALE_FUDGE, cap);\n" \
 	"}\n"
@@ -133,6 +133,43 @@
 	"final_color.a = texel.a * poly_color.a;\n" \
 	"gl_FragColor = final_color;\n" \
 
+#if 0
+#define GLSL_SOFTWARE_FRAGMENT_SHADER \
+	"#ifdef SRB2_PALETTE_RENDERING\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform sampler3D palette_lookup_tex;\n" \
+	"uniform sampler2D lighttable_tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float mapobjectscale;\n" \
+	GLSL_DOOM_COLORMAP \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		GLSL_PALETTE_RENDERING \
+	"}\n" \
+	"#else\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float fade_start;\n" \
+	"uniform float fade_end;\n" \
+	"uniform float mapobjectscale;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"vec4 base_color = texel * poly_color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"final_color.a = texel.a * poly_color.a;\n" \
+		"gl_FragColor = final_color;\n" \
+	"}\n" \
+	"#endif\0"
+
+#endif
 // hand tuned adjustments for light level calculation
 #define GLSL_FLOOR_FUDGES \
 	"#define STARTMAP_FUDGE 1.06\n" \
@@ -203,6 +240,48 @@
     "}\n" \
     "#endif\0"
 
+#if 0
+	GLSL_WALL_FUDGES \
+	"#ifdef SRB2_PALETTE_RENDERING\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform sampler3D palette_lookup_tex;\n" \
+	"uniform sampler2D lighttable_tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float mapobjectscale;\n" \
+	GLSL_DOOM_COLORMAP \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"#ifdef SRB2_MODEL_LIGHTING\n" \
+		"texel *= gl_Color;\n" \
+		"#endif\n" \
+		GLSL_PALETTE_RENDERING \
+	"}\n" \
+	"#else\n" \
+	"uniform sampler2D tex;\n" \
+	"uniform vec4 poly_color;\n" \
+	"uniform vec4 tint_color;\n" \
+	"uniform vec4 fade_color;\n" \
+	"uniform float lighting;\n" \
+	"uniform float fade_start;\n" \
+	"uniform float fade_end;\n" \
+	"uniform float mapobjectscale;\n" \
+	GLSL_DOOM_COLORMAP \
+	GLSL_DOOM_LIGHT_EQUATION \
+	"void main(void) {\n" \
+		"vec4 texel = texture2D(tex, gl_TexCoord[0].st);\n" \
+		"vec4 base_color = texel * poly_color;\n" \
+		"vec4 final_color = base_color;\n" \
+		GLSL_SOFTWARE_TINT_EQUATION \
+		GLSL_SOFTWARE_FADE_EQUATION \
+		"#ifdef SRB2_MODEL_LIGHTING\n" \
+		"final_color *= gl_Color;\n" \
+		"#endif\n" \
+		"final_color.a = texel.a * poly_color.a;\n" \
+		"gl_FragColor = final_color;\n" \
+	"}\n" \
+	"#endif\0"
+#endif
 
 //
 // Water surface shader
@@ -231,6 +310,7 @@
 	"uniform vec4 poly_color;\n" \
 	"uniform float lighting;\n" \
 	"uniform float leveltime;\n" \
+	"uniform float mapobjectscale;\n" \
 	GLSL_DOOM_COLORMAP \
 	"void main(void) {\n" \
 		GLSL_WATER_TEXEL \
@@ -245,6 +325,7 @@
 	"uniform float fade_start;\n" \
 	"uniform float fade_end;\n" \
 	"uniform float leveltime;\n" \
+	"uniform float mapobjectscale;\n" \
 	GLSL_DOOM_COLORMAP \
 	GLSL_DOOM_LIGHT_EQUATION \
 	"void main(void) {\n" \
@@ -273,6 +354,7 @@
 	"uniform float lighting;\n" \
 	"uniform float fade_start;\n" \
 	"uniform float fade_end;\n" \
+	"uniform float mapobjectscale;\n" \
 	GLSL_DOOM_COLORMAP \
 	GLSL_DOOM_LIGHT_EQUATION \
 	"void main(void) {\n" \
@@ -417,6 +499,7 @@
 	"uniform float lighting;\n" \
 	"uniform float fade_start;\n" \
 	"uniform float fade_end;\n" \
+	"uniform float mapobjectscale;\n" \
 	GLSL_DOOM_COLORMAP \
 	GLSL_DOOM_LIGHT_EQUATION \
 	"void main(void) {\n" \

@@ -75,6 +75,7 @@ typedef enum
 	gluniform_istowhite,
 #endif
 	gluniform_leveltime,
+	gluniform_mapobjectscale,
 
 	gluniform_max,
 } gluniform_t;
