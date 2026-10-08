@@ -459,8 +459,7 @@ static void Shader_CompileError(const char *message, GLuint program, INT32 shade
 	if (infoLog)
 		free(infoLog);
 }
-// bitten fucking fix
-#if true
+
 boolean Shader_CompileProgram(gl_shader_t *shader, GLint i)
 {
 	GLuint gl_vertShader = 0;
@@ -602,6 +601,7 @@ boolean Shader_CompileProgram(gl_shader_t *shader, GLint i)
 
 	// misc.
 	shader->uniforms[gluniform_leveltime] = GETUNI("leveltime");
+	shader->uniforms[gluniform_mapobjectscale] = GETUNI("mapobjectscale");
 #undef GETUNI
 
 	// set permanent uniform values
@@ -632,148 +632,6 @@ boolean Shader_CompileProgram(gl_shader_t *shader, GLint i)
 
 	return true;
 }
-#endif
-#if 0
-static boolean Shader_CompileProgram(gl_shader_t *shader, GLint i)
-{
-	GLuint gl_vertShader = 0;
-	GLuint gl_fragShader = 0;
-	GLint result;
-	const GLchar *vert_shader = shader->vertex_shader;
-	const GLchar *frag_shader = shader->fragment_shader;
-#if 1
-	// BITTEN DEBUG
-	// DUMBASS IF YOU LEAVE THIS IN THE FINAL BUILD... WHATS WRONG WITH YOU
-	extern customshaderxlat_t shaderxlat[];
-	CONS_Printf("SHADER \"%s\"\n", (i != -1) ? shaderxlat[i].type : "FallbackShader");
-#endif
-
-	if (shader->program)
-		pglDeleteProgram(shader->program);
-
-	if (!vert_shader && !frag_shader)
-	{
-		GL_MSG_Error("Shader_CompileProgram: Missing shaders for shader program %s\n", HWR_GetShaderName(i));
-		return false;
-	}
-
-	if (vert_shader)
-	{
-		//
-		// Load and compile vertex shader
-		//
-		gl_vertShader = pglCreateShader(GL_VERTEX_SHADER);
-		if (!gl_vertShader)
-		{
-			GL_MSG_Error("Shader_CompileProgram: Error creating vertex shader %s\n", HWR_GetShaderName(i));
-			return false;
-		}
-
-		pglShaderSource(gl_vertShader, 1, &vert_shader, NULL);
-		pglCompileShader(gl_vertShader);
-
-		// check for compile errors
-		pglGetShaderiv(gl_vertShader, GL_COMPILE_STATUS, &result);
-		if (result == GL_FALSE)
-		{
-			Shader_CompileError("Error compiling vertex shader", gl_vertShader, i);
-			pglDeleteShader(gl_vertShader);
-			return false;
-		}
-	}
-
-	if (frag_shader)
-	{
-		//
-		// Load and compile fragment shader
-		//
-		gl_fragShader = pglCreateShader(GL_FRAGMENT_SHADER);
-		if (!gl_fragShader)
-		{
-			GL_MSG_Error("Shader_CompileProgram: Error creating fragment shader %s\n", HWR_GetShaderName(i));
-			pglDeleteShader(gl_vertShader);
-			pglDeleteShader(gl_fragShader);
-			return false;
-		}
-
-		pglShaderSource(gl_fragShader, 1, &frag_shader, NULL);
-		pglCompileShader(gl_fragShader);
-
-		// check for compile errors
-		pglGetShaderiv(gl_fragShader, GL_COMPILE_STATUS, &result);
-		if (result == GL_FALSE)
-		{
-			Shader_CompileError("Error compiling fragment shader", gl_fragShader, i);
-			pglDeleteShader(gl_vertShader);
-			pglDeleteShader(gl_fragShader);
-			return false;
-		}
-	}
-
-	shader->program = pglCreateProgram();
-	if (vert_shader)
-		pglAttachShader(shader->program, gl_vertShader);
-	if (frag_shader)
-		pglAttachShader(shader->program, gl_fragShader);
-	pglLinkProgram(shader->program);
-
-	// check link status
-	pglGetProgramiv(shader->program, GL_LINK_STATUS, &result);
-
-	// delete the shader objects
-	if (vert_shader)
-		pglDeleteShader(gl_vertShader);
-	if (frag_shader)
-		pglDeleteShader(gl_fragShader);
-
-	// couldn't link?
-	if (result != GL_TRUE)
-	{
-		GL_MSG_Error("Shader_CompileProgram: Error linking shader program %s\n", HWR_GetShaderName(i));
-		pglDeleteProgram(shader->program);
-		return false;
-	}
-
-	// 13062019
-#define GETUNI(uniform) pglGetUniformLocation(shader->program, uniform);
-
-	// lighting
-	shader->uniforms[gluniform_poly_color] = GETUNI("poly_color");
-	shader->uniforms[gluniform_tint_color] = GETUNI("tint_color");
-	shader->uniforms[gluniform_fade_color] = GETUNI("fade_color");
-	shader->uniforms[gluniform_lighting] = GETUNI("lighting");
-	shader->uniforms[gluniform_fade_start] = GETUNI("fade_start");
-	shader->uniforms[gluniform_fade_end] = GETUNI("fade_end");
-
-	// palette rendering
-	shader->uniforms[gluniform_palette_tex] = GETUNI("palette_tex");
-	shader->uniforms[gluniform_palette_lookup_tex] = GETUNI("palette_lookup_tex");
-	shader->uniforms[gluniform_lighttable_tex] = GETUNI("lighttable_tex");
-
-	// misc.
-	shader->uniforms[gluniform_leveltime] = GETUNI("leveltime");
-	shader->uniforms[gluniform_mapobjectscale] = GETUNI("mapobjectscale");
-#undef GETUNI
-
-	// set permanent uniform values
-#define UNIFORM_1(uniform, a, function) \
-	if (uniform != -1) \
-		function (uniform, a);
-
-	pglUseProgram(shader->program);
-
-	// texture unit numbers for the samplers used for palette rendering
-	UNIFORM_1(shader->uniforms[gluniform_palette_tex], 2, pglUniform1i);
-	UNIFORM_1(shader->uniforms[gluniform_palette_lookup_tex], 1, pglUniform1i);
-	UNIFORM_1(shader->uniforms[gluniform_lighttable_tex], 2, pglUniform1i);
-
-	// restore gl shader state
-	pglUseProgram(gl_shaderstate.program);
-#undef UNIFORM_1
-
-	return true;
-}
-#endif
 
 boolean Shader_Compile(void)
 {
